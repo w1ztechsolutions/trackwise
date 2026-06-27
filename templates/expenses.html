@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}Operating Expenses{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Operating Expenses</h1>
+        <p>Record operating costs like rent, utilities, salaries, and marketing (non-inventory expenses)</p>
+    </div>
+</div>
+
+<div class="dashboard-grid" style="grid-template-columns: 1fr 1.5fr;">
+    <!-- Record Expense Form -->
+    <div class="glass-card">
+        <h3 style="margin-bottom: 20px; font-weight: 600;">Log Expense</h3>
+        
+        <form method="POST" action="{{ url_for('expenses') }}">
+            <div class="form-group">
+                <label class="form-label" for="category">Category</label>
+                <select id="category" name="category" required class="form-control">
+                    <option value="">-- Choose Category --</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat }}">{{ cat }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="amount">Amount (MWK)</label>
+                <input type="number" id="amount" name="amount" step="0.01" min="0.01" required placeholder="e.g. 35000.00" class="form-control">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="expense_date">Expense Date</label>
+                <input type="datetime-local" id="expense_date" name="expense_date" class="form-control">
+                <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">Leave blank to default to today's date</span>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="description">Description / Notes</label>
+                <textarea id="description" name="description" rows="3" placeholder="e.g. Paid ESCOM prepaid token for office shop" class="form-control"></textarea>
+            </div>
+            
+            <div style="margin-top: 24px; display: flex; justify-content: flex-end;">
+                <button type="submit" class="btn-primary" style="background: var(--danger-grad); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);">
+                    Save Expense
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Expenses History List -->
+    <div class="glass-card">
+        <h3 style="margin-bottom: 20px; font-weight: 600;">Expense Log</h3>
+        
+        <div class="table-container">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Category</th>
+                        <th>Description</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exp in expenses %}
+                        <tr>
+                            <td>{{ exp.expense_date | datetime }}</td>
+                            <td>
+                                {% if exp.category == 'Rent' %}
+                                    <span class="badge badge-warning">{{ exp.category }}</span>
+                                {% elif exp.category == 'Utilities' %}
+                                    <span class="badge badge-info">{{ exp.category }}</span>
+                                {% elif exp.category == 'Salaries' %}
+                                    <span class="badge badge-success">{{ exp.category }}</span>
+                                {% else %}
+                                    <span class="badge" style="background: rgba(255,255,255,0.06); color: var(--text-main);">{{ exp.category }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ exp.description or '-' }}</td>
+                            <td style="font-weight: 700; color: var(--danger);">{{ exp.amount | currency }}</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 40px 0; color: var(--text-muted);">
+                                No expenses recorded yet.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block title %}Record Purchases{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Inventory Purchases (Restocking)</h1>
+        <p>Log new inventory batches to increase stock levels and record purchase cost layers</p>
+    </div>
+</div>
+
+<div class="dashboard-grid" style="grid-template-columns: 1.2fr 1fr;">
+    <!-- Record Purchase Form -->
+    <div class="glass-card">
+        <h3 style="margin-bottom: 20px; font-weight: 600;">Record Purchase Intake</h3>
+        
+        <form method="POST" action="{{ url_for('purchases') }}">
+            <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label class="form-label" for="supplier">Supplier Name</label>
+                    <input type="text" id="supplier" name="supplier" placeholder="e.g. Shirley Highlands Estate" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="purchase_date">Intake Date</label>
+                    <input type="datetime-local" id="purchase_date" name="purchase_date" class="form-control">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="notes">Notes</label>
+                <input type="text" id="notes" name="notes" placeholder="e.g. Shipment received in good condition" class="form-control">
+            </div>
+            
+            <!-- Items Area -->
+            <div style="border-top: 1px solid var(--border-glass); padding-top: 20px; margin-top: 12px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h4 style="font-weight: 600; font-size: 15px;">Purchase Items</h4>
+                    <button type="button" class="btn-secondary" onclick="addPurchaseRow()" style="padding: 6px 14px; font-size: 13px;">
+                        + Add Item Row
+                    </button>
+                </div>
+                
+                <div id="purchase-items-container">
+                    <!-- Dynamic Rows added here -->
+                </div>
+            </div>
+            
+            <div style="border-top: 1px solid var(--border-glass); padding-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span style="color: var(--text-muted); font-size: 14px;">Total Purchase Cost:</span>
+                    <span id="overall-total" style="font-size: 20px; font-weight: 700; color: var(--warning); display: block;">MWK 0.00</span>
+                </div>
+                <button type="submit" class="btn-primary">Record Purchase</button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Purchase History List -->
+    <div class="glass-card">
+        <h3 style="margin-bottom: 20px; font-weight: 600;">Purchase History</h3>
+        
+        <div style="display: flex; flex-direction: column; gap: 16px; max-height: 520px; overflow-y: auto; padding-right: 4px;">
+            {% for purchase in purchases %}
+                <div style="padding: 16px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-glass); border-radius: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                        <div>
+                            <span style="font-weight: 600; display: block; font-size: 15px;">{{ purchase.supplier or 'Unknown Supplier' }}</span>
+                            <span style="color: var(--text-muted); font-size: 12px;">{{ purchase.purchase_date | datetime }}</span>
+                        </div>
+                        <span style="font-weight: 700; color: var(--warning); font-size: 15px;">{{ purchase.total_amount | currency }}</span>
+                    </div>
+                    
+                    {% if purchase.notes %}
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 8px;">
+                            <strong>Note:</strong> {{ purchase.notes }}
+                        </p>
+                    {% endif %}
+                    
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        {% for pi in purchase.items %}
+                            <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); padding-left: 8px; border-left: 2px solid var(--primary-glow);">
+                                <span>{{ pi.product.name }} (x{{ pi.quantity }})</span>
+                                <span>@ {{ pi.unit_cost | currency }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% else %}
+                <div style="text-align: center; color: var(--text-muted); padding: 40px 0;">
+                    No purchases recorded yet.
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load products database for row selections
+    let productsList = [];
+    
+    fetch('/api/products')
+        .then(res => res.json())
+        .then(data => {
+            productsList = data;
+            // Add initial row
+            addPurchaseRow();
+        });
+
+    function addPurchaseRow() {
+        const container = document.getElementById('purchase-items-container');
+        const rowId = Date.now() + Math.random().toString(36).substr(2, 5);
+        
+        const rowHTML = `
+            <div class="item-row-grid" id="row-${rowId}">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Select Product</label>
+                    <select name="product_id[]" required class="form-control" onchange="updateRowDefaults('${rowId}', this)">
+                        <option value="">-- Choose --</option>
+                        ${productsList.map(p => `<option value="${p.id}" data-price="${p.default_selling_price}">${p.name} (${p.sku})</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Qty</label>
+                    <input type="number" name="quantity[]" min="1" required class="form-control" oninput="calculateTotal()" placeholder="0">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Unit Cost (MWK)</label>
+                    <input type="number" name="unit_cost[]" step="0.01" min="0" required class="form-control" oninput="calculateTotal()" placeholder="0.00">
+                </div>
+                <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                </button>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', rowHTML);
+    }
+    
+    function removeRow(rowId) {
+        const row = document.getElementById(`row-${rowId}`);
+        if (row) {
+            row.remove();
+            calculateTotal();
+        }
+    }
+    
+    function updateRowDefaults(rowId, selectElem) {
+        // Here we could autofill average cost, but for purchases, cost is entered by user.
+        // We just recalculate total in case.
+        calculateTotal();
+    }
+    
+    function calculateTotal() {
+        const container = document.getElementById('purchase-items-container');
+        const rows = container.querySelectorAll('.item-row-grid');
+        let overallTotal = 0;
+        
+        rows.forEach(row => {
+            const qtyInput = row.querySelector('input[name="quantity[]"]');
+            const costInput = row.querySelector('input[name="unit_cost[]"]');
+            
+            const qty = parseInt(qtyInput.value) || 0;
+            const cost = parseFloat(costInput.value) || 0;
+            
+            overallTotal += qty * cost;
+        });
+        
+        document.getElementById('overall-total').textContent = 'MWK ' + overallTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+</script>
+{% endblock %}

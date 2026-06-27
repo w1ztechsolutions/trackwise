@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}System Settings{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Settings</h1>
+        <p>Configure accounting constants, taxes, and manage system database settings</p>
+    </div>
+</div>
+
+<div class="dashboard-grid" style="grid-template-columns: 1fr 1fr;">
+    <!-- Tax Configuration -->
+    <div class="glass-card">
+        <h3 style="margin-bottom: 8px; font-weight: 600;">Accounting Parameters</h3>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px;">Configure the flat tax rate and review active business rules.</p>
+        
+        <form method="POST" action="{{ url_for('settings') }}" style="margin-bottom: 24px;">
+            <input type="hidden" name="action" value="update_tax">
+            
+            <div class="form-group">
+                <label class="form-label" for="tax_rate">Flat Corporate Tax Rate (%)</label>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <input type="number" id="tax_rate" name="tax_rate" step="0.1" min="0" max="100" required value="{{ tax_rate }}" class="form-control" style="max-width: 150px;">
+                    <span style="font-size: 18px; font-weight: 600;">%</span>
+                    <button type="submit" class="btn-primary" style="margin-left: auto;">Update Tax Rate</button>
+                </div>
+                <span style="font-size: 12px; color: var(--text-muted); display: block; margin-top: 6px;">
+                    This rate is used to calculate the income tax provision on positive net operational income.
+                </span>
+            </div>
+        </form>
+        
+        <div style="border-top: 1px solid var(--border-glass); padding-top: 20px;">
+            <h4 style="font-weight: 600; font-size: 15px; margin-bottom: 12px;">Active Business Configuration</h4>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; font-size: 14px;">
+                    <span style="color: var(--text-muted);">Currency</span>
+                    <span style="font-weight: 600; color: var(--info);">Malawian Kwacha (MWK)</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 14px;">
+                    <span style="color: var(--text-muted);">Inventory Valuation</span>
+                    <span style="font-weight: 600; color: var(--primary);">FIFO (First-In, First-Out)</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 14px;">
+                    <span style="color: var(--text-muted);">Accounting Basis</span>
+                    <span style="font-weight: 600;">Accrual (Inventory realizable at sale)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Seeding & Resetting -->
+    <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+            <h3 style="margin-bottom: 8px; font-weight: 600;">Data Management</h3>
+            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px;">Pre-populate or manage the database records.</p>
+            
+            <div style="background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 12px; padding: 16px; margin-bottom: 24px;">
+                <h4 style="font-weight: 600; font-size: 15px; color: var(--primary); margin-bottom: 8px;">Seed Demo Business Data</h4>
+                <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px;">
+                    This will clear the current database and seed a realistic set of products (Malawi Soap, Thyolo Tea, Mzuzu Coffee, Illovo Sugar), several restocking purchases at different price layers, customer checkouts, and monthly operating expenses.
+                </p>
+                <form method="POST" action="{{ url_for('settings') }}">
+                    <input type="hidden" name="action" value="seed_data">
+                    <button type="submit" class="btn-primary" onclick="return confirm('WARNING: Seeding data will wipe out all current transactions and products in the database. Are you sure you want to proceed?')" style="width: 100%; justify-content: center;">
+                        Seed Demonstration Data
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <div style="font-size: 12px; color: var(--text-dark); text-align: center; border-top: 1px solid var(--border-glass); padding-top: 20px; margin-top: auto;">
+            TrackWise Accounting Engine v1.0.0 &copy; 2026. All rights reserved.
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+
+{% block title %}Financial Reports{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Reports Suite</h1>
+        <p>Generate P&L statements, view operating cost breakdowns, and monitor taxes</p>
+    </div>
+</div>
+
+<!-- Date Range Filter Card -->
+<div class="glass-card" style="margin-bottom: 32px;">
+    <h3 style="margin-bottom: 16px; font-weight: 600; font-size: 16px;">Filter Report Period</h3>
+    <form method="GET" action="{{ url_for('reports') }}" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 180px;">
+            <label class="form-label" for="start_date">Start Date</label>
+            <input type="date" id="start_date" name="start_date" value="{{ start_date }}" class="form-control">
+        </div>
+        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 180px;">
+            <label class="form-label" for="end_date">End Date</label>
+            <input type="date" id="end_date" name="end_date" value="{{ end_date }}" class="form-control">
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" class="btn-primary">Generate Report</button>
+            <a href="{{ url_for('reports') }}" class="btn-secondary" style="display: inline-flex; align-items: center; justify-content: center; height: 46px;">
+                Reset
+            </a>
+        </div>
+    </form>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Income Statement (Profit & Loss) -->
+    <div class="glass-card" style="padding: 32px;">
+        <div style="border-bottom: 1px solid var(--border-glass); padding-bottom: 16px; margin-bottom: 24px; text-align: center;">
+            <h2 style="font-weight: 700; font-size: 22px; margin-bottom: 4px;">Income Statement</h2>
+            <p style="color: var(--text-muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">
+                {% if start_date or end_date %}
+                    Period: {{ start_date or 'Beginning' }} to {{ end_date or 'Present' }}
+                {% else %}
+                    Period: All-Time Summary
+                {% endif %}
+            </p>
+        </div>
+        
+        <!-- P&L Math List -->
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+            
+            <!-- Revenue -->
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 16px;">
+                <span style="font-weight: 500;">Sales Revenue <span style="font-size: 12px; color: var(--text-muted);">({{ pl.sales_count }} sales)</span></span>
+                <span style="font-weight: 600; color: var(--success);">{{ pl.total_sales | currency }}</span>
+            </div>
+            
+            <!-- COGS -->
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 16px; border-bottom: 1px solid var(--border-glass); padding-bottom: 14px;">
+                <span style="font-weight: 500;">Cost of Goods Sold (COGS)</span>
+                <span style="font-weight: 600; color: var(--danger);">({{ pl.total_cogs | currency }})</span>
+            </div>
+            
+            <!-- Gross Profit -->
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 700; padding: 6px 0;">
+                <span>Gross Profit</span>
+                <span style="color: var(--info);">{{ pl.gross_profit | currency }}</span>
+            </div>
+            
+            <!-- Operating Expenses list -->
+            <div style="margin-top: 10px;">
+                <span style="font-weight: 600; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 10px;">
+                    Operating Costs
+                </span>
+                
+                <div style="display: flex; flex-direction: column; gap: 8px; padding-left: 12px; border-left: 2px solid var(--border-glass);">
+                    {% for cat, amt in pl.expense_by_category.items() %}
+                        <div style="display: flex; justify-content: space-between; font-size: 14px; color: var(--text-muted);">
+                            <span>{{ cat }}</span>
+                            <span>{{ amt | currency }}</span>
+                        </div>
+                    {% else %}
+                        <div style="font-size: 14px; color: var(--text-dark); font-style: italic;">
+                            No operating expenses in this period
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Total Expenses -->
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 16px; border-bottom: 1px solid var(--border-glass); padding-bottom: 14px; margin-top: 6px;">
+                <span style="font-weight: 500;">Total Operating Expenses</span>
+                <span style="font-weight: 600; color: var(--danger);">({{ pl.total_expenses | currency }})</span>
+            </div>
+            
+            <!-- Pre-tax income -->
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 16px; font-weight: 500;">
+                <span>Pre-Tax Operating Income</span>
+                <span style="font-weight: 600;">{{ pl.pre_tax_profit | currency }}</span>
+            </div>
+            
+            <!-- Taxes -->
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 16px; border-bottom: 1px double var(--border-glass); padding-bottom: 14px;">
+                <span style="font-weight: 500;">Income Tax Provision <span style="font-size: 12px; color: var(--text-muted);">({{ pl.tax_rate }}%)</span></span>
+                <span style="font-weight: 600; color: var(--danger);">({{ pl.tax_amount | currency }})</span>
+            </div>
+            
+            <!-- Net Profit -->
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 22px; font-weight: 700; padding: 12px 16px; background: rgba(16, 185, 129, 0.04); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 12px; margin-top: 10px;">
+                <span>Net Income (Profit)</span>
+                <span style="color: var(--success);">{{ pl.net_profit | currency }}</span>
+            </div>
+            
+        </div>
+    </div>
+    
+    <!-- Expense Breakdown Chart & Asset Summary -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        <!-- Asset Valuation -->
+        <div class="glass-card">
+            <h3 style="margin-bottom: 10px; font-weight: 600;">Inventory Asset Valuation</h3>
+            <span class="kpi-value" style="font-size: 32px; color: var(--info); display: block;">
+                {{ total_valuation | currency }}
+            </span>
+            <span style="color: var(--text-muted); font-size: 13px; display: block; margin-top: 4px;">
+                Current value of stock on hand using FIFO layers
+            </span>
+        </div>
+        
+        <!-- Operating Expenses Pie Chart -->
+        <div class="glass-card" style="flex: 1; display: flex; flex-direction: column;">
+            <h3 style="margin-bottom: 20px; font-weight: 600;">Operating Cost Breakdown</h3>
+            
+            {% if pl.expense_by_category %}
+                <div style="position: relative; height: 220px; flex: 1;">
+                    <canvas id="expensePieChart"></canvas>
+                </div>
+            {% else %}
+                <div style="flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text-muted); padding: 40px 0;">
+                    <p>No expense data available for this period to display breakdown.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if pl.expense_by_category %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const ctx = document.getElementById('expensePieChart').getContext('2d');
+        const categories = {{ expense_cats | tojson }};
+        const values = {{ expense_vals | tojson }};
+        
+        // Premium color palette for expenses
+        const colors = [
+            '#ef4444', // Red
+            '#3b82f6', // Blue
+            '#f59e0b', // Yellow/Orange
+            '#10b981', // Green
+            '#ec4899', // Pink
+            '#8b5cf6', // Purple
+            '#06b6d4', // Cyan
+            '#6b7280'  // Gray
+        ];
+        
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: categories,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors.slice(0, categories.length),
+                    borderWidth: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.05)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            color: '#9ca3af',
+                            font: {
+                                family: 'Outfit',
+                                size: 11
+                            },
+                            boxWidth: 12
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endif %}
+{% endblock %}
