@@ -102,7 +102,7 @@ def record_sale(sale_date, customer_name, items_data):
     """
     if not items_data:
         raise ValueError("Sale must contain at least one item.")
-        
+
     sale_date = sale_date or datetime.now()
     total_revenue = 0.0
     total_cogs = 0.0
@@ -261,8 +261,10 @@ def record_sale(sale_date, customer_name, items_data):
 
 def record_expense(expense_date, category, description, amount):
     """Record a general business operating expense."""
-    if amount <= 0:
-        raise ValueError("Expense amount must be greater than zero.")
+    # Allow $0-value expenses? Roadmap says only zero-amount bug should be fixed:
+    # treat amounts < 0 as invalid; amount == 0 is accepted.
+    if amount < 0:
+        raise ValueError("Expense amount cannot be negative.")
     if not category:
         raise ValueError("Expense category is required.")
         

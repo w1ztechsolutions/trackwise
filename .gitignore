@@ -32,3 +32,8 @@ Thumbs.db
 
 # Virtual Environment
 env/
+.venv
+
+ARCHITECTURE.md
+UPGRADE.md
+TODO.md

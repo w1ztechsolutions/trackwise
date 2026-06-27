@@ -9,8 +9,11 @@ from services.fifo_service import (
 )
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'trackwise_super_secret_key_12345'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'trackwise.db')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-fallback-key')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+    'DATABASE_URL',
+    'sqlite:///' + os.path.join(app.instance_path, 'trackwise.db')
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Ensure instance folder exists
@@ -72,19 +75,25 @@ def dashboard():
     chart_sales = []
     chart_expenses = []
     
-    for i in range(5, -1, -1):
-        # Calculate month
-        m_date = today - timedelta(days=i*30) # rough estimate for months
-        m_start = datetime(m_date.year, m_date.month, 1)
-        if m_date.month == 12:
-            m_end = datetime(m_date.year + 1, 1, 1)
+    def month_bounds(base_dt, offset_months):
+        # Returns (start, end) datetimes for the month offset from base_dt.
+        year = base_dt.year + (base_dt.month - 1 + offset_months) // 12
+        month = (base_dt.month - 1 + offset_months) % 12 + 1
+        start = datetime(year, month, 1)
+        if month == 12:
+            end = datetime(year + 1, 1, 1)
         else:
-            m_end = datetime(m_date.year, m_date.month + 1, 1)
-            
+            end = datetime(year, month + 1, 1)
+        return start, end
+
+    # Last 6 full months (including current month)
+    for offset in range(-5, 1):
+        m_start, m_end = month_bounds(today, offset)
         m_pl = get_profit_loss(start_date=m_start, end_date=m_end)
         chart_labels.append(m_start.strftime("%b %Y"))
         chart_sales.append(m_pl['total_sales'])
         chart_expenses.append(m_pl['total_expenses'])
+
         
     return render_template(
         'dashboard.html',
