@@ -16,7 +16,8 @@
         <h3 style="margin-bottom: 8px; font-weight: 600;">Accounting Parameters</h3>
         <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 24px;">Configure the flat tax rate and review active business rules.</p>
         
-        <form method="POST" action="{{ url_for('settings') }}" style="margin-bottom: 24px;">
+        <form method="POST" action="{{ url_for('settings.settings') }}" style="margin-bottom: 24px;">
+            {{ csrf_token() }}
             <input type="hidden" name="action" value="update_tax">
             
             <div class="form-group">
@@ -62,7 +63,8 @@
                 <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px;">
                     This will clear the current database and seed a realistic set of products (Malawi Soap, Thyolo Tea, Mzuzu Coffee, Illovo Sugar), several restocking purchases at different price layers, customer checkouts, and monthly operating expenses.
                 </p>
-                <form method="POST" action="{{ url_for('settings') }}">
+                <form method="POST" action="{{ url_for('settings.settings') }}">
+                    {{ csrf_token() }}
                     <input type="hidden" name="action" value="seed_data">
                     <button type="submit" class="btn-primary" onclick="return confirm('WARNING: Seeding data will wipe out all current transactions and products in the database. Are you sure you want to proceed?')" style="width: 100%; justify-content: center;">
                         Seed Demonstration Data

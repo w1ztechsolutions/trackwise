@@ -15,7 +15,8 @@
     <div class="glass-card">
         <h3 style="margin-bottom: 20px; font-weight: 600;">Record Purchase Intake</h3>
         
-        <form method="POST" action="{{ url_for('purchases') }}">
+        <form method="POST" action="{{ url_for('purchases.purchases') }}">
+            {{ csrf_token() }}
             <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px;">
                 <div class="form-group">
                     <label class="form-label" for="supplier">Supplier Name</label>
@@ -92,6 +93,17 @@
                 </div>
             {% endfor %}
         </div>
+        {% if purchases.pages > 1 %}
+        <div class="pagination">
+            {% if purchases.has_prev %}
+                <a href="{{ url_for('purchases.purchases', page=purchases.prev_num) }}">&laquo; Prev</a>
+            {% endif %}
+            <span class="current">Page {{ purchases.page }} of {{ purchases.pages }}</span>
+            {% if purchases.has_next %}
+                <a href="{{ url_for('purchases.purchases', page=purchases.next_num) }}">Next &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

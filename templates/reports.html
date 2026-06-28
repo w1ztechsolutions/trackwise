@@ -13,7 +13,8 @@
 <!-- Date Range Filter Card -->
 <div class="glass-card" style="margin-bottom: 32px;">
     <h3 style="margin-bottom: 16px; font-weight: 600; font-size: 16px;">Filter Report Period</h3>
-    <form method="GET" action="{{ url_for('reports') }}" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+    <form method="GET" action="{{ url_for('reports.reports') }}" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+        {{ csrf_token() }}
         <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 180px;">
             <label class="form-label" for="start_date">Start Date</label>
             <input type="date" id="start_date" name="start_date" value="{{ start_date }}" class="form-control">
@@ -24,7 +25,7 @@
         </div>
         <div style="display: flex; gap: 10px;">
             <button type="submit" class="btn-primary">Generate Report</button>
-            <a href="{{ url_for('reports') }}" class="btn-secondary" style="display: inline-flex; align-items: center; justify-content: center; height: 46px;">
+            <a href="{{ url_for('reports.reports') }}" class="btn-secondary" style="display: inline-flex; align-items: center; justify-content: center; height: 46px;">
                 Reset
             </a>
         </div>

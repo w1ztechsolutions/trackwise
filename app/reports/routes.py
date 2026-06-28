@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-
+from flask_login import login_required
 from flask import render_template, request
 
 from models import Product
@@ -9,6 +9,7 @@ from . import reports_bp
 
 
 @reports_bp.route('/reports')
+@login_required
 def reports():
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')

@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from flask_login import login_required
 from flask import redirect, render_template, url_for
 
 from models import Product, Purchase, Sale, Expense
@@ -14,6 +14,7 @@ def index():
 
 
 @dashboard_bp.route('/dashboard')
+@login_required
 def dashboard():
     today = datetime.now()
     start_of_month = datetime(today.year, today.month, 1)

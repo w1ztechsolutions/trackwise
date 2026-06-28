@@ -59,7 +59,7 @@ class TestFIFOService(unittest.TestCase):
         self.assertEqual(p.quantity_in_stock, 10)
         
         # Verify FIFO layer is recorded
-        tx1 = StockTransaction.query.filter_by(type='PURCHASE').first()
+        tx1 = StockTransaction.query.filter_by(transaction_type='PURCHASE').first()
         self.assertEqual(tx1.remaining_quantity, 10)
         self.assertEqual(tx1.unit_cost, 100.0)
         

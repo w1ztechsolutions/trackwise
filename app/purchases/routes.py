@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from flask import flash, redirect, render_template, request, url_for
+from flask_login import login_required, current_user
 
 from models import Product, Purchase, PurchaseItem
 from services.fifo_service import record_purchase
@@ -9,9 +10,10 @@ from . import purchases_bp
 
 
 @purchases_bp.route('/purchases', methods=['GET', 'POST'])
+@login_required
 def purchases():
     if request.method == 'POST':
-        supplier = request.form.get('supplier').strip()
+        supplier = request.form.get('supplier', '').strip()
         notes = request.form.get('notes', '').strip()
         purchase_date_str = request.form.get('purchase_date')
 
@@ -38,7 +40,7 @@ def purchases():
             return redirect(url_for('purchases.purchases'))
 
         try:
-            record_purchase(purchase_date, supplier, notes, items_data)
+            record_purchase(purchase_date, supplier, notes, items_data, current_user.business_id, current_user.id)
             flash('Inventory purchase recorded successfully and stock updated!', 'success')
         except Exception as e:
             flash(f'Error recording purchase: {str(e)}', 'danger')
@@ -46,6 +48,6 @@ def purchases():
         return redirect(url_for('purchases.purchases'))
 
     products = Product.query.order_by(Product.name.asc()).all()
-    purchase_records = Purchase.query.order_by(Purchase.purchase_date.desc()).all()
+    page = request.args.get('page', 1, type=int)
+    purchase_records = Purchase.query.order_by(Purchase.purchase_date.desc()).paginate(page=page, per_page=10)
     return render_template('purchases.html', products=products, purchases=purchase_records)
-

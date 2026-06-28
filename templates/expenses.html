@@ -15,7 +15,8 @@
     <div class="glass-card">
         <h3 style="margin-bottom: 20px; font-weight: 600;">Log Expense</h3>
         
-        <form method="POST" action="{{ url_for('expenses') }}">
+        <form method="POST" action="{{ url_for('expenses.expenses') }}">
+            {{ csrf_token() }}
             <div class="form-group">
                 <label class="form-label" for="category">Category</label>
                 <select id="category" name="category" required class="form-control">
@@ -92,6 +93,17 @@
                 </tbody>
             </table>
         </div>
+        {% if expenses.pages > 1 %}
+        <div class="pagination">
+            {% if expenses.has_prev %}
+                <a href="{{ url_for('expenses.expenses', page=expenses.prev_num) }}">&laquo; Prev</a>
+            {% endif %}
+            <span class="current">Page {{ expenses.page }} of {{ expenses.pages }}</span>
+            {% if expenses.has_next %}
+                <a href="{{ url_for('expenses.expenses', page=expenses.next_num) }}">Next &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

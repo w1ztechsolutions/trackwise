@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from flask_login import login_required, current_user
 from flask import flash, redirect, render_template, request, url_for
 
 from models import Expense
@@ -9,6 +9,7 @@ from . import expenses_bp
 
 
 @expenses_bp.route('/expenses', methods=['GET', 'POST'])
+@login_required
 def expenses():
     if request.method == 'POST':
         category = request.form.get('category').strip()
@@ -25,14 +26,15 @@ def expenses():
             return redirect(url_for('expenses.expenses'))
 
         try:
-            record_expense(expense_date, category, description, amount)
+            record_expense(expense_date, category, description, amount, current_user.business_id, current_user.id)
             flash('Operating expense recorded successfully!', 'success')
         except Exception as e:
             flash(f'Error recording expense: {str(e)}', 'danger')
 
         return redirect(url_for('expenses.expenses'))
 
-    expense_records = Expense.query.order_by(Expense.expense_date.desc()).all()
+    page = request.args.get('page', 1, type=int)
+    expense_records = Expense.query.order_by(Expense.expense_date.desc()).paginate(page=page, per_page=10)
     categories = ['Rent', 'Utilities', 'Salaries', 'Marketing', 'Logistics', 'Tax', 'Supplies', 'Other']
     return render_template('expenses.html', expenses=expense_records, categories=categories)
 

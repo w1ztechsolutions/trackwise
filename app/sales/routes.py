@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from flask_login import login_required, current_user
 from flask import flash, redirect, render_template, request, url_for
 
 from models import Product, Sale, SaleItem
@@ -9,6 +9,7 @@ from . import sales_bp
 
 
 @sales_bp.route('/sales', methods=['GET', 'POST'])
+@login_required
 def sales():
     if request.method == 'POST':
         customer = request.form.get('customer_name').strip()
@@ -37,7 +38,7 @@ def sales():
             return redirect(url_for('sales.sales'))
 
         try:
-            record_sale(sale_date, customer, items_data)
+            record_sale(sale_date, customer, items_data, current_user.business_id, current_user.id)
             flash('Sale recorded successfully! Stock and COGS calculations updated.', 'success')
         except InventoryException as ie:
             flash(f'Inventory Error: {str(ie)}', 'danger')
@@ -47,6 +48,7 @@ def sales():
         return redirect(url_for('sales.sales'))
 
     products = Product.query.filter(Product.quantity_in_stock > 0).order_by(Product.name.asc()).all()
-    sale_records = Sale.query.order_by(Sale.sale_date.desc()).all()
+    page = request.args.get('page', 1, type=int)
+    sale_records = Sale.query.order_by(Sale.sale_date.desc()).paginate(page=page, per_page=10)
     return render_template('sales.html', products=products, sales=sale_records)
 

@@ -104,7 +104,8 @@
             <h3 style="font-weight: 600; font-size: 18px;">Add New Product</h3>
             <button class="modal-close" onclick="toggleModal('addProductModal', false)">&times;</button>
         </div>
-        <form method="POST" action="{{ url_for('inventory') }}">
+        <form method="POST" action="{{ url_for('inventory.inventory') }}">
+            {{ csrf_token() }}
             <div class="form-group">
                 <label class="form-label" for="sku">SKU Code (Unique ID)</label>
                 <input type="text" id="sku" name="sku" required placeholder="e.g. SOAP-001" class="form-control">

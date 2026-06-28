@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}TrackWise{% endblock %} - Accounting & Inventory</title>
+    {{ csrf_token() }}
     <!-- Stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <!-- Chart.js for data visualization -->
@@ -42,7 +43,7 @@
 
         <nav class="nav-menu">
             <li>
-                <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.path == url_for('dashboard') %}active{% endif %}">
+                <a href="{{ url_for('dashboard.dashboard') }}" class="nav-link {% if request.path == url_for('dashboard.dashboard') %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="3" y="3" width="7" height="9"></rect>
                         <rect x="14" y="3" width="7" height="5"></rect>
@@ -53,7 +54,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url_for('inventory') }}" class="nav-link {% if request.path == url_for('inventory') %}active{% endif %}">
+                <a href="{{ url_for('inventory.inventory') }}" class="nav-link {% if request.path == url_for('inventory.inventory') %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                         <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
@@ -63,7 +64,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url_for('purchases') }}" class="nav-link {% if request.path == url_for('purchases') %}active{% endif %}">
+                <a href="{{ url_for('purchases.purchases') }}" class="nav-link {% if request.path == url_for('purchases.purchases') %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
                     </svg>
@@ -71,7 +72,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url_for('sales') }}" class="nav-link {% if request.path == url_for('sales') %}active{% endif %}">
+                <a href="{{ url_for('sales.sales') }}" class="nav-link {% if request.path == url_for('sales.sales') %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="9" cy="21" r="1"></circle>
                         <circle cx="20" cy="21" r="1"></circle>
@@ -81,7 +82,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url_for('expenses') }}" class="nav-link {% if request.path == url_for('expenses') %}active{% endif %}">
+                <a href="{{ url_for('expenses.expenses') }}" class="nav-link {% if request.path == url_for('expenses.expenses') %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="12" y1="1" x2="12" y2="23"></line>
                         <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
@@ -90,7 +91,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url_for('reports') }}" class="nav-link {% if request.path == url_for('reports') %}active{% endif %}">
+                <a href="{{ url_for('reports.reports') }}" class="nav-link {% if request.path == url_for('reports.reports') %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                         <polyline points="14 2 14 8 20 8"></polyline>
@@ -104,7 +105,7 @@
         </nav>
 
         <div class="sidebar-footer">
-            <a href="{{ url_for('settings') }}" class="nav-link {% if request.path == url_for('settings') %}active{% endif %}">
+            <a href="{{ url_for('settings.settings') }}" class="nav-link {% if request.path == url_for('settings.settings') %}active{% endif %}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3"></circle>
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -113,6 +114,15 @@
             </a>
         </div>
     </aside>
+
+    <!-- Mobile sidebar toggle -->
+    <button id="sidebarToggle" class="sidebar-toggle" aria-label="Toggle navigation">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
 
     <!-- Main Section -->
     <main class="main-content">
