@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 from flask import Flask
-from models import db, Product, StockTransaction, Purchase, Sale, Expense
+from models import db, Product, StockTransaction, Purchase, Sale, Expense, Setting
 from services.fifo_service import (
     record_purchase, record_sale, record_expense,
     get_profit_loss, get_inventory_valuation, set_tax_rate, get_tax_rate,
@@ -22,7 +22,9 @@ class TestFIFOService(unittest.TestCase):
         self.app_context.push()
         db.create_all()
         
-        # Configure default tax rate
+        # Ensure default tax rate setting exists
+        Setting.query.delete()
+        db.session.commit()
         set_tax_rate(30.0)
 
     def tearDown(self):

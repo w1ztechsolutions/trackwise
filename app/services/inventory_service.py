@@ -118,6 +118,7 @@ def adjust_stock(
     # - decrease: create an outgoing layer at provided cost (simplified)
     if sign == 1:
         tx = StockTransaction(
+            business_id=business_id,
             product_id=product.id,
             transaction_type='ADJUSTMENT_IN',
             quantity=qty,
@@ -151,6 +152,7 @@ def adjust_stock(
             layer.remaining_quantity -= taken
 
             consume_tx = StockTransaction(
+                business_id=business_id,
                 product_id=product.id,
                 transaction_type='ADJUSTMENT_OUT',
                 quantity=-taken,
@@ -321,6 +323,7 @@ def transfer_stock(
 
         # OUT layer
         consume_tx = StockTransaction(
+            business_id=business_id,
             product_id=product.id,
             transaction_type='TRANSFER_OUT',
             quantity=-taken,
@@ -337,10 +340,11 @@ def transfer_stock(
         raise InventoryServiceException("FIFO consumption failed for transfer")
 
     # Create IN layer with same cost approximation: use default unit cost from FIFO at time.
-    # For correctness, you’d mirror exact per-layer costs; this version keeps it simple.
+    # For correctness, you'd mirror exact per-layer costs; this version keeps it simple.
     # (StockMovement keeps warehouse-level record for UI/valuation.)
     unit_cost = _get_default_unit_cost(product)
     in_tx = StockTransaction(
+        business_id=business_id,
         product_id=product.id,
         transaction_type='TRANSFER_IN',
         quantity=qty,
@@ -434,4 +438,3 @@ def get_valuation_by_warehouse(*, business_id: int | None, warehouse_id: int | N
         'warehouse_id': warehouse_id,
         'items': results,
     }
-

@@ -49,7 +49,9 @@ def seed_demo_data():
         items_data=[
             {'product_id': p1.id, 'quantity': 100, 'unit_cost': 900.0},
             {'product_id': p4.id, 'quantity': 150, 'unit_cost': 1400.0}
-        ]
+        ],
+        business_id=None,
+        created_by=None,
     )
 
     p_date2 = today - timedelta(days=3)
@@ -60,7 +62,9 @@ def seed_demo_data():
         items_data=[
             {'product_id': p2.id, 'quantity': 50, 'unit_cost': 1800.0},
             {'product_id': p3.id, 'quantity': 25, 'unit_cost': 5500.0}
-        ]
+        ],
+        business_id=None,
+        created_by=None,
     )
 
     p_date3 = today - timedelta(days=2)
@@ -70,7 +74,9 @@ def seed_demo_data():
         notes="Soap price increase batch",
         items_data=[
             {'product_id': p1.id, 'quantity': 50, 'unit_cost': 1050.0}
-        ]
+        ],
+        business_id=None,
+        created_by=None,
     )
 
     # Sales
@@ -81,7 +87,9 @@ def seed_demo_data():
         items_data=[
             {'product_id': p1.id, 'quantity': 30, 'unit_price': 1500.0},
             {'product_id': p4.id, 'quantity': 50, 'unit_price': 2200.0}
-        ]
+        ],
+        business_id=None,
+        created_by=None,
     )
 
     s_date2 = today - timedelta(days=2)
@@ -92,7 +100,9 @@ def seed_demo_data():
             {'product_id': p2.id, 'quantity': 15, 'unit_price': 2800.0},
             {'product_id': p3.id, 'quantity': 8, 'unit_price': 8500.0},
             {'product_id': p4.id, 'quantity': 60, 'unit_price': 2200.0}
-        ]
+        ],
+        business_id=None,
+        created_by=None,
     )
 
     s_date3 = today - timedelta(days=1)
@@ -101,15 +111,17 @@ def seed_demo_data():
         customer_name="Lilongwe Mini-Mart",
         items_data=[
             {'product_id': p1.id, 'quantity': 80, 'unit_price': 1500.0}
-        ]
+        ],
+        business_id=None,
+        created_by=None,
     )
 
     # Expenses
-    record_expense(today - timedelta(days=4), "Rent", "Office rent for June", 120000.0)
-    record_expense(today - timedelta(days=3), "Utilities", "ESCOM Pre-paid token", 35000.0)
-    record_expense(today - timedelta(days=2), "Utilities", "Airtel Office Fiber", 25000.0)
-    record_expense(today - timedelta(days=1), "Salaries", "Wages for shop clerk", 80000.0)
-    record_expense(today, "Marketing", "Facebook localized advertising", 15000.0)
+    record_expense(today - timedelta(days=4), "Rent", "Office rent for June", 120000.0, business_id=None, created_by=None)
+    record_expense(today - timedelta(days=3), "Utilities", "ESCOM Pre-paid token", 35000.0, business_id=None, created_by=None)
+    record_expense(today - timedelta(days=2), "Utilities", "Airtel Office Fiber", 25000.0, business_id=None, created_by=None)
+    record_expense(today - timedelta(days=1), "Salaries", "Wages for shop clerk", 80000.0, business_id=None, created_by=None)
+    record_expense(today, "Marketing", "Facebook localized advertising", 15000.0, business_id=None, created_by=None)
 
 
 @settings_bp.route('/settings', methods=['GET', 'POST'])

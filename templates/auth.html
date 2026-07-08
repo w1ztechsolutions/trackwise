@@ -9,7 +9,14 @@
 
     <form method="POST" action="{{ url_for('auth.login') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
         <div class="form-group">
+            <label class="form-label" for="business_name">Business name</label>
+            <input type="text" id="business_name" name="business_name" required class="form-control" autocomplete="organization" autofocus>
+        </div>
+
+        <div class="form-group">
+
             <label class="form-label" for="email">Email</label>
             <input type="email" id="email" name="email" required class="form-control" autofocus autocomplete="email">
 
@@ -21,6 +28,11 @@
         </div>
         <button type="submit" class="btn-primary">Sign In</button>
 
+        <div style="margin-top: 14px; text-align:center; color: var(--text-muted); font-size: 13px;">
+            Don't have an account?
+            <a href="{{ url_for('auth.register') }}" style="color: rgba(255,255,255,0.95); text-decoration: none;">Register</a>
+        </div>
     </form>
 </div>
 {% endblock %}
+

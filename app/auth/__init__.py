@@ -4,3 +4,4 @@ from .decorators import role_required
 auth_bp = Blueprint('auth', __name__)
 
 from . import routes  # noqa: F401,E402
+from . import register_routes  # noqa: F401,E402

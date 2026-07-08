@@ -10,6 +10,7 @@ db = SQLAlchemy()
 class Product(db.Model):
     __tablename__ = 'products'
     id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, nullable=True)
     sku = db.Column(db.String(50), unique=True, nullable=False)
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
@@ -42,6 +43,7 @@ class Product(db.Model):
 class Purchase(db.Model):
     __tablename__ = 'purchases'
     id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, nullable=True)
     purchase_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     supplier = db.Column(db.String(200))
     notes = db.Column(db.Text)
@@ -52,6 +54,7 @@ class Purchase(db.Model):
 class PurchaseItem(db.Model):
     __tablename__ = 'purchase_items'
     id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, nullable=True)
     purchase_id = db.Column(db.Integer, db.ForeignKey('purchases.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
@@ -62,6 +65,7 @@ class PurchaseItem(db.Model):
 class Sale(db.Model):
     __tablename__ = 'sales'
     id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, nullable=True)
     sale_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     customer_name = db.Column(db.String(200))
     total_revenue = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
@@ -72,6 +76,7 @@ class Sale(db.Model):
 class SaleItem(db.Model):
     __tablename__ = 'sale_items'
     id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, nullable=True)
     sale_id = db.Column(db.Integer, db.ForeignKey('sales.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
@@ -83,6 +88,7 @@ class SaleItem(db.Model):
 class Expense(db.Model):
     __tablename__ = 'expenses'
     id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, nullable=True)
     expense_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     category = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
@@ -92,13 +98,19 @@ class Expense(db.Model):
 class Setting(db.Model):
     __tablename__ = 'settings'
     id = db.Column(db.Integer, primary_key=True)
-    key = db.Column(db.String(100), unique=True, nullable=False)
+    business_id = db.Column(db.Integer, nullable=True)
+    key = db.Column(db.String(100), nullable=False)
     value = db.Column(db.String(255), nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint('business_id', 'key', name='uq_business_setting_key'),
+    )
 
 
 class StockTransaction(db.Model):
     __tablename__ = 'stock_transactions'
     id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, nullable=True)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=0)
     remaining_quantity = db.Column(db.Integer, nullable=False, default=0)
@@ -191,6 +203,7 @@ class Invoice(db.Model):
 class InvoiceItem(db.Model):
     __tablename__ = 'invoice_items'
     id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, nullable=True)
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoices.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True)
     description = db.Column(db.Text, nullable=True)
@@ -238,6 +251,7 @@ class Bill(db.Model):
 class BillItem(db.Model):
     __tablename__ = 'bill_items'
     id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, nullable=True)
     bill_id = db.Column(db.Integer, db.ForeignKey('bills.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True)
     description = db.Column(db.Text, nullable=True)
@@ -304,6 +318,7 @@ class ProductionBatch(db.Model):
 class MaterialUsage(db.Model):
     __tablename__ = 'material_usages'
     id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, nullable=True)
     production_batch_id = db.Column(db.Integer, db.ForeignKey('production_batches.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     quantity_consumed = db.Column(db.Integer, nullable=False, default=0)
@@ -315,6 +330,7 @@ class MaterialUsage(db.Model):
 class FinishedGoodOutput(db.Model):
     __tablename__ = 'finished_good_outputs'
     id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, nullable=True)
     production_batch_id = db.Column(db.Integer, db.ForeignKey('production_batches.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=0)
@@ -324,4 +340,3 @@ class FinishedGoodOutput(db.Model):
 
 
 from app.models.accounting import Business, ChartOfAccounts, JournalEntry, JournalLine, AuditLog
-

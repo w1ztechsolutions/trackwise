@@ -13,10 +13,12 @@ def login():
     from app.models import User
 
     if request.method == 'POST':
+        business_name = request.form.get('business_name', '').strip()
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
 
         user = User.query.filter_by(email=email).first()
+
 
         if user and user.is_active and check_password_hash(user.password_hash, password):
             from flask_login import login_user

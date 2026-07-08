@@ -230,6 +230,7 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
         purchase_items.append((pi, product))
 
     purchase = Purchase(
+        business_id=business_id,
         purchase_date=purchase_date or datetime.now(),
         supplier=supplier,
         total_amount=total_amount,
@@ -272,6 +273,7 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
         product.quantity_in_stock += pi.quantity
 
         tx = StockTransaction(
+            business_id=business_id,
             product_id=product.id,
             transaction_type='PURCHASE',
             quantity=pi.quantity,
@@ -285,6 +287,7 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
 
         if bill is not None:
             db.session.add(BillItem(
+                business_id=business_id,
                 bill_id=bill.id,
                 product_id=product.id,
                 description=product.name,
@@ -334,6 +337,7 @@ def record_sale(sale_date, customer_name, items_data, business_id=None, created_
         total_revenue += quantity * unit_price
 
     sale = Sale(
+        business_id=business_id,
         sale_date=sale_date,
         customer_name=customer_name,
         total_revenue=total_revenue,
@@ -381,6 +385,7 @@ def record_sale(sale_date, customer_name, items_data, business_id=None, created_
                 item_cogs += portion_cogs
                 layer.remaining_quantity -= remaining_to_fulfill
                 consume_tx = StockTransaction(
+                    business_id=business_id,
                     product_id=product_id,
                     transaction_type='SALE',
                     quantity=-remaining_to_fulfill,
@@ -398,6 +403,7 @@ def record_sale(sale_date, customer_name, items_data, business_id=None, created_
                 item_cogs += portion_cogs
                 layer.remaining_quantity = 0
                 consume_tx = StockTransaction(
+                    business_id=business_id,
                     product_id=product_id,
                     transaction_type='SALE',
                     quantity=-taken,
@@ -416,6 +422,7 @@ def record_sale(sale_date, customer_name, items_data, business_id=None, created_
         product.quantity_in_stock -= quantity_to_sell
 
         si = SaleItem(
+            business_id=business_id,
             sale_id=sale.id,
             product_id=product_id,
             quantity=quantity_to_sell,
@@ -446,6 +453,7 @@ def record_sale(sale_date, customer_name, items_data, business_id=None, created_
 
         for si in sale_items:
             db.session.add(InvoiceItem(
+                business_id=business_id,
                 invoice_id=invoice.id,
                 product_id=si.product_id,
                 description=si.product.name if si.product else None,
@@ -490,6 +498,7 @@ def record_expense(expense_date, category, description, amount, business_id=None
     if not category:
         raise ValueError("Expense category is required.")
     expense = Expense(
+        business_id=business_id,
         expense_date=expense_date or datetime.now(),
         category=category,
         description=description,

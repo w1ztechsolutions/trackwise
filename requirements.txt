@@ -9,3 +9,4 @@ Werkzeug==3.1.6
 Jinja2==3.1.6
 SQLAlchemy==2.0.43
 alembic==1.18.5
+dotenv
