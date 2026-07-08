@@ -11,6 +11,39 @@ if (toggleBtn) {
   });
 }
 
+// Flash messages auto-dismiss
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.flash-close').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const flash = btn.closest('.flash-message');
+      if (flash) flash.remove();
+    });
+  });
+});
+
+// CSRF token for AJAX / fetch requests
+function getCsrfToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  if (meta && meta.content) return meta.content;
+  const input = document.querySelector('input[name="csrf_token"]');
+  if (input && input.value) return input.value;
+  return null;
+}
+
+const originalFetch = window.fetch;
+window.fetch = function (...args) {
+  const [url, options = {}] = args;
+  const csrfToken = getCsrfToken();
+  if (csrfToken) {
+    const headers = new Headers(options.headers || {});
+    if (!headers.has('X-CSRFToken') && !headers.has('X-CSRF-Token')) {
+      headers.set('X-CSRFToken', csrfToken);
+    }
+    options.headers = headers;
+  }
+  return originalFetch(url, options);
+};
+
 // Loading states for forms
 (function () {
   const forms = document.querySelectorAll('form');

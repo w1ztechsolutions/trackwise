@@ -13,7 +13,7 @@
         <button class="btn-secondary" onclick="toggleModal('stockTransferModal', true)">Transfer Stock</button>
         <button class="btn-secondary" onclick="toggleModal('stockCountModal', true)">Record Count</button>
         <button class="btn-primary" onclick="toggleModal('addProductModal', true)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+            <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
@@ -23,33 +23,31 @@
 </div>
 
 <!-- Stock summary & value -->
-<div class="glass-card" style="margin-bottom: 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
+<div class="glass-card summary-card">
     <div>
         <span class="kpi-label">Total Inventory Valuation</span>
-        <span class="kpi-value" style="font-size: 32px; color: var(--info); display: block; margin-top: 6px;">
+        <span class="kpi-value text-info valuation-value">
             {{ total_valuation | currency }}
         </span>
-        <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Sum of all inventory purchase costs currently in stock (FIFO cost layers)</p>
+        <p class="text-muted valuation-note">Sum of all inventory purchase costs currently in stock (FIFO cost layers)</p>
     </div>
-    <div style="display: flex; gap: 24px;">
-        <div style="text-align: right;">
-            <span class="kpi-label" style="display: block;">Total Products</span>
-            <span style="font-size: 24px; font-weight: 700; color: #fff;">{{ products | length }}</span>
+    <div class="flex-row">
+        <div class="summary-stat">
+            <span class="label">Total Products</span>
+            <span class="value text-white">{{ products | length }}</span>
         </div>
-        <div style="text-align: right;">
-            <span class="kpi-label" style="display: block;">Stock Alert Items</span>
-            <span style="font-size: 24px; font-weight: 700; color: var(--danger);">
-                {{ low_stock_count }}
-            </span>
+        <div class="summary-stat">
+            <span class="label">Stock Alert Items</span>
+            <span class="value text-danger">{{ low_stock_count }}</span>
         </div>
     </div>
 </div>
 
 <!-- Products Table/Grid -->
 <div class="glass-card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <h3 style="font-weight: 600;">Product Catalogue</h3>
-        <input type="text" id="searchInput" onkeyup="searchInventory()" placeholder="Search by name or SKU..." class="form-control" style="max-width: 300px; padding: 10px 16px;">
+    <div class="section-header">
+        <h3 class="section-title">Product Catalogue</h3>
+        <input type="text" id="searchInput" onkeyup="searchInventory()" placeholder="Search by name or SKU..." class="form-control search-input">
     </div>
     
     <div class="table-container">
@@ -67,12 +65,12 @@
             <tbody>
                 {% for product in products %}
                     <tr class="product-row">
-                        <td style="font-family: monospace; font-weight: 600; color: var(--primary);">{{ product.sku }}</td>
+                        <td class="text-primary">{{ product.sku }}</td>
                         <td>
-                            <span class="product-name" style="font-weight: 600; display: block;">{{ product.name }}</span>
-                            <span style="font-size: 12px; color: var(--text-muted);">{{ product.description or 'No description' }}</span>
+                            <span class="product-name">{{ product.name }}</span>
+                            <span class="text-muted text-sm">{{ product.description or 'No description' }}</span>
                         </td>
-                        <td style="font-weight: 600;">{{ product.quantity_in_stock }} units</td>
+                        <td class="text-main">{{ product.quantity_in_stock }} units</td>
                         <td>
                             {% if product.quantity_in_stock <= 0 %}
                                 <span class="badge badge-danger">Out of Stock</span>
@@ -82,15 +80,14 @@
                                 <span class="badge badge-success">Healthy</span>
                             {% endif %}
                         </td>
-                        <td style="font-weight: 500;">{{ product.default_selling_price | currency }}</td>
-                        <td style="font-weight: 600; color: var(--info);">
-                            <!-- Lookup the valuation map -->
+                        <td class="text-main">{{ product.default_selling_price | currency }}</td>
+                        <td class="text-info">
                             {{ valuations.get(product.id, 0.0) | currency }}
                         </td>
                     </tr>
                 {% else %}
                     <tr>
-                        <td colspan="6" style="text-align: center; padding: 40px 0; color: var(--text-muted);">
+                        <td colspan="6" class="empty-state">
                             No products found in the catalog. Add some items to get started!
                         </td>
                     </tr>
@@ -104,7 +101,7 @@
 <div class="modal-overlay" id="warehouseModal">
     <div class="glass-card modal-box">
         <div class="modal-header">
-            <h3 style="font-weight: 600; font-size: 18px;">Manage Warehouses</h3>
+            <h3 class="section-title">Manage Warehouses</h3>
             <button class="modal-close" onclick="toggleModal('warehouseModal', false)">&times;</button>
         </div>
         <form method="POST" action="{{ url_for('inventory.inventory') }}">
@@ -118,15 +115,15 @@
                 <label class="form-label" for="warehouse_location">Location</label>
                 <input type="text" id="warehouse_location" name="location" class="form-control">
             </div>
-            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 12px;">
+            <div class="form-actions-row">
                 <button type="button" class="btn-secondary" onclick="toggleModal('warehouseModal', false)">Cancel</button>
                 <button type="submit" class="btn-primary">Save Warehouse</button>
             </div>
         </form>
         {% if warehouses %}
-        <div style="margin-top: 20px;">
-            <h4 style="font-size: 14px; margin-bottom: 8px; color: var(--text-muted);">Existing Warehouses</h4>
-            <ul style="padding-left: 18px; color: var(--text-muted);">
+        <div class="mt-5">
+            <h4 class="pl-section-title">Existing Warehouses</h4>
+            <ul class="list-plain">
                 {% for warehouse in warehouses %}
                 <li>{{ warehouse.name }}{% if warehouse.location %} — {{ warehouse.location }}{% endif %}</li>
                 {% endfor %}
@@ -140,7 +137,7 @@
 <div class="modal-overlay" id="stockCountModal">
     <div class="glass-card modal-box">
         <div class="modal-header">
-            <h3 style="font-weight: 600; font-size: 18px;">Record Physical Stock Count</h3>
+            <h3 class="section-title">Record Physical Stock Count</h3>
             <button class="modal-close" onclick="toggleModal('stockCountModal', false)">&times;</button>
         </div>
         <form method="POST" action="{{ url_for('inventory.inventory') }}">
@@ -171,7 +168,7 @@
                 <label class="form-label" for="count_notes">Notes</label>
                 <textarea id="count_notes" name="notes" rows="2" class="form-control"></textarea>
             </div>
-            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 12px;">
+            <div class="form-actions-row">
                 <button type="button" class="btn-secondary" onclick="toggleModal('stockCountModal', false)">Cancel</button>
                 <button type="submit" class="btn-primary">Save Count</button>
             </div>
@@ -183,7 +180,7 @@
 <div class="modal-overlay" id="stockTransferModal">
     <div class="glass-card modal-box">
         <div class="modal-header">
-            <h3 style="font-weight: 600; font-size: 18px;">Transfer Stock</h3>
+            <h3 class="section-title">Transfer Stock</h3>
             <button class="modal-close" onclick="toggleModal('stockTransferModal', false)">&times;</button>
         </div>
         <form method="POST" action="{{ url_for('inventory.inventory') }}">
@@ -197,7 +194,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-grid">
                 <div class="form-group">
                     <label class="form-label" for="from_warehouse_id">From Warehouse</label>
                     <select id="from_warehouse_id" name="from_warehouse_id" class="form-control" required>
@@ -223,7 +220,7 @@
                 <label class="form-label" for="transfer_notes">Notes</label>
                 <textarea id="transfer_notes" name="notes" rows="2" class="form-control"></textarea>
             </div>
-            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 12px;">
+            <div class="form-actions-row">
                 <button type="button" class="btn-secondary" onclick="toggleModal('stockTransferModal', false)">Cancel</button>
                 <button type="submit" class="btn-primary">Transfer Stock</button>
             </div>
@@ -235,7 +232,7 @@
 <div class="modal-overlay" id="addProductModal">
     <div class="glass-card modal-box">
         <div class="modal-header">
-            <h3 style="font-weight: 600; font-size: 18px;">Add New Product</h3>
+            <h3 class="section-title">Add New Product</h3>
             <button class="modal-close" onclick="toggleModal('addProductModal', false)">&times;</button>
         </div>
         <form method="POST" action="{{ url_for('inventory.inventory') }}">
@@ -255,7 +252,7 @@
                 <textarea id="description" name="description" rows="2" placeholder="Brief description of the product..." class="form-control"></textarea>
             </div>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-grid">
                 <div class="form-group">
                     <label class="form-label" for="default_selling_price">Default Selling Price (MWK)</label>
                     <input type="number" id="default_selling_price" name="default_selling_price" step="0.01" min="0" required placeholder="e.g. 1500.00" class="form-control">
@@ -267,7 +264,7 @@
                 </div>
             </div>
             
-            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 12px;">
+            <div class="form-actions-row">
                 <button type="button" class="btn-secondary" onclick="toggleModal('addProductModal', false)">Cancel</button>
                 <button type="submit" class="btn-primary">Save Product</button>
             </div>

@@ -1,38 +1,46 @@
 {% extends 'base.html' %}
 {% block title %}Payments{% endblock %}
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <h2>Payments</h2>
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Payments</h1>
     </div>
+</div>
+<div class="glass-card">
     <form method="post" class="stack-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-        <label>Supplier
-            <select name="supplier_id" required>
+        {{ csrf_token() }}
+        <div class="form-group">
+            <label class="form-label" for="supplier_id">Supplier</label>
+            <select id="supplier_id" name="supplier_id" required class="form-control">
                 {% for supplier in suppliers %}
                 <option value="{{ supplier.id }}">{{ supplier.name }}</option>
                 {% endfor %}
             </select>
-        </label>
-        <label>Amount
-            <input type="number" step="0.01" name="amount" required>
-        </label>
-        <label>Method
-            <select name="payment_method">
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="amount">Amount</label>
+            <input type="number" step="0.01" id="amount" name="amount" required class="form-control">
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="payment_method">Method</label>
+            <select id="payment_method" name="payment_method" class="form-control">
                 <option value="cash">Cash</option>
                 <option value="bank">Bank Transfer</option>
                 <option value="mobile money">Mobile Money</option>
             </select>
-        </label>
-        <label>Reference
-            <input type="text" name="reference">
-        </label>
-        <button type="submit">Record Payment</button>
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="reference">Reference</label>
+            <input type="text" id="reference" name="reference" class="form-control">
+        </div>
+        <button type="submit" class="btn-primary btn-sm">Record Payment</button>
     </form>
 </div>
-<div class="card">
-    <h3>Recent Payments</h3>
-    <div class="table-responsive">
+<div class="glass-card">
+    <div class="section-header">
+        <h3>Recent Payments</h3>
+    </div>
+    <div class="table-container">
         <table>
             <thead><tr><th>Supplier</th><th>Amount</th><th>Method</th><th>Date</th></tr></thead>
             <tbody>

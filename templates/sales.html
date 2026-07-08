@@ -10,14 +10,14 @@
     </div>
 </div>
 
-<div class="dashboard-grid" style="grid-template-columns: 1.2fr 1fr;">
+<div class="dashboard-grid grid-asym">
     <!-- Record Sale Form -->
     <div class="glass-card">
-        <h3 style="margin-bottom: 20px; font-weight: 600;">Checkout Terminal</h3>
-        
+        <h3>Checkout Terminal</h3>
+
         <form method="POST" action="{{ url_for('sales.sales') }}" id="sale-checkout-form" onsubmit="return validateSaleSubmission()">
             {{ csrf_token() }}
-            <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px;">
+            <div class="grid-asym">
                 <div class="form-group">
                     <label class="form-label" for="customer_name">Customer Name</label>
                     <input type="text" id="customer_name" name="customer_name" placeholder="e.g. Walk-in / Zomba Groceries" class="form-control">
@@ -27,54 +27,54 @@
                     <input type="datetime-local" id="sale_date" name="sale_date" class="form-control">
                 </div>
             </div>
-            
+
             <!-- Items Area -->
-            <div style="border-top: 1px solid var(--border-glass); padding-top: 20px; margin-top: 12px; margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <h4 style="font-weight: 600; font-size: 15px;">Sale Items</h4>
-                    <button type="button" class="btn-secondary" onclick="addSaleRow()" style="padding: 6px 14px; font-size: 13px;">
+            <div class="items-section">
+                <div class="section-header">
+                    <h4 class="checkout-section-title">Sale Items</h4>
+                    <button type="button" class="btn-secondary btn-sm" onclick="addSaleRow()">
                         + Add Item Row
                     </button>
                 </div>
-                
+
                 <div id="sale-items-container">
                     <!-- Dynamic Rows added here -->
                 </div>
             </div>
-            
-            <div style="border-top: 1px solid var(--border-glass); padding-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+
+            <div class="checkout-total">
                 <div>
-                    <span style="color: var(--text-muted); font-size: 14px;">Grand Total Revenue:</span>
-                    <span id="overall-total" style="font-size: 24px; font-weight: 700; color: var(--success); display: block;">MWK 0.00</span>
+                    <span class="total-label">Grand Total Revenue:</span>
+                    <span id="overall-total" class="grand-total">MWK 0.00</span>
                 </div>
-                <button type="submit" class="btn-primary" style="background: var(--success-grad); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">
+                <button type="submit" class="btn-primary btn-success">
                     Record Checkout
                 </button>
             </div>
         </form>
     </div>
-    
+
     <!-- Sales History List -->
     <div class="glass-card">
-        <h3 style="margin-bottom: 20px; font-weight: 600;">Sales History</h3>
-        
-        <div style="display: flex; flex-direction: column; gap: 16px; max-height: 520px; overflow-y: auto; padding-right: 4px;">
+        <h3>Sales History</h3>
+
+        <div class="scroll-list">
             {% for sale in sales %}
-                <div style="padding: 16px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-glass); border-radius: 14px;">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                <div class="history-card">
+                    <div class="history-header">
                         <div>
-                            <span style="font-weight: 600; display: block; font-size: 15px;">{{ sale.customer_name or 'Walk-in Customer' }}</span>
-                            <span style="color: var(--text-muted); font-size: 12px;">{{ sale.sale_date | datetime }}</span>
+                            <span class="entity-name">{{ sale.customer_name or 'Walk-in Customer' }}</span>
+                            <span class="meta-text">{{ sale.sale_date | datetime }}</span>
                         </div>
-                        <div style="text-align: right;">
-                            <span style="font-weight: 700; color: var(--success); font-size: 15px; display: block;">{{ sale.total_revenue | currency }}</span>
-                            <span style="font-size: 11px; color: var(--text-muted);">COGS: {{ sale.total_cogs | currency }}</span>
+                        <div class="amount">
+                            <span class="value text-success">{{ sale.total_revenue | currency }}</span>
+                            <span class="sub">COGS: {{ sale.total_cogs | currency }}</span>
                         </div>
                     </div>
-                    
-                    <div style="display: flex; flex-direction: column; gap: 6px; border-top: 1px dashed var(--border-glass); padding-top: 10px; margin-top: 6px;">
+
+                    <div class="items-list">
                         {% for si in sale.items %}
-                            <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); padding-left: 8px;">
+                            <div class="item-row">
                                 <span>{{ si.product.name }} (x{{ si.quantity }})</span>
                                 <span>@ {{ si.unit_price | currency }}</span>
                             </div>
@@ -82,7 +82,7 @@
                     </div>
                 </div>
             {% else %}
-                <div style="text-align: center; color: var(--text-muted); padding: 40px 0;">
+                <div class="empty-state">
                     No sales checkout history recorded yet.
                 </div>
             {% endfor %}
@@ -106,7 +106,7 @@
 <script>
     // Load products list for drop down
     let productsList = [];
-    
+
     fetch('/api/products')
         .then(res => res.json())
         .then(data => {
@@ -119,10 +119,10 @@
     function addSaleRow() {
         const container = document.getElementById('sale-items-container');
         const rowId = Date.now() + Math.random().toString(36).substr(2, 5);
-        
+
         const rowHTML = `
-            <div class="item-row-grid" id="row-${rowId}" style="grid-template-columns: 2.5fr 1fr 1.5fr auto;">
-                <div class="form-group" style="margin-bottom: 0;">
+            <div class="item-row-grid" id="row-${rowId}">
+                <div class="form-group">
                     <label class="form-label">Select Product</label>
                     <select name="product_id[]" required class="form-control product-select" onchange="updateRowDefaults('${rowId}', this)">
                         <option value="">-- Choose --</option>
@@ -131,17 +131,17 @@
                             return `<option value="${p.id}" data-price="${p.default_selling_price}" data-stock="${p.quantity_in_stock}">${p.name} ${stockBadge}</option>`;
                         }).join('')}
                     </select>
-                    <span class="stock-info" id="stock-info-${rowId}" style="display: block; font-size: 11px; margin-top: 4px; color: var(--text-muted);"></span>
+                    <span class="stock-info" id="stock-info-${rowId}"></span>
                 </div>
-                <div class="form-group" style="margin-bottom: 0;">
+                <div class="form-group">
                     <label class="form-label">Qty</label>
                     <input type="number" name="quantity[]" min="1" required class="form-control quantity-input" oninput="validateQuantity('${rowId}'); calculateTotal();" placeholder="0">
                 </div>
-                <div class="form-group" style="margin-bottom: 0;">
+                <div class="form-group">
                     <label class="form-label">Unit Price (MWK)</label>
                     <input type="number" name="unit_price[]" step="0.01" min="0" required class="form-control price-input" oninput="calculateTotal()" placeholder="0.00">
                 </div>
-                <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')" style="margin-bottom: 4px;">
+                <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="3 6 5 6 21 6"></polyline>
                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -149,10 +149,10 @@
                 </button>
             </div>
         `;
-        
+
         container.insertAdjacentHTML('beforeend', rowHTML);
     }
-    
+
     function removeRow(rowId) {
         const row = document.getElementById(`row-${rowId}`);
         if (row) {
@@ -160,116 +160,120 @@
             calculateTotal();
         }
     }
-    
+
     function updateRowDefaults(rowId, selectElem) {
         const selectedOption = selectElem.options[selectElem.selectedIndex];
         const row = document.getElementById(`row-${rowId}`);
-        
+
         if (!selectedOption || selectElem.value === "") {
             document.getElementById(`stock-info-${rowId}`).textContent = "";
             row.querySelector('.price-input').value = "";
             calculateTotal();
             return;
         }
-        
+
         const price = selectedOption.getAttribute('data-price');
         const stock = parseInt(selectedOption.getAttribute('data-stock')) || 0;
-        
+
         row.querySelector('.price-input').value = price;
         const stockInfo = document.getElementById(`stock-info-${rowId}`);
         stockInfo.textContent = `${stock} units in stock`;
-        
+
         if (stock <= 0) {
-            stockInfo.style.color = 'var(--danger)';
+            stockInfo.classList.add('text-danger');
+            stockInfo.classList.remove('text-success');
         } else {
-            stockInfo.style.color = 'var(--success)';
+            stockInfo.classList.add('text-success');
+            stockInfo.classList.remove('text-danger');
         }
-        
+
         validateQuantity(rowId);
         calculateTotal();
     }
-    
+
     function validateQuantity(rowId) {
         const row = document.getElementById(`row-${rowId}`);
         const selectElem = row.querySelector('.product-select');
         const qtyInput = row.querySelector('.quantity-input');
         const stockInfo = document.getElementById(`stock-info-${rowId}`);
-        
+
         if (!selectElem.value) return;
-        
+
         const selectedOption = selectElem.options[selectElem.selectedIndex];
         const stock = parseInt(selectedOption.getAttribute('data-stock')) || 0;
         const qty = parseInt(qtyInput.value) || 0;
-        
+
         if (qty > stock) {
             stockInfo.textContent = `Insufficient stock! (${stock} available)`;
-            stockInfo.style.color = 'var(--danger)';
-            qtyInput.style.borderColor = 'var(--danger)';
+            stockInfo.classList.add('text-danger');
+            stockInfo.classList.remove('text-success');
+            qtyInput.classList.add('input-error');
         } else {
             stockInfo.textContent = `${stock} units in stock`;
-            stockInfo.style.color = 'var(--success)';
-            qtyInput.style.borderColor = '';
+            stockInfo.classList.add('text-success');
+            stockInfo.classList.remove('text-danger');
+            qtyInput.classList.remove('input-error');
         }
     }
-    
+
     function calculateTotal() {
         const container = document.getElementById('sale-items-container');
         const rows = container.querySelectorAll('.item-row-grid');
         let overallTotal = 0;
-        
+
         rows.forEach(row => {
             const qtyInput = row.querySelector('.quantity-input');
             const priceInput = row.querySelector('.price-input');
-            
+
             const qty = parseInt(qtyInput.value) || 0;
             const price = parseFloat(priceInput.value) || 0;
-            
+
             overallTotal += qty * price;
         });
-        
+
         document.getElementById('overall-total').textContent = 'MWK ' + overallTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
-    
+
     function validateSaleSubmission() {
         const container = document.getElementById('sale-items-container');
         const rows = container.querySelectorAll('.item-row-grid');
         let isValid = true;
-        
+
         if (rows.length === 0) {
             alert("Please add at least one item to record a sale.");
             return false;
         }
-        
+
         rows.forEach(row => {
             const selectElem = row.querySelector('.product-select');
             const qtyInput = row.querySelector('.quantity-input');
-            
+
             if (selectElem.value === "") {
                 isValid = false;
-                selectElem.style.borderColor = 'var(--danger)';
+                selectElem.classList.add('input-error');
             }
-            
+
             const selectedOption = selectElem.options[selectElem.selectedIndex];
             if (selectedOption) {
                 const stock = parseInt(selectedOption.getAttribute('data-stock')) || 0;
                 const qty = parseInt(qtyInput.value) || 0;
-                
+
                 if (qty <= 0) {
                     isValid = false;
-                    qtyInput.style.borderColor = 'var(--danger)';
+                    qtyInput.classList.add('input-error');
                 }
-                
+
                 if (qty > stock) {
                     isValid = false;
-                    qtyInput.style.borderColor = 'var(--danger)';
+                    qtyInput.classList.add('input-error');
                 }
             }
         });
-        
+
         if (!isValid) {
             alert("Please fix the errors in the sales items (check stock levels and input quantities).");
         }
-        
+
         return isValid;
     }
 </script>

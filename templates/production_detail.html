@@ -1,21 +1,38 @@
 {% extends 'base.html' %}
 {% block title %}Production Batch Details{% endblock %}
 {% block content %}
-<div class="card">
-    <div class="card-header">
+<div class="glass-card">
+    <div class="section-header">
         <h2>{{ batch.batch_number }}</h2>
     </div>
-    <p><strong>Product:</strong> {{ batch.product.name if batch.product else '-' }}</p>
-    <p><strong>Status:</strong> {{ batch.status }}</p>
-    <p><strong>Quantity Produced:</strong> {{ batch.quantity_produced }}</p>
-    <p><strong>Production Date:</strong> {{ batch.production_date }}</p>
-    <p><strong>Notes:</strong> {{ batch.notes or '-' }}</p>
+    <div class="detail-row">
+        <span class="detail-label">Product:</span>
+        <span class="detail-value">{{ batch.product.name if batch.product else '-' }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Status:</span>
+        <span class="detail-value">{{ batch.status }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Quantity Produced:</span>
+        <span class="detail-value">{{ batch.quantity_produced }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Production Date:</span>
+        <span class="detail-value">{{ batch.production_date }}</span>
+    </div>
+    <div class="detail-row">
+        <span class="detail-label">Notes:</span>
+        <span class="detail-value">{{ batch.notes or '-' }}</span>
+    </div>
 </div>
 
-<div class="card">
-    <h3>Material Usage</h3>
+<div class="glass-card">
+    <div class="section-header">
+        <h3>Material Usage</h3>
+    </div>
     {% if batch.material_usages %}
-    <ul>
+    <ul class="list-plain">
         {% for usage in batch.material_usages %}
         <li>{{ usage.product.name if usage.product else '-' }} — {{ usage.quantity_consumed }} @ {{ usage.unit_cost_at_consumption }}</li>
         {% endfor %}
@@ -25,10 +42,12 @@
     {% endif %}
 </div>
 
-<div class="card">
-    <h3>Finished Goods Output</h3>
+<div class="glass-card">
+    <div class="section-header">
+        <h3>Finished Goods Output</h3>
+    </div>
     {% if batch.outputs %}
-    <ul>
+    <ul class="list-plain">
         {% for output in batch.outputs %}
         <li>{{ output.product.name if output.product else '-' }} — {{ output.quantity }} @ {{ output.unit_cost }}</li>
         {% endfor %}

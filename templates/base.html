@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}TrackWise{% endblock %} - Accounting & Inventory</title>
+    <meta name="csrf-token" content="{{ raw_csrf_token() }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <!-- Chart.js for data visualization -->
@@ -20,7 +24,7 @@
                 {% for category, message in messages %}
                     <div class="flash-message {{ category }}">
                         <span>{{ message }}</span>
-                        <button class="modal-close" onclick="this.parentElement.remove()" style="font-size: 14px; margin-left: 10px;">&times;</button>
+                        <button class="modal-close flash-close" aria-label="Dismiss">&times;</button>
                     </div>
                 {% endfor %}
             {% endif %}
@@ -182,21 +186,7 @@
         {% block content %}{% endblock %}
     </main>
 
-    {% if show_nav %}
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    {% endif %}
-    <script>
-        // Automatically fade out flash messages after 4 seconds
-        setTimeout(() => {
-            const flashes = document.querySelectorAll('.flash-message');
-            flashes.forEach(flash => {
-                flash.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
-                flash.style.opacity = '0';
-                flash.style.transform = 'translateY(-20px) scale(0.9)';
-                setTimeout(() => flash.remove(), 500);
-            });
-        }, 4000);
-    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

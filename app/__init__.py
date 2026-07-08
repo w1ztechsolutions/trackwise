@@ -6,6 +6,7 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_wtf import CSRFProtect
 from dotenv import load_dotenv
+from flask_wtf.csrf import generate_csrf
 
 _PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -109,5 +110,16 @@ def create_app(config_object=None):
     def load_user(user_id):
         return _db.session.get(User, int(user_id))
 
+    @app.context_processor
+    def inject_csrf_token():
+        return dict(raw_csrf_token=generate_csrf)
+
+    @app.after_request
+    def set_security_headers(response):
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
 
     return app

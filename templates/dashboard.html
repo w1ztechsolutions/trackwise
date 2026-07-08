@@ -10,7 +10,7 @@
     </div>
     <div class="header-actions">
         <a href="{{ url_for('sales.sales') }}" class="btn-primary">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+            <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
@@ -48,7 +48,7 @@
     <!-- Net Profit -->
     <div class="glass-card kpi-card net">
         <span class="kpi-label">Net Profit (Post-Tax)</span>
-        <span class="kpi-value" style="color: var(--success);">{{ pl.net_profit | currency }}</span>
+        <span class="kpi-value text-success">{{ pl.net_profit | currency }}</span>
         <span class="kpi-meta">Tax Rate: {{ pl.tax_rate }}% (MWK {{ pl.tax_amount | currency }})</span>
     </div>
 </div>
@@ -56,49 +56,47 @@
 <!-- Charts and Alerts Grid -->
 <div class="dashboard-grid">
     <!-- Line Chart: Sales vs Expenses -->
-    <div class="glass-card">
-        <h3 style="margin-bottom: 20px; font-weight: 600;">Sales vs Operating Expenses (Last 6 Months)</h3>
-        <div style="height: 320px; position: relative;">
+    <div class="glass-card chart-card">
+        <h3 class="section-title">Sales vs Operating Expenses (Last 6 Months)</h3>
+        <div class="chart-container">
             <canvas id="salesExpensesChart"></canvas>
         </div>
     </div>
     
     <!-- Stock Alerts & Inventory Value -->
-    <div class="glass-card" style="display: flex; flex-direction: column; gap: 24px;">
-        <div>
-            <h3 style="margin-bottom: 8px; font-weight: 600;">Total Stock Value</h3>
-            <span class="kpi-value" style="font-size: 28px; color: var(--info); display: block; margin-top: 6px;">
-                {{ valuation | currency }}
-            </span>
-            <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Based on current FIFO purchase cost layers</p>
+    <div class="glass-card stock-card">
+        <div class="stock-valuation">
+            <h3 class="section-title">Total Stock Value</h3>
+            <span class="kpi-value valuation-value">{{ valuation | currency }}</span>
+            <p class="text-muted valuation-note">Based on current FIFO purchase cost layers</p>
         </div>
         
-        <div style="border-top: 1px solid var(--border-glass); padding-top: 20px;">
-            <h3 style="margin-bottom: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+        <div class="stock-divider">
+            <h3 class="section-title">
                 Low Stock Alerts 
                 {% if low_stock %}
-                    <span class="badge badge-danger" style="padding: 2px 8px;">{{ low_stock | length }}</span>
+                    <span class="badge badge-danger">{{ low_stock | length }}</span>
                 {% endif %}
             </h3>
             
             {% if low_stock %}
-                <div style="display: flex; flex-direction: column; gap: 10px; max-height: 180px; overflow-y: auto;">
+                <div class="stock-alerts-list">
                     {% for product in low_stock %}
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.15); border-radius: 10px;">
+                        <div class="stock-alert-item">
                             <div>
-                                <span style="font-weight: 600; font-size: 14px; display: block;">{{ product.name }}</span>
-                                <span style="color: var(--text-muted); font-size: 12px;">SKU: {{ product.sku }}</span>
+                                <span class="stock-name">{{ product.name }}</span>
+                                <span class="stock-sku">SKU: {{ product.sku }}</span>
                             </div>
-                            <div style="text-align: right;">
+                            <div class="stock-qty">
                                 <span class="badge badge-danger">{{ product.quantity_in_stock }} left</span>
-                                <span style="display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px;">Min: {{ product.low_stock_threshold }}</span>
+                                <span class="stock-min">Min: {{ product.low_stock_threshold }}</span>
                             </div>
                         </div>
                     {% endfor %}
                 </div>
             {% else %}
-                <div style="text-align: center; padding: 24px 0; color: var(--text-muted); font-size: 14px;">
-                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--success)" stroke-width="2" fill="none" style="margin-bottom: 8px;">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--success)" stroke-width="2" fill="none">
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                         <polyline points="22 4 12 14.01 9 11.01"></polyline>
                     </svg>
@@ -110,12 +108,12 @@
 </div>
 
 <!-- Recent Transactions Tables -->
-<div class="dashboard-grid" style="grid-template-columns: 1fr 1fr;">
+<div class="dashboard-grid recent-transactions">
     <!-- Recent Sales -->
     <div class="glass-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="font-weight: 600;">Recent Sales</h3>
-            <a href="{{ url_for('sales.sales') }}" style="color: var(--primary); text-decoration: none; font-size: 14px; font-weight: 500;">View All</a>
+        <div class="section-header">
+            <h3 class="section-title">Recent Sales</h3>
+            <a href="{{ url_for('sales.sales') }}">View All</a>
         </div>
         <div class="table-container">
             <table class="custom-table">
@@ -132,12 +130,12 @@
                         <tr>
                             <td>{{ sale.sale_date | datetime }}</td>
                             <td>{{ sale.customer_name or 'Walk-in' }}</td>
-                            <td style="font-weight: 600; color: var(--success);">{{ sale.total_revenue | currency }}</td>
+                            <td class="text-success">{{ sale.total_revenue | currency }}</td>
                             <td>{{ sale.total_cogs | currency }}</td>
                         </tr>
                     {% else %}
                         <tr>
-                            <td colspan="4" style="text-align: center; color: var(--text-muted);">No sales recorded yet.</td>
+                            <td colspan="4" class="empty-state">No sales recorded yet.</td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -147,9 +145,9 @@
     
     <!-- Recent Expenses -->
     <div class="glass-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="font-weight: 600;">Recent Expenses</h3>
-            <a href="{{ url_for('expenses.expenses') }}" style="color: var(--primary); text-decoration: none; font-size: 14px; font-weight: 500;">View All</a>
+        <div class="section-header">
+            <h3 class="section-title">Recent Expenses</h3>
+            <a href="{{ url_for('expenses.expenses') }}">View All</a>
         </div>
         <div class="table-container">
             <table class="custom-table">
@@ -166,12 +164,12 @@
                         <tr>
                             <td>{{ exp.expense_date | datetime }}</td>
                             <td><span class="badge badge-info">{{ exp.category }}</span></td>
-                            <td style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ exp.description or 'No details' }}</td>
-                            <td style="font-weight: 600; color: var(--danger);">{{ exp.amount | currency }}</td>
+                            <td class="text-truncate">{{ exp.description or 'No details' }}</td>
+                            <td class="text-danger">{{ exp.amount | currency }}</td>
                         </tr>
                     {% else %}
                         <tr>
-                            <td colspan="4" style="text-align: center; color: var(--text-muted);">No expenses recorded yet.</td>
+                            <td colspan="4" class="empty-state">No expenses recorded yet.</td>
                         </tr>
                     {% endfor %}
                 </tbody>
