@@ -34,10 +34,15 @@ def run_migrations_online():
     cfg = config.get_section(config.config_ini_section)
     url = get_url()
     cfg["sqlalchemy.url"] = url
+
+    # Use a single-connection approach for Neon serverless Postgres
+    # to avoid connection pool exhaustion during migrations
+    is_neon = "neon.tech" in (url or "")
     connectable = engine_from_config(
         cfg,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"connect_timeout": 10} if is_neon else {},
     )
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)

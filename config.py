@@ -22,10 +22,31 @@ def _has_postgres_driver() -> bool:
     return importlib.util.find_spec("psycopg2") is not None or importlib.util.find_spec("psycopg") is not None
 
 
+def _strip_neon_incompatible_params(uri: str) -> str:
+    """Remove parameters not supported by psycopg 3.x from the connection URI.
+
+    - channel_binding is a libpq parameter, not recognised by psycopg 3.x
+    """
+    if "?" not in uri:
+        return uri
+    base, query = uri.split("?", 1)
+    params = query.split("&")
+    allowed = [p for p in params if not p.startswith("channel_binding=")]
+    if allowed:
+        return base + "?" + "&".join(allowed)
+    return base
+
+
 def _normalize_database_uri(raw_uri: str) -> str:
     if raw_uri.startswith("postgresql://"):
-        return raw_uri.replace("postgresql://", "postgresql+psycopg://", 1)
+        uri = raw_uri.replace("postgresql://", "postgresql+psycopg://", 1)
+        uri = _strip_neon_incompatible_params(uri)
+        return uri
     return raw_uri
+
+
+def _is_neon(uri: str | None) -> bool:
+    return uri is not None and "neon.tech" in uri
 
 
 def _default_database_uri() -> str:
@@ -45,16 +66,33 @@ def _default_database_uri() -> str:
     return _sqlite_instance_uri(os.path.join(os.getcwd(), "instance"))
 
 
-class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-fallback-key")
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = {
+def _get_pool_options(is_neon: bool = False) -> dict:
+    """Return SQLAlchemy engine pool options tuned for the target database.
+
+    Neon (serverless Postgres) has lower connection limits and tighter
+    idle timeouts than a dedicated Postgres instance.
+    """
+    if is_neon:
+        return {
+            "pool_pre_ping": True,
+            "pool_recycle": 120,       # 2 min – well under Neon's 5 min idle timeout
+            "pool_size": 2,            # Neon free tier ~10 conn limit
+            "max_overflow": 3,         # burst = 5 total
+            "pool_timeout": 30,
+        }
+    return {
         "pool_pre_ping": True,
         "pool_recycle": 300,
         "pool_size": 5,
         "max_overflow": 10,
         "pool_timeout": 30,
     }
+
+
+class Config:
+    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-fallback-key")
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 300}
     REMEMBER_COOKIE_DURATION = timedelta(days=14)
 
 
@@ -62,13 +100,15 @@ class DevelopmentConfig(Config):
     DEBUG = True
     TESTING = False
     SQLALCHEMY_DATABASE_URI = _default_database_uri()
+    SQLALCHEMY_ENGINE_OPTIONS = _get_pool_options(is_neon=_is_neon(os.environ.get("DATABASE_URL")))
 
 
 class TestingConfig(Config):
     DEBUG = False
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = _default_database_uri()
-    SQLALCHEMY_ENGINE_OPTIONS = {}
+    # Always use SQLite in-memory for tests to ensure isolation
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    SQLALCHEMY_ENGINE_OPTIONS = {}  # disable pooling for in-memory SQLite tests
     WTF_CSRF_ENABLED = False
     LOGIN_DISABLED = True
 
@@ -77,3 +117,4 @@ class ProductionConfig(Config):
     DEBUG = False
     TESTING = False
     SQLALCHEMY_DATABASE_URI = _default_database_uri()
+    SQLALCHEMY_ENGINE_OPTIONS = _get_pool_options(is_neon=_is_neon(os.environ.get("DATABASE_URL")))

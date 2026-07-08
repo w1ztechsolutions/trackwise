@@ -1,4 +1,4 @@
-import importlib.util
+import importlib
 import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -18,6 +18,10 @@ from app.models import db as _db
 from config import DevelopmentConfig, ProductionConfig, TestingConfig
 from .template_filters import register_template_filters
 
+
+def _has_postgres_driver() -> bool:
+    return importlib.util.find_spec("psycopg2") is not None or importlib.util.find_spec("psycopg") is not None
+
 migrate = Migrate()
 login_manager = LoginManager()
 login_manager.login_view = "auth.login"
@@ -32,18 +36,9 @@ def create_app(config_object=None):
         os.environ.get("SECRET_KEY", "dev-fallback-key"),
     )
 
-    default_sqlite = "sqlite:///" + os.path.join(app.instance_path, "trackwise.db")
-    if "SQLALCHEMY_DATABASE_URI" not in app.config:
-        if os.environ.get("DATABASE_URL"):
-            uri = os.environ["DATABASE_URL"]
-            if uri.startswith("postgresql://"):
-                uri = uri.replace("postgresql://", "postgresql+psycopg://", 1)
-        else:
-            uri = default_sqlite
-        app.config["SQLALCHEMY_DATABASE_URI"] = uri
-
     app.config.setdefault("SQLALCHEMY_TRACK_MODIFICATIONS", False)
 
+    # Determine which config class to use
     env = os.environ.get("FLASK_ENV", "development")
     if env == "production":
         base = ProductionConfig
@@ -51,13 +46,24 @@ def create_app(config_object=None):
         base = TestingConfig
     else:
         base = DevelopmentConfig
+
+    # Apply config class (sets SQLALCHEMY_DATABASE_URI, ENGINE_OPTIONS, etc.)
     app.config.from_object(base)
 
+    # Allow explicit override (e.g. from tests)
     if config_object is not None:
         app.config.from_object(config_object)
 
-    if app.config.get("SQLALCHEMY_DATABASE_URI", "").startswith("postgresql") and not (importlib.util.find_spec("psycopg2") is not None or importlib.util.find_spec("psycopg") is not None):
-        app.config["SQLALCHEMY_DATABASE_URI"] = default_sqlite
+    # Fallback: if no DATABASE_URL in env and no config_object provided,
+    # ensure we have at least a SQLite URI
+    if "SQLALCHEMY_DATABASE_URI" not in app.config or not app.config["SQLALCHEMY_DATABASE_URI"]:
+        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(app.instance_path, "trackwise.db")
+
+    # If Postgres driver is missing, fall back to SQLite
+    uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    if uri.startswith("postgresql") and not _has_postgres_driver():
+        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(app.instance_path, "trackwise.db")
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {}
 
     os.makedirs(app.instance_path, exist_ok=True)
 
