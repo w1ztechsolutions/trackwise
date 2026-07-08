@@ -219,6 +219,49 @@ def adjust_stock(
     return sm
 
 
+def record_stock_count(
+    *,
+    business_id: int | None,
+    product_id: int,
+    warehouse_id: int | None,
+    counted_quantity: int,
+    created_by: int | None = None,
+    notes: str | None = None,
+    timestamp: datetime | None = None,
+):
+    """Record a physical inventory count and post the variance as an adjustment."""
+    product = db.session.get(Product, product_id)
+    if not product:
+        raise InventoryServiceException(f"Product {product_id} not found")
+
+    current_quantity = int(product.quantity_in_stock or 0)
+    counted_quantity = int(counted_quantity)
+
+    if counted_quantity < 0:
+        raise InventoryServiceException("counted_quantity must be >= 0")
+
+    variance = counted_quantity - current_quantity
+    if variance == 0:
+        return None
+
+    adjustment_type = "ADJUSTMENT_IN" if variance > 0 else "ADJUSTMENT_OUT"
+    adjustment_quantity = abs(variance)
+
+    return adjust_stock(
+        business_id=business_id,
+        product_id=product_id,
+        warehouse_id=warehouse_id,
+        adjustment_type=adjustment_type,
+        quantity=adjustment_quantity,
+        unit_cost=None,
+        reference_type="StockCount",
+        reference_id=None,
+        created_by=created_by,
+        notes=notes or "Physical inventory count",
+        timestamp=timestamp,
+    )
+
+
 def transfer_stock(
     *,
     business_id: int | None,

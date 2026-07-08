@@ -1,5 +1,6 @@
 import datetime
 
+from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -263,7 +264,7 @@ class Payment(db.Model):
     bill = db.relationship('Bill', backref='payments')
 
 
-class User(db.Model):
+class User(db.Model, UserMixin):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     business_id = db.Column(db.Integer, nullable=True)

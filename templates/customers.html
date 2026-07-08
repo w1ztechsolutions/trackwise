@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Customers{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Customers</h2>
+        <form method="post" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="text" name="name" placeholder="Customer name" required>
+            <button type="submit">Add Customer</button>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr><th>Name</th><th>Phone</th><th>Email</th><th>Balance</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                {% for customer in customers %}
+                <tr>
+                    <td>{{ customer.name }}</td>
+                    <td>{{ customer.phone or '-' }}</td>
+                    <td>{{ customer.email or '-' }}</td>
+                    <td>{{ customer.opening_balance or 0 }}</td>
+                    <td>{{ 'Active' if customer.is_active else 'Inactive' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5">No customers yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -5,7 +5,7 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_wtf import CSRFProtect
 
-from models import db as _db
+from app.models import db as _db
 from config import DevelopmentConfig, ProductionConfig, TestingConfig
 from .template_filters import register_template_filters
 
@@ -79,7 +79,7 @@ def create_app(config_object=None):
         from flask import redirect, url_for
         return redirect(url_for('dashboard.dashboard'))
 
-    from models import User
+    from app.models import User
 
     @login_manager.user_loader
     def load_user(user_id):

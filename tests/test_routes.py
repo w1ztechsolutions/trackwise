@@ -147,6 +147,68 @@ class TestReportsRoutes:
         assert resp.status_code == 200
 
 
+class TestCustomerSupplierRoutes:
+    def test_customers_page_loads(self, client):
+        resp = client.get('/customers')
+        assert resp.status_code == 200
+
+    def test_suppliers_page_loads(self, client):
+        resp = client.get('/suppliers')
+        assert resp.status_code == 200
+
+    def test_create_customer_via_form(self, client, app):
+        with app.app_context():
+            resp = client.post('/customers', data={
+                'name': 'Test Customer',
+                'phone': '0888000000',
+                'email': 'customer@example.com',
+                'address': 'Test address',
+            }, follow_redirects=True)
+            assert resp.status_code == 200
+            assert b'Test Customer' in resp.data or b'success' in resp.data.lower()
+
+    def test_create_supplier_via_form(self, client, app):
+        with app.app_context():
+            resp = client.post('/suppliers', data={
+                'name': 'Test Supplier',
+                'phone': '0999000000',
+                'email': 'supplier@example.com',
+                'address': 'Supplier address',
+                'payment_terms': 'Net 30',
+            }, follow_redirects=True)
+            assert resp.status_code == 200
+            assert b'Test Supplier' in resp.data or b'success' in resp.data.lower()
+
+
+class TestInvoicePaymentRoutes:
+    def test_invoices_page_loads(self, client):
+        resp = client.get('/invoices')
+        assert resp.status_code == 200
+
+    def test_payments_page_loads(self, client):
+        resp = client.get('/payments')
+        assert resp.status_code == 200
+
+    def test_create_invoice_via_form(self, client, app):
+        with app.app_context():
+            from models import db, Customer, Product
+            customer = Customer(name='Invoice Customer', business_id=None)
+            product = Product(sku='INV-TEST', name='Invoice Item', default_selling_price=250.0)
+            db.session.add_all([customer, product])
+            db.session.commit()
+            resp = client.post('/invoices', data={
+                'customer_id': str(customer.id),
+                'invoice_date': datetime.now().isoformat(),
+                'due_date': datetime.now().isoformat(),
+                'notes': 'Invoice test',
+                'product_id[]': [str(product.id)],
+                'quantity[]': ['2'],
+                'unit_price[]': ['250.0'],
+            }, follow_redirects=True)
+            assert resp.status_code == 200
+            assert b'Invoice' in resp.data or b'success' in resp.data.lower()
+
+
 class TestSettingsRoutes:
     def test_settings_page_loads(self, client):
         resp = client.get('/settings')

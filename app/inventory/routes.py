@@ -1,11 +1,12 @@
 from flask_login import login_required
 from flask import flash, redirect, render_template, request, url_for
 
-from models import Product, Warehouse
+from models import Product, Warehouse, db
 from services.fifo_service import get_inventory_valuation
 from app.services.inventory_service import (
     adjust_stock,
     transfer_stock,
+    record_stock_count,
     InventoryServiceException,
 )
 
@@ -51,11 +52,46 @@ def inventory():
                 is_active=True,
             )
 
-            from models import db
-
             db.session.add(product)
             db.session.commit()
             flash(f'Product "{name}" added successfully!', 'success')
+            return redirect(url_for('inventory.inventory'))
+
+        elif action == 'create_warehouse':
+            name = request.form.get('name', '').strip()
+            location = request.form.get('location', '').strip() or None
+
+            if not name:
+                flash('Warehouse name is required.', 'danger')
+                return redirect(url_for('inventory.inventory'))
+
+            warehouse = Warehouse(name=name, location=location, is_active=True)
+            db.session.add(warehouse)
+            db.session.commit()
+            flash(f'Warehouse "{name}" added successfully!', 'success')
+            return redirect(url_for('inventory.inventory'))
+
+        elif action == 'record_stock_count':
+            try:
+                product_id = int(request.form['product_id'])
+                warehouse_id = int(request.form['warehouse_id']) if request.form.get('warehouse_id') else None
+                counted_quantity = int(request.form['counted_quantity'])
+                notes = request.form.get('notes', '').strip() or None
+
+                record_stock_count(
+                    business_id=getattr(getattr(request, 'user', None), 'business_id', None),
+                    product_id=product_id,
+                    warehouse_id=warehouse_id,
+                    counted_quantity=counted_quantity,
+                    created_by=None,
+                    notes=notes,
+                )
+                flash('Physical stock count recorded successfully!', 'success')
+            except (KeyError, ValueError) as e:
+                flash(f'Invalid stock count input: {e}', 'danger')
+            except InventoryServiceException as e:
+                flash(str(e), 'danger')
+
             return redirect(url_for('inventory.inventory'))
 
         elif action == 'transfer_stock':

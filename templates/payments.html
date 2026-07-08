@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Payments{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Payments</h2>
+    </div>
+    <form method="post" class="stack-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <label>Supplier
+            <select name="supplier_id" required>
+                {% for supplier in suppliers %}
+                <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Amount
+            <input type="number" step="0.01" name="amount" required>
+        </label>
+        <label>Method
+            <select name="payment_method">
+                <option value="cash">Cash</option>
+                <option value="bank">Bank Transfer</option>
+                <option value="mobile money">Mobile Money</option>
+            </select>
+        </label>
+        <label>Reference
+            <input type="text" name="reference">
+        </label>
+        <button type="submit">Record Payment</button>
+    </form>
+</div>
+<div class="card">
+    <h3>Recent Payments</h3>
+    <div class="table-responsive">
+        <table>
+            <thead><tr><th>Supplier</th><th>Amount</th><th>Method</th><th>Date</th></tr></thead>
+            <tbody>
+                {% for payment in payments.items %}
+                <tr>
+                    <td>{{ payment.supplier.name if payment.supplier else '-' }}</td>
+                    <td>{{ payment.amount }}</td>
+                    <td>{{ payment.payment_method }}</td>
+                    <td>{{ payment.payment_date }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4">No payments yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

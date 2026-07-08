@@ -1,7 +1,7 @@
 from flask import flash, redirect, render_template, request, url_for
 from werkzeug.security import check_password_hash
 
-from models import db as _db
+from app.models import db as _db
 
 from . import auth_bp
 
@@ -10,7 +10,7 @@ db = _db
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    from models.user import User
+    from app.models import User
 
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
