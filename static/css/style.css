@@ -1,10 +1,22 @@
 /* Existing styles preserved, with additions below */
 
+:root {
+    --bg: #0f172a;
+    --text: #f8fafc;
+    --muted: rgba(248, 250, 252, 0.7);
+    --card: rgba(255, 255, 255, 0.06);
+    --card-border: rgba(255, 255, 255, 0.12);
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    --danger: #ef4444;
+}
+
 body {
     margin: 0;
-    background: #0f172a;
-    color: #f8fafc;
+    background: var(--bg);
+    color: var(--text);
 }
+
 
 .main-content {
     margin-left: 260px;
@@ -47,6 +59,104 @@ body {
     height: 40px;
 }
 
+/* Login + common cards */
+.glass-card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+
+.form-group {
+    margin-bottom: 14px;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.form-control {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text);
+    border-radius: 12px;
+    padding: 12px 12px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.form-control:focus {
+    border-color: rgba(79, 70, 229, 0.75);
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.18);
+}
+
+.btn-primary {
+    width: 100%;
+    background: var(--primary);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: white;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.06s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+    box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
+}
+
+.btn-primary:active {
+    transform: translateY(1px);
+}
+
+/* Flash Messages */
+.flash-container {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 360px;
+}
+
+.flash-message {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+
+.flash-message.danger {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.modal-close {
+    border: none;
+    background: transparent;
+    color: rgba(248, 250, 252, 0.9);
+    cursor: pointer;
+    line-height: 1;
+}
+
 /* Loading spinner */
 .loading-overlay {
     position: fixed;
@@ -57,6 +167,7 @@ body {
     justify-content: center;
     z-index: 9999;
 }
+
 .spinner {
     width: 40px;
     height: 40px;

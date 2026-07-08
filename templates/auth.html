@@ -8,16 +8,19 @@
     </div>
 
     <form method="POST" action="{{ url_for('auth.login') }}">
-        {{ csrf_token() }}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label class="form-label" for="email">Email</label>
-            <input type="email" id="email" name="email" required class="form-control" autofocus>
+            <input type="email" id="email" name="email" required class="form-control" autofocus autocomplete="email">
+
         </div>
         <div class="form-group">
             <label class="form-label" for="password">Password</label>
-            <input type="password" id="password" name="password" required class="form-control">
+            <input type="password" id="password" name="password" required class="form-control" autocomplete="current-password">
+
         </div>
-        <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">Sign In</button>
+        <button type="submit" class="btn-primary">Sign In</button>
+
     </form>
 </div>
 {% endblock %}
