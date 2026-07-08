@@ -12,6 +12,7 @@
     {% block head %}{% endblock %}
 </head>
 <body>
+    {% set show_nav = not hide_nav|default(false) %}
 
     <!-- Flash Messages -->
     <div class="flash-container">
@@ -27,6 +28,7 @@
         {% endwith %}
     </div>
 
+    {% if show_nav %}
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
         <div class="brand">
@@ -140,6 +142,17 @@
                     Payments
                 </a>
             </li>
+            <li>
+                <a href="{{ url_for('production.production') }}" class="nav-link {% if request.path == url_for('production.production') %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 6h18"></path>
+                        <path d="M7 6v12"></path>
+                        <path d="M17 6v12"></path>
+                        <path d="M3 12h18"></path>
+                    </svg>
+                    Production
+                </a>
+            </li>
         </nav>
 
         <div class="sidebar-footer">
@@ -152,8 +165,10 @@
             </a>
         </div>
     </aside>
+    {% endif %}
 
     <!-- Mobile sidebar toggle -->
+    {% if show_nav %}
     <button id="sidebarToggle" class="sidebar-toggle" aria-label="Toggle navigation">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -161,13 +176,16 @@
             <line x1="3" y1="18" x2="21" y2="18"></line>
         </svg>
     </button>
+    {% endif %}
 
     <!-- Main Section -->
-    <main class="main-content">
+    <main class="main-content{% if not show_nav %} full-width{% endif %}">
         {% block content %}{% endblock %}
     </main>
 
+    {% if show_nav %}
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% endif %}
     <script>
         // Automatically fade out flash messages after 4 seconds
         setTimeout(() => {

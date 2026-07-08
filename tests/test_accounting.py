@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Flask
 from models import db, Product, User
 from services.fifo_service import record_purchase, record_sale, record_expense
@@ -60,7 +60,7 @@ class TestAccountingEngine(unittest.TestCase):
             {'account_id': self.accounts['1000'].id, 'debit_amount': 500, 'credit_amount': 0},
             {'account_id': self.accounts['4000'].id, 'debit_amount': 0, 'credit_amount': 500},
         ]
-        entry = post_entry(self.business.id, datetime.utcnow(), 'Test entry', lines, created_by=self.user.id)
+        entry = post_entry(self.business.id, datetime.now(timezone.utc), 'Test entry', lines, created_by=self.user.id)
         self.assertIsInstance(entry, JournalEntry)
         self.assertEqual(entry.description, 'Test entry')
         self.assertEqual(len(entry.lines), 2)
@@ -71,7 +71,7 @@ class TestAccountingEngine(unittest.TestCase):
             {'account_id': self.accounts['4000'].id, 'debit_amount': 0, 'credit_amount': 300},
         ]
         with self.assertRaises(AccountingException):
-            post_entry(self.business.id, datetime.utcnow(), 'Bad entry', lines)
+            post_entry(self.business.id, datetime.now(timezone.utc), 'Bad entry', lines)
     
     def test_post_entry_missing_business_raises(self):
         lines = [
@@ -79,7 +79,7 @@ class TestAccountingEngine(unittest.TestCase):
             {'account_id': self.accounts['4000'].id, 'debit_amount': 0, 'credit_amount': 100},
         ]
         with self.assertRaises(AccountingException):
-            post_entry(None, datetime.utcnow(), 'No business', lines)
+            post_entry(None, datetime.now(timezone.utc), 'No business', lines)
     
     def test_post_entry_inactive_account_raises(self):
         self.accounts['1000'].is_active = False
@@ -89,7 +89,7 @@ class TestAccountingEngine(unittest.TestCase):
             {'account_id': self.accounts['4000'].id, 'debit_amount': 0, 'credit_amount': 100},
         ]
         with self.assertRaises(AccountingException):
-            post_entry(self.business.id, datetime.utcnow(), 'Inactive account', lines)
+            post_entry(self.business.id, datetime.now(timezone.utc), 'Inactive account', lines)
     
     def test_get_ledger_balances(self):
         lines = [
@@ -176,7 +176,7 @@ class TestAccountingEngine(unittest.TestCase):
             {'account_id': self.accounts['4000'].id, 'debit_amount': 0, 'credit_amount': 100},
         ]
         entry = post_entry(
-            self.business.id, datetime.utcnow(), 'Audit test', lines, created_by=self.user.id
+            self.business.id, datetime.now(timezone.utc), 'Audit test', lines, created_by=self.user.id
         )
         
         audit = AuditLog.query.filter_by(table_name='journal_entries', record_id=entry.id).first()

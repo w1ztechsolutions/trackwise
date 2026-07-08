@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Production Batch Details{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>{{ batch.batch_number }}</h2>
+    </div>
+    <p><strong>Product:</strong> {{ batch.product.name if batch.product else '-' }}</p>
+    <p><strong>Status:</strong> {{ batch.status }}</p>
+    <p><strong>Quantity Produced:</strong> {{ batch.quantity_produced }}</p>
+    <p><strong>Production Date:</strong> {{ batch.production_date }}</p>
+    <p><strong>Notes:</strong> {{ batch.notes or '-' }}</p>
+</div>
+
+<div class="card">
+    <h3>Material Usage</h3>
+    {% if batch.material_usages %}
+    <ul>
+        {% for usage in batch.material_usages %}
+        <li>{{ usage.product.name if usage.product else '-' }} — {{ usage.quantity_consumed }} @ {{ usage.unit_cost_at_consumption }}</li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>No material usage recorded yet.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3>Finished Goods Output</h3>
+    {% if batch.outputs %}
+    <ul>
+        {% for output in batch.outputs %}
+        <li>{{ output.product.name if output.product else '-' }} — {{ output.quantity }} @ {{ output.unit_cost }}</li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>No output recorded yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

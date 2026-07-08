@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Flask
 from models import db, Product, StockTransaction, Purchase, Sale, Expense
 from services.fifo_service import (
@@ -55,7 +55,7 @@ class TestFIFOService(unittest.TestCase):
         )
         
         # Verify product quantity
-        p = Product.query.get(p.id)
+        p = db.session.get(Product, p.id)
         self.assertEqual(p.quantity_in_stock, 10)
         
         # Verify FIFO layer is recorded
@@ -72,7 +72,7 @@ class TestFIFOService(unittest.TestCase):
         )
         
         # Verify product quantity is now 20
-        p = Product.query.get(p.id)
+        p = db.session.get(Product, p.id)
         self.assertEqual(p.quantity_in_stock, 20)
         
         # Verify database valuation
@@ -92,7 +92,7 @@ class TestFIFOService(unittest.TestCase):
         )
         
         # Verify product stock level dropped to 8
-        p = Product.query.get(p.id)
+        p = db.session.get(Product, p.id)
         self.assertEqual(p.quantity_in_stock, 8)
         
         # Verify sale stats
@@ -145,7 +145,7 @@ class TestFIFOService(unittest.TestCase):
         
         # Record 5 items
         record_purchase(
-            purchase_date=datetime.utcnow(),
+            purchase_date=datetime.now(timezone.utc),
             supplier="Supplier A",
             notes="Refill",
             items_data=[{'product_id': p.id, 'quantity': 5, 'unit_cost': 50.0}]
@@ -154,7 +154,7 @@ class TestFIFOService(unittest.TestCase):
         # Try to sell 6 items
         with self.assertRaises(InventoryException):
             record_sale(
-                sale_date=datetime.utcnow(),
+                sale_date=datetime.now(timezone.utc),
                 customer_name="Failing Customer",
                 items_data=[{'product_id': p.id, 'quantity': 6, 'unit_price': 100.0}]
             )

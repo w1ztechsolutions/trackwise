@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block title %}Production{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Production Batches</h2>
+    </div>
+    <form method="post" class="stack-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <input type="hidden" name="action" value="create_batch"/>
+        <label>Finished Good
+            <select name="product_id" required>
+                {% for product in products %}
+                <option value="{{ product.id }}">{{ product.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Quantity Produced
+            <input type="number" name="quantity_produced" min="1" required>
+        </label>
+        <label>Notes
+            <textarea name="notes"></textarea>
+        </label>
+        <button type="submit">Create Batch</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Batch History</h3>
+    <div class="table-responsive">
+        <table>
+            <thead><tr><th>Batch</th><th>Product</th><th>Qty</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+                {% for batch in batches %}
+                <tr>
+                    <td>{{ batch.batch_number }}</td>
+                    <td>{{ batch.product.name if batch.product else '-' }}</td>
+                    <td>{{ batch.quantity_produced }}</td>
+                    <td>{{ batch.status }}</td>
+                    <td>
+                        <a href="{{ url_for('production.production_detail', batch_id=batch.id) }}">View</a>
+                        <form method="post" class="inline-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <input type="hidden" name="action" value="consume_material"/>
+                            <input type="hidden" name="production_batch_id" value="{{ batch.id }}"/>
+                            <input type="number" name="quantity" placeholder="Qty" min="1" style="width: 70px;"/>
+                            <input type="number" step="0.01" name="unit_cost" placeholder="Cost" style="width: 80px;"/>
+                            <select name="product_id">
+                                {% for product in products %}
+                                <option value="{{ product.id }}">{{ product.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit">Consume</button>
+                        </form>
+                        <form method="post" class="inline-form" style="margin-top: 6px;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <input type="hidden" name="action" value="complete_batch"/>
+                            <input type="hidden" name="production_batch_id" value="{{ batch.id }}"/>
+                            <input type="number" step="0.01" name="unit_cost" placeholder="Output cost" style="width: 90px;"/>
+                            <button type="submit">Complete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5">No production batches yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

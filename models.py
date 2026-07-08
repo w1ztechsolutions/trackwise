@@ -42,7 +42,7 @@ class Product(db.Model):
 class Purchase(db.Model):
     __tablename__ = 'purchases'
     id = db.Column(db.Integer, primary_key=True)
-    purchase_date = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    purchase_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     supplier = db.Column(db.String(200))
     notes = db.Column(db.Text)
     total_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
@@ -62,7 +62,7 @@ class PurchaseItem(db.Model):
 class Sale(db.Model):
     __tablename__ = 'sales'
     id = db.Column(db.Integer, primary_key=True)
-    sale_date = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    sale_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     customer_name = db.Column(db.String(200))
     total_revenue = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     total_cogs = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
@@ -83,7 +83,7 @@ class SaleItem(db.Model):
 class Expense(db.Model):
     __tablename__ = 'expenses'
     id = db.Column(db.Integer, primary_key=True)
-    expense_date = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    expense_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     category = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     amount = db.Column(db.Numeric(12, 2), nullable=False)
@@ -103,10 +103,10 @@ class StockTransaction(db.Model):
     quantity = db.Column(db.Integer, nullable=False, default=0)
     remaining_quantity = db.Column(db.Integer, nullable=False, default=0)
     unit_cost = db.Column(db.Numeric(12, 2), nullable=False, default=0.0)
-    transaction_type = db.Column(db.String(20), nullable=False, default='PURCHASE')
+    transaction_type = db.Column(db.String(30), nullable=False, default='PURCHASE')
     reference_type = db.Column(db.String(50), nullable=True)
     reference_id = db.Column(db.Integer, nullable=True)
-    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    timestamp = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     product = db.relationship('Product', backref='stock_transactions')
 
 
@@ -136,7 +136,7 @@ class StockMovement(db.Model):
     reference_id = db.Column(db.Integer, nullable=True)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     notes = db.Column(db.Text, nullable=True)
-    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    timestamp = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     product = db.relationship('Product', backref='stock_movements')
     warehouse = db.relationship('Warehouse', backref='stock_movements_destination', foreign_keys=[warehouse_id])
@@ -177,7 +177,7 @@ class Invoice(db.Model):
     business_id = db.Column(db.Integer, nullable=True)
     customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=True)
     invoice_number = db.Column(db.String(60), nullable=True)
-    invoice_date = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    invoice_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     due_date = db.Column(db.DateTime, nullable=True)
     subtotal = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     tax_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
@@ -208,7 +208,7 @@ class Receipt(db.Model):
     business_id = db.Column(db.Integer, nullable=True)
     customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=True)
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoices.id'), nullable=True)
-    receipt_date = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    receipt_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     amount = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     payment_method = db.Column(db.String(30), nullable=False, default='cash')
     reference = db.Column(db.String(100), nullable=True)
@@ -224,7 +224,7 @@ class Bill(db.Model):
     business_id = db.Column(db.Integer, nullable=True)
     supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.id'), nullable=True)
     bill_number = db.Column(db.String(60), nullable=True)
-    bill_date = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    bill_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     due_date = db.Column(db.DateTime, nullable=True)
     subtotal = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     tax_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
@@ -255,7 +255,7 @@ class Payment(db.Model):
     business_id = db.Column(db.Integer, nullable=True)
     supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.id'), nullable=True)
     bill_id = db.Column(db.Integer, db.ForeignKey('bills.id'), nullable=True)
-    payment_date = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    payment_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     amount = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     payment_method = db.Column(db.String(30), nullable=False, default='cash')
     reference = db.Column(db.String(100), nullable=True)
@@ -281,6 +281,46 @@ class User(db.Model, UserMixin):
 
     def get_id(self):
         return str(self.id)
+
+
+class ProductionBatch(db.Model):
+    __tablename__ = 'production_batches'
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, nullable=True)
+    batch_number = db.Column(db.String(60), nullable=False, unique=True)
+    production_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    quantity_produced = db.Column(db.Integer, nullable=False, default=0)
+    status = db.Column(db.String(30), nullable=False, default='planned')
+    notes = db.Column(db.Text, nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    product = db.relationship('Product', backref='production_batches')
+    material_usages = db.relationship('MaterialUsage', backref='production_batch', cascade='all, delete-orphan')
+    outputs = db.relationship('FinishedGoodOutput', backref='production_batch', cascade='all, delete-orphan')
+
+
+class MaterialUsage(db.Model):
+    __tablename__ = 'material_usages'
+    id = db.Column(db.Integer, primary_key=True)
+    production_batch_id = db.Column(db.Integer, db.ForeignKey('production_batches.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    quantity_consumed = db.Column(db.Integer, nullable=False, default=0)
+    unit_cost_at_consumption = db.Column(db.Numeric(12, 2), nullable=False, default=0.0)
+
+    product = db.relationship('Product', backref='material_usages')
+
+
+class FinishedGoodOutput(db.Model):
+    __tablename__ = 'finished_good_outputs'
+    id = db.Column(db.Integer, primary_key=True)
+    production_batch_id = db.Column(db.Integer, db.ForeignKey('production_batches.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False, default=0)
+    unit_cost = db.Column(db.Numeric(12, 2), nullable=False, default=0.0)
+
+    product = db.relationship('Product', backref='finished_good_outputs')
 
 
 from app.models.accounting import Business, ChartOfAccounts, JournalEntry, JournalLine, AuditLog

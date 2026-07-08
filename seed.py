@@ -193,8 +193,9 @@ def seed_demo_data():
 
 
 if __name__ == '__main__':
+    from flask_migrate import upgrade
     app = create_app()
     with app.app_context():
-        db.create_all()
+        upgrade()
         seed_demo_data()
         print("Demo data seeded successfully.")

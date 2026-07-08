@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import flash, redirect, render_template, request, url_for
 from flask_login import login_required, current_user
@@ -54,7 +54,7 @@ def payments():
         payment = Payment(
             business_id=getattr(current_user, 'business_id', None),
             supplier_id=supplier.id,
-            payment_date=datetime.utcnow(),
+            payment_date=datetime.now(timezone.utc),
             amount=float(amount),
             payment_method=payment_method or 'cash',
             reference=reference or None,

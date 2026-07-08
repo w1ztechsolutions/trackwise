@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 from models import db, ChartOfAccounts, JournalEntry, JournalLine, AuditLog, User
 
@@ -35,7 +35,7 @@ def post_entry(business_id, entry_date, description, lines, reference_type=None,
 
     entry = JournalEntry(
         business_id=business_id,
-        entry_date=entry_date or datetime.utcnow(),
+        entry_date=entry_date or datetime.now(timezone.utc),
         reference_type=reference_type,
         reference_id=reference_id,
         description=description,

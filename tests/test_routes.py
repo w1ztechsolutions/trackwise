@@ -226,6 +226,15 @@ class TestSettingsRoutes:
             assert b'25.0' in resp.data or b'updated' in resp.data.lower()
 
 
+class TestAuthRoutes:
+    def test_login_page_hides_sidebar(self, client):
+        resp = client.get('/login')
+        assert resp.status_code == 200
+        assert b'Welcome to TrackWise' in resp.data
+        assert b'<aside class="sidebar">' not in resp.data
+        assert b'nav-menu' not in resp.data
+
+
 class TestAccountingAPI:
     def test_verify_endpoint_no_auth(self, client):
         resp = client.get('/api/accounting/verify')

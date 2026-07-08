@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from models import db
 
@@ -10,7 +10,7 @@ class Business(db.Model):
     name = db.Column(db.String(200), nullable=False)
     tax_id = db.Column(db.String(100), nullable=True)
     currency = db.Column(db.String(10), nullable=False, default='MWK')
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
 class ChartOfAccounts(db.Model):
@@ -34,12 +34,12 @@ class JournalEntry(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'), nullable=False)
-    entry_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    entry_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     reference_type = db.Column(db.String(50), nullable=True)
     reference_id = db.Column(db.Integer, nullable=True)
     description = db.Column(db.Text, nullable=False)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     lines = db.relationship('JournalLine', backref='journal_entry', cascade='all, delete-orphan')
 
@@ -67,4 +67,4 @@ class AuditLog(db.Model):
     record_id = db.Column(db.Integer, nullable=True)
     old_values = db.Column(db.Text, nullable=True)
     new_values = db.Column(db.Text, nullable=True)
-    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))

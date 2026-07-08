@@ -1,9 +1,18 @@
+import importlib.util
 import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_wtf import CSRFProtect
+from dotenv import load_dotenv
+
+_PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+for _env_path in (os.path.join(os.getcwd(), ".env"), os.path.join(_PROJECT_ROOT, ".env")):
+    if os.path.exists(_env_path):
+        load_dotenv(_env_path, override=False)
+        break
 
 from app.models import db as _db
 from config import DevelopmentConfig, ProductionConfig, TestingConfig
@@ -24,10 +33,14 @@ def create_app(config_object=None):
     )
 
     default_sqlite = "sqlite:///" + os.path.join(app.instance_path, "trackwise.db")
-    app.config.setdefault(
-        "SQLALCHEMY_DATABASE_URI",
-        os.environ.get("DATABASE_URL", default_sqlite),
-    )
+    if "SQLALCHEMY_DATABASE_URI" not in app.config:
+        if os.environ.get("DATABASE_URL"):
+            uri = os.environ["DATABASE_URL"]
+            if uri.startswith("postgresql://"):
+                uri = uri.replace("postgresql://", "postgresql+psycopg://", 1)
+        else:
+            uri = default_sqlite
+        app.config["SQLALCHEMY_DATABASE_URI"] = uri
 
     app.config.setdefault("SQLALCHEMY_TRACK_MODIFICATIONS", False)
 
@@ -42,6 +55,9 @@ def create_app(config_object=None):
 
     if config_object is not None:
         app.config.from_object(config_object)
+
+    if app.config.get("SQLALCHEMY_DATABASE_URI", "").startswith("postgresql") and not (importlib.util.find_spec("psycopg2") is not None or importlib.util.find_spec("psycopg") is not None):
+        app.config["SQLALCHEMY_DATABASE_URI"] = default_sqlite
 
     os.makedirs(app.instance_path, exist_ok=True)
 
@@ -61,6 +77,7 @@ def create_app(config_object=None):
     from .settings import settings_bp as _settings_bp
     from .api import api_bp as _api_bp
     from .auth import auth_bp as _auth_bp
+    from .production import production_bp as _production_bp
 
     app.register_blueprint(_auth_bp)
     app.register_blueprint(_dashboard_bp)
@@ -71,6 +88,7 @@ def create_app(config_object=None):
     app.register_blueprint(_reports_bp)
     app.register_blueprint(_settings_bp)
     app.register_blueprint(_api_bp)
+    app.register_blueprint(_production_bp)
 
     app.url_map.strict_slashes = False
 

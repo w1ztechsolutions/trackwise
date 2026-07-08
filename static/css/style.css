@@ -1,5 +1,52 @@
 /* Existing styles preserved, with additions below */
 
+body {
+    margin: 0;
+    background: #0f172a;
+    color: #f8fafc;
+}
+
+.main-content {
+    margin-left: 260px;
+    min-height: 100vh;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+.main-content.full-width {
+    margin-left: 0;
+    padding: 24px;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.nav-link svg,
+.brand-icon svg,
+.sidebar-toggle svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    display: block;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+
 /* Loading spinner */
 .loading-overlay {
     position: fixed;

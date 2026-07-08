@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Flask
 
@@ -28,7 +28,7 @@ def test_record_stock_count_creates_adjustment_for_variance():
                 quantity=10,
                 remaining_quantity=10,
                 unit_cost=5.0,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
             )
         )
 
@@ -75,7 +75,7 @@ def test_transfer_stock_creates_movement_between_warehouses():
                 quantity=10,
                 remaining_quantity=10,
                 unit_cost=5.0,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
             )
         )
 

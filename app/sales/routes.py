@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from flask_login import login_required, current_user
 from flask import flash, redirect, render_template, request, url_for
 
@@ -59,13 +59,13 @@ def invoices():
             flash('Please select a customer and at least one item.', 'danger')
             return redirect(url_for('sales.invoices'))
 
-        invoice_date = datetime.fromisoformat(invoice_date_str) if invoice_date_str else datetime.utcnow()
+        invoice_date = datetime.fromisoformat(invoice_date_str) if invoice_date_str else datetime.now(timezone.utc)
         due_date = datetime.fromisoformat(due_date_str) if due_date_str else invoice_date
 
         invoice = Invoice(
             business_id=getattr(current_user, 'business_id', None),
             customer_id=int(customer_id),
-            invoice_number=f"INV-{invoice_date.strftime('%Y%m%d')}-{datetime.utcnow().strftime('%H%M%S')}",
+            invoice_number=f"INV-{invoice_date.strftime('%Y%m%d')}-{datetime.now(timezone.utc).strftime('%H%M%S')}",
             invoice_date=invoice_date,
             due_date=due_date,
             subtotal=sum(float(item['quantity']) * float(item['unit_price']) for item in items_data),

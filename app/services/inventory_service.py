@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional
 
@@ -98,7 +98,7 @@ def adjust_stock(
         raise InventoryServiceException("adjustment_type must be IN or OUT")
 
     qty = _ensure_positive_int(quantity, 'quantity')
-    ts = timestamp or datetime.utcnow()
+    ts = timestamp or datetime.now(timezone.utc)
 
     product = db.session.get(Product, product_id)
     if not product:
@@ -286,7 +286,7 @@ def transfer_stock(
     if from_warehouse_id == to_warehouse_id:
         raise InventoryServiceException("from_warehouse_id and to_warehouse_id must be different")
 
-    ts = timestamp or datetime.utcnow()
+    ts = timestamp or datetime.now(timezone.utc)
 
     product = db.session.get(Product, product_id)
     if not product:
@@ -382,7 +382,7 @@ def get_valuation_by_warehouse(*, business_id: int | None, warehouse_id: int | N
 
     Returns list of {product, warehouse_id, quantity, valuation}.
     """
-    q = db.session.query(StockMovement).filter(StockMovement.product_id != None)  # noqa: E711
+    q = db.session.query(StockMovement).filter(StockMovement.product_id.isnot(None))
 
     if business_id is not None:
         q = q.filter(StockMovement.business_id == business_id)
