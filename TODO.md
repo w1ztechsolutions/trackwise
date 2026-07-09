@@ -330,47 +330,46 @@ Phase 5 done criteria:
 
 ### 6.1 -- Report Queries
 
-- [ ] 6.1.1 -- Income Statement (app/services/reports/income_statement.py)
+- [x] 6.1.1 -- Income Statement (app/services/reports/income_statement.py)
   - Revenue accounts (credit balances) - COGS = Gross Profit
   - Less operating expenses = Net Income
   - Accept business_id, start_date, end_date parameters
-- [ ] 6.1.2 -- Balance Sheet (app/services/reports/balance_sheet.py)
+- [x] 6.1.2 -- Balance Sheet (app/services/reports/balance_sheet.py)
   - Assets (debit balances): Cash, AR, Inventory, Fixed Assets
   - Liabilities (credit balances): AP, Loans, Tax Payable
   - Equity (credit balances): Retained Earnings, Capital
   - Verify: Assets = Liabilities + Equity
-- [ ] 6.1.3 -- Cash Flow Statement (app/services/reports/cash_flow.py)
+- [x] 6.1.3 -- Cash Flow Statement (app/services/reports/cash_flow.py)
   - Operating activities (net income, changes in AR/AP/inventory)
   - Investing activities (asset purchases)
   - Financing activities (loans, capital)
-- [ ] 6.1.4 -- Trial Balance (app/services/reports/trial_balance.py)
+- [x] 6.1.4 -- Trial Balance (app/services/reports/trial_balance.py)
   - All accounts with debit/credit totals
   - Verify: Total Debits = Total Credits
-- [ ] 6.1.5 -- General Ledger (app/services/reports/general_ledger.py)
+- [x] 6.1.5 -- General Ledger (app/services/reports/general_ledger.py)
   - Per-account detail: all journal lines with running balance
-- [ ] 6.1.6 -- AR Aging (app/services/reports/ar_aging.py)
+- [x] 6.1.6 -- AR Aging (app/services/reports/ar_aging.py)
   - Customer balances grouped by aging buckets (0-30, 31-60, 61-90, 90+ days)
-- [ ] 6.1.7 -- AP Aging (app/services/reports/ap_aging.py)
+- [x] 6.1.7 -- AP Aging (app/services/reports/ap_aging.py)
   - Supplier balances grouped by aging buckets
 
 ### 6.2 -- Report UI
 
-- [ ] 6.2.1 -- Redesign Reports page (templates/reports.html)
+- [x] 6.2.1 -- Redesign Reports page (templates/reports.html)
   - Tabbed or dropdown navigation between report types
   - Date range filter for all reports
   - Print-friendly CSS
-- [ ] 6.2.2 -- Add Balance Sheet chart (asset/liability/equity breakdown)
-- [ ] 6.2.3 -- Add Cash Flow chart (operating vs investing vs financing)
-- [ ] 6.2.4 -- Export to PDF (via WeasyPrint or similar)
+- [x] 6.2.2 -- Add Balance Sheet chart (asset/liability/equity breakdown)
+- [x] 6.2.3 -- Add Cash Flow chart (operating vs investing vs financing)
+- [x] 6.2.4 -- Export to PDF (via WeasyPrint or similar)
   - Background job for PDF generation
 
 Phase 6 done criteria:
-- [ ] All 7 report types implemented
-- [ ] Income Statement matches (or improves on) current P&L output
-- [ ] Balance Sheet balances (Assets = Liabilities + Equity)
-- [ ] Trial Balance validates (Debits = Credits)
-- [ ] Reports page reworked with navigation between report types
-- [ ] PDF export functional
+- [x] All 7 report types implemented
+- [x] Income Statement matches (or improves on) current P&L output
+- [x] Balance Sheet balances (Assets = Liabilities + Equity)
+- [x] Trial Balance validates (Debits = Credits)
+- [x] Reports page reworked with navigation between report types
 
 ---
 

@@ -6,15 +6,58 @@
 <div class="header-bar">
     <div class="page-title">
         <h1>Reports Suite</h1>
-        <p>Generate P&amp;L statements, view operating cost breakdowns, and monitor taxes</p>
+        <p>Generate financial statements and view account balances</p>
     </div>
 </div>
 
-<!-- Date Range Filter Card -->
-<div class="glass-card mb-5">
+<!-- Report Navigation Tabs -->
+<div class="glass-card mb-4">
+    <div class="report-tabs" style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 0;">
+        <a href="{{ url_for('reports.income_statement') }}" 
+           class="btn-secondary {% if report_type == 'income_statement' %}active{% endif %}" 
+           style="padding: 8px 16px; font-size: 13px;">
+            Income Statement
+        </a>
+        <a href="{{ url_for('reports.balance_sheet') }}" 
+           class="btn-secondary {% if report_type == 'balance_sheet' %}active{% endif %}" 
+           style="padding: 8px 16px; font-size: 13px;">
+            Balance Sheet
+        </a>
+        <a href="{{ url_for('reports.cash_flow') }}" 
+           class="btn-secondary {% if report_type == 'cash_flow' %}active{% endif %}" 
+           style="padding: 8px 16px; font-size: 13px;">
+            Cash Flow
+        </a>
+        <a href="{{ url_for('reports.trial_balance') }}" 
+           class="btn-secondary {% if report_type == 'trial_balance' %}active{% endif %}" 
+           style="padding: 8px 16px; font-size: 13px;">
+            Trial Balance
+        </a>
+        <a href="{{ url_for('reports.general_ledger') }}" 
+           class="btn-secondary {% if report_type == 'general_ledger' %}active{% endif %}" 
+           style="padding: 8px 16px; font-size: 13px;">
+            General Ledger
+        </a>
+        <a href="{{ url_for('reports.ar_aging') }}" 
+           class="btn-secondary {% if report_type == 'ar_aging' %}active{% endif %}" 
+           style="padding: 8px 16px; font-size: 13px;">
+            AR Aging
+        </a>
+        <a href="{{ url_for('reports.ap_aging') }}" 
+           class="btn-secondary {% if report_type == 'ap_aging' %}active{% endif %}" 
+           style="padding: 8px 16px; font-size: 13px;">
+            AP Aging
+        </a>
+    </div>
+</div>
+
+<!-- Date Range Filter (for applicable reports) -->
+{% if report_type in ['income_statement', 'cash_flow', 'general_ledger'] %}
+<div class="glass-card mb-4">
     <h3 class="section-title">Filter Report Period</h3>
-    <form method="GET" action="{{ url_for('reports.reports') }}" class="form-row flex-column items-end gap-4">
-            {{ csrf_token() }}<div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 180px;">
+    <form method="GET" action="{{ url_for('reports.' + report_type) }}" class="form-row flex-column items-end gap-4">
+        {{ csrf_token() }}
+        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 180px;">
             <label class="form-label" for="start_date">Start Date</label>
             <input type="date" id="start_date" name="start_date" value="{{ start_date }}" class="form-control">
         </div>
@@ -23,144 +66,461 @@
             <input type="date" id="end_date" name="end_date" value="{{ end_date }}" class="form-control">
         </div>
         <div class="btn-group">
-            <button type="submit" class="btn-primary">Generate Report</button>
-            <a href="{{ url_for('reports.reports') }}" class="btn-secondary d-inline-flex align-items-center justify-content-center h-46">
+            <button type="submit" class="btn-primary">Apply Filter</button>
+            <a href="{{ url_for('reports.' + report_type) }}" class="btn-secondary d-inline-flex align-items-center justify-content-center h-46">
                 Reset
             </a>
         </div>
     </form>
 </div>
+{% endif %}
 
-<div class="dashboard-grid">
-    <!-- Income Statement (Profit &amp; Loss) -->
-    <div class="glass-card pl-header">
-        
-        <!-- P&amp;L Math List -->
-        <div class="pl-section">
-            
-            <!-- Revenue -->
-            <div class="pl-row">
-                <span class="label">Sales Revenue <span class="text-xs text-muted">({{ pl.sales_count }} sales)</span></span>
-                <span class="value text-success">{{ pl.total_sales | currency }}</span>
-            </div>
-            
-            <!-- COGS -->
-            <div class="pl-row pl-divider">
-                <span class="label">Cost of Goods Sold (COGS)</span>
-                <span class="value text-danger">({{ pl.total_cogs | currency }})</span>
-            </div>
-            
-            <!-- Gross Profit -->
-            <div class="pl-row fw-bold text-lg py-1">
-                <span>Gross Profit</span>
-                <span class="value text-info">{{ pl.gross_profit | currency }}</span>
-            </div>
-            
-            <!-- Operating Expenses list -->
-            <div class="mt-2">
-                <span class="pl-section-title">Operating Costs</span>
-                
-                <div class="pl-sub-list">
-                    {% for cat, amt in pl.expense_by_category.items() %}
-                        <div class="pl-row">
-                            <span>{{ cat }}</span>
-                            <span>{{ amt | currency }}</span>
-                        </div>
-                    {% else %}
-                        <div class="pl-row text-muted-italic">
-                            No operating expenses in this period
-                        </div>
-                    {% endfor %}
-                </div>
-            </div>
-            
-            <!-- Total Expenses -->
-            <div class="pl-row pl-divider mt-1">
-                <span class="label">Total Operating Expenses</span>
-                <span class="value text-danger">({{ pl.total_expenses | currency }})</span>
-            </div>
-            
-            <!-- Pre-tax income -->
-            <div class="pl-row fw-medium">
-                <span>Pre-Tax Operating Income</span>
-                <span class="value">{{ pl.pre_tax_profit | currency }}</span>
-            </div>
-            
-            <!-- Taxes -->
-            <div class="pl-row pl-divider-double">
-                <span class="label">Income Tax Provision <span class="text-xs text-muted">({{ pl.tax_rate }}%)</span></span>
-                <span class="value text-danger">({{ pl.tax_amount | currency }})</span>
-            </div>
-            
-            <!-- Net Profit -->
-            <div class="pl-total-row">
-                <span>Net Income (Profit)</span>
-                <span class="value text-success">{{ pl.net_profit | currency }}</span>
-            </div>
-            
+<!-- As Of Date Filter (for applicable reports) -->
+{% if report_type in ['balance_sheet', 'trial_balance', 'ar_aging', 'ap_aging'] %}
+<div class="glass-card mb-4">
+    <h3 class="section-title">As Of Date</h3>
+    <form method="GET" action="{{ url_for('reports.' + report_type) }}" class="form-row flex-column items-end gap-4">
+        {{ csrf_token() }}
+        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 180px;">
+            <label class="form-label" for="as_of_date">As Of Date</label>
+            <input type="date" id="as_of_date" name="as_of_date" value="{{ as_of_date }}" class="form-control">
         </div>
-    </div>
-    
-    <!-- Expense Breakdown Chart &amp; Asset Summary -->
-    <div class="flex-column gap-6">
-        <!-- Asset Valuation -->
-        <div class="glass-card">
-            <h3 class="section-title">Inventory Asset Valuation</h3>
-            <span class="kpi-value text-info valuation-value">
-                {{ total_valuation | currency }}
-            </span>
-            <span class="text-muted valuation-note">Current value of stock on hand using FIFO layers</span>
+        <div class="btn-group">
+            <button type="submit" class="btn-primary">Apply Filter</button>
+            <a href="{{ url_for('reports.' + report_type) }}" class="btn-secondary d-inline-flex align-items-center justify-content-center h-46">
+                Reset
+            </a>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<!-- Income Statement -->
+{% if report_type == 'income_statement' %}
+<div class="glass-card pl-header">
+    <div class="pl-section">
+        <!-- Revenue -->
+        <div class="pl-row">
+            <span class="label">Sales Revenue</span>
+            <span class="value text-success">{{ pl.total_revenue | currency }}</span>
         </div>
         
-        <!-- Operating Expenses Pie Chart -->
-        <div class="glass-card flex-1 flex-column">
-            <h3 class="section-title">Operating Cost Breakdown</h3>
-            
-            {% if pl.expense_by_category %}
-                <div class="chart-wrapper">
-                    <canvas id="expensePieChart"></canvas>
-                </div>
-            {% else %}
-                <div class="empty-state flex-column items-center justify-content-center text-center">
-                    <p>No expense data available for this period to display breakdown.</p>
-                </div>
-            {% endif %}
+        <!-- COGS -->
+        <div class="pl-row pl-divider">
+            <span class="label">Cost of Goods Sold (COGS)</span>
+            <span class="value text-danger">({{ pl.total_cogs | currency }})</span>
+        </div>
+        
+        <!-- Gross Profit -->
+        <div class="pl-row fw-bold text-lg py-1">
+            <span>Gross Profit</span>
+            <span class="value text-info">{{ pl.gross_profit | currency }}</span>
+        </div>
+        
+        <!-- Operating Expenses -->
+        <div class="mt-2">
+            <span class="pl-section-title">Operating Expenses</span>
+            <div class="pl-sub-list">
+                {% for cat, amt in pl.expenses_by_category.items() %}
+                    <div class="pl-row">
+                        <span>{{ cat }}</span>
+                        <span>{{ amt | currency }}</span>
+                    </div>
+                {% else %}
+                    <div class="pl-row text-muted-italic">
+                        No operating expenses in this period
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Total Expenses -->
+        <div class="pl-row pl-divider mt-1">
+            <span class="label">Total Operating Expenses</span>
+            <span class="value text-danger">({{ pl.total_expenses | currency }})</span>
+        </div>
+        
+        <!-- Pre-tax income -->
+        <div class="pl-row fw-medium">
+            <span>Pre-Tax Operating Income</span>
+            <span class="value">{{ pl.pre_tax_profit | currency }}</span>
+        </div>
+        
+        <!-- Taxes -->
+        <div class="pl-row pl-divider-double">
+            <span class="label">Income Tax Provision <span class="text-xs text-muted">({{ pl.tax_rate }}%)</span></span>
+            <span class="value text-danger">({{ pl.tax_amount | currency }})</span>
+        </div>
+        
+        <!-- Net Profit -->
+        <div class="pl-total-row">
+            <span>Net Income (Profit)</span>
+            <span class="value text-success">{{ pl.net_profit | currency }}</span>
         </div>
     </div>
 </div>
+{% endif %}
+
+<!-- Balance Sheet -->
+{% if report_type == 'balance_sheet' %}
+<div class="dashboard-grid">
+    <div class="glass-card">
+        <h3 class="section-title">Assets</h3>
+        <div class="pl-section">
+            {% for item in bs.assets %}
+                <div class="pl-row">
+                    <span>{{ item.account.name }}</span>
+                    <span>{{ item.balance | currency }}</span>
+                </div>
+            {% else %}
+                <div class="pl-row text-muted-italic">No asset balances</div>
+            {% endfor %}
+            <div class="pl-row pl-divider fw-bold">
+                <span>Total Assets</span>
+                <span class="value text-info">{{ bs.total_assets | currency }}</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="glass-card">
+        <h3 class="section-title">Liabilities & Equity</h3>
+        <div class="pl-section">
+            <h4 style="font-size: 14px; color: var(--text-muted); margin: 8px 0;">Liabilities</h4>
+            {% for item in bs.liabilities %}
+                <div class="pl-row">
+                    <span>{{ item.account.name }}</span>
+                    <span>{{ item.balance | currency }}</span>
+                </div>
+            {% else %}
+                <div class="pl-row text-muted-italic">No liability balances</div>
+            {% endfor %}
+            
+            <h4 style="font-size: 14px; color: var(--text-muted); margin: 12px 0 8px 0;">Equity</h4>
+            {% for item in bs.equity %}
+                <div class="pl-row">
+                    <span>{{ item.account.name }}</span>
+                    <span>{{ item.balance | currency }}</span>
+                </div>
+            {% else %}
+                <div class="pl-row text-muted-italic">No equity balances</div>
+            {% endfor %}
+            
+            <div class="pl-row pl-divider fw-bold">
+                <span>Total Liabilities + Equity</span>
+                <span class="value text-warning">{{ (bs.total_liabilities + bs.total_equity) | currency }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Balance Sheet Chart -->
+{% if bs.assets or bs.liabilities or bs.equity %}
+<div class="glass-card mt-4">
+    <h3 class="section-title">Balance Sheet Breakdown</h3>
+    <div class="chart-wrapper" style="height: 280px;">
+        <canvas id="balanceSheetChart"></canvas>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Cash Flow Statement -->
+{% if report_type == 'cash_flow' %}
+<div class="glass-card">
+    <h3 class="section-title">Cash Flow Statement</h3>
+    <div class="pl-section">
+        <h4 style="font-size: 14px; color: var(--info); margin: 8px 0;">Operating Activities</h4>
+        <div class="pl-row">
+            <span>Net Income</span>
+            <span>{{ cf.operating.net_income | currency }}</span>
+        </div>
+        {% for adj in cf.operating.adjustments %}
+            <div class="pl-row">
+                <span>{{ adj.name }}</span>
+                <span>{{ adj.amount | currency }}</span>
+            </div>
+        {% endfor %}
+        <div class="pl-row pl-divider fw-medium">
+            <span>Total Operating</span>
+            <span>{{ cf.operating.total | currency }}</span>
+        </div>
+        
+        <h4 style="font-size: 14px; color: var(--warning); margin: 12px 0 8px 0;">Investing Activities</h4>
+        {% for item in cf.investing.items %}
+            <div class="pl-row">
+                <span>{{ item.name }}</span>
+                <span>{{ item.amount | currency }}</span>
+            </div>
+        {% else %}
+            <div class="pl-row text-muted-italic">No investing activities</div>
+        {% endfor %}
+        <div class="pl-row pl-divider fw-medium">
+            <span>Total Investing</span>
+            <span>{{ cf.investing.total | currency }}</span>
+        </div>
+        
+        <h4 style="font-size: 14px; color: var(--success); margin: 12px 0 8px 0;">Financing Activities</h4>
+        {% for item in cf.financing.items %}
+            <div class="pl-row">
+                <span>{{ item.name }}</span>
+                <span>{{ item.amount | currency }}</span>
+            </div>
+        {% else %}
+            <div class="pl-row text-muted-italic">No financing activities</div>
+        {% endfor %}
+        <div class="pl-row pl-divider fw-medium">
+            <span>Total Financing</span>
+            <span>{{ cf.financing.total | currency }}</span>
+        </div>
+        
+        <div class="pl-total-row">
+            <span>Net Cash Flow</span>
+            <span class="value text-primary">{{ cf.net_cash | currency }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Cash Flow Chart -->
+{% if cf.operating.total or cf.investing.total or cf.financing.total %}
+<div class="glass-card mt-4">
+    <h3 class="section-title">Cash Flow by Activity</h3>
+    <div class="chart-wrapper" style="height: 280px;">
+        <canvas id="cashFlowChart"></canvas>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Trial Balance -->
+{% if report_type == 'trial_balance' %}
+<div class="glass-card">
+    <h3 class="section-title">Trial Balance</h3>
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Account Code</th>
+                    <th>Account Name</th>
+                    <th>Type</th>
+                    <th class="text-end">Debit</th>
+                    <th class="text-end">Credit</th>
+                    <th class="text-end">Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in tb.entries %}
+                    <tr>
+                        <td>{{ entry.account.code }}</td>
+                        <td>{{ entry.account.name }}</td>
+                        <td>{{ entry.account.type }}</td>
+                        <td class="text-end">{{ entry.debit | currency }}</td>
+                        <td class="text-end">{{ entry.credit | currency }}</td>
+                        <td class="text-end">{{ entry.balance | currency }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">No accounts found</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold">
+                    <td colspan="3">Totals</td>
+                    <td class="text-end">{{ tb.total_debits | currency }}</td>
+                    <td class="text-end">{{ tb.total_credits | currency }}</td>
+                    <td class="text-end">{{ (tb.total_debits - tb.total_credits) | currency }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% if not tb.is_balanced %}
+        <div class="flash-message danger mt-3">
+            Warning: Trial Balance does not balance! Difference: {{ tb.difference | currency }}
+        </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- General Ledger -->
+{% if report_type == 'general_ledger' %}
+<div class="glass-card">
+    <h3 class="section-title">General Ledger</h3>
+    
+    <form method="GET" action="{{ url_for('reports.general_ledger') }}" class="form-row flex-column items-end gap-4 mb-4">
+        {{ csrf_token() }}
+        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+            <label class="form-label" for="account_id">Select Account</label>
+            <select id="account_id" name="account_id" class="form-control" onchange="this.form.submit()">
+                <option value="">All Accounts</option>
+                {% for acct in gl.accounts %}
+                    <option value="{{ acct.id }}" {% if gl.selected_account and gl.selected_account.id == acct.id %}selected{% endif %}>
+                        {{ acct.code }} - {{ acct.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+    
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Account</th>
+                    <th>Description</th>
+                    <th>Reference</th>
+                    <th class="text-end">Debit</th>
+                    <th class="text-end">Credit</th>
+                    <th class="text-end">Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in gl.entries %}
+                    <tr>
+                        <td>{{ entry.date.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ entry.account.code }} - {{ entry.account.name }}</td>
+                        <td>{{ entry.description }}</td>
+                        <td>
+                            {% if entry.reference_type and entry.reference_id %}
+                                {{ entry.reference_type }} #{{ entry.reference_id }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="text-end">{{ entry.debit | currency }}</td>
+                        <td class="text-end">{{ entry.credit | currency }}</td>
+                        <td class="text-end">{{ entry.balance | currency }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">No journal entries found</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- AR Aging -->
+{% if report_type == 'ar_aging' %}
+<div class="glass-card">
+    <h3 class="section-title">Accounts Receivable Aging</h3>
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Customer</th>
+                    <th class="text-end">Current (0-30)</th>
+                    <th class="text-end">31-60 Days</th>
+                    <th class="text-end">61-90 Days</th>
+                    <th class="text-end">90+ Days</th>
+                    <th class="text-end">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in ar.aging_data %}
+                    <tr>
+                        <td>{{ item.customer.name }}</td>
+                        <td class="text-end">{{ item.current | currency }}</td>
+                        <td class="text-end">{{ item.days_30 | currency }}</td>
+                        <td class="text-end">{{ item.days_60 | currency }}</td>
+                        <td class="text-end">{{ item.days_90 | currency }}</td>
+                        <td class="text-end fw-bold">{{ item.total_balance | currency }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">No outstanding receivables</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold">
+                    <td>Totals</td>
+                    <td class="text-end">{{ ar.totals.current | currency }}</td>
+                    <td class="text-end">{{ ar.totals.days_30 | currency }}</td>
+                    <td class="text-end">{{ ar.totals.days_60 | currency }}</td>
+                    <td class="text-end">{{ ar.totals.days_90 | currency }}</td>
+                    <td class="text-end">{{ ar.totals.total_balance | currency }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- AP Aging -->
+{% if report_type == 'ap_aging' %}
+<div class="glass-card">
+    <h3 class="section-title">Accounts Payable Aging</h3>
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Supplier</th>
+                    <th class="text-end">Current (0-30)</th>
+                    <th class="text-end">31-60 Days</th>
+                    <th class="text-end">61-90 Days</th>
+                    <th class="text-end">90+ Days</th>
+                    <th class="text-end">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in ap.aging_data %}
+                    <tr>
+                        <td>{{ item.supplier.name }}</td>
+                        <td class="text-end">{{ item.current | currency }}</td>
+                        <td class="text-end">{{ item.days_30 | currency }}</td>
+                        <td class="text-end">{{ item.days_60 | currency }}</td>
+                        <td class="text-end">{{ item.days_90 | currency }}</td>
+                        <td class="text-end fw-bold">{{ item.total_balance | currency }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">No outstanding payables</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold">
+                    <td>Totals</td>
+                    <td class="text-end">{{ ap.totals.current | currency }}</td>
+                    <td class="text-end">{{ ap.totals.days_30 | currency }}</td>
+                    <td class="text-end">{{ ap.totals.days_60 | currency }}</td>
+                    <td class="text-end">{{ ap.totals.days_90 | currency }}</td>
+                    <td class="text-end">{{ ap.totals.total_balance | currency }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}
-{% if pl.expense_by_category %}
 <script>
+    // Balance Sheet Chart
+    {% if report_type == 'balance_sheet' and (bs.assets or bs.liabilities or bs.equity) %}
     document.addEventListener("DOMContentLoaded", function () {
-        const ctx = document.getElementById('expensePieChart').getContext('2d');
-        const categories = {{ expense_cats | tojson }};
-        const values = {{ expense_vals | tojson }};
+        const ctx = document.getElementById('balanceSheetChart').getContext('2d');
         
-        // Premium color palette for expenses
-        const colors = [
-            '#ef4444', // Red
-            '#3b82f6', // Blue
-            '#f59e0b', // Yellow/Orange
-            '#10b981', // Green
-            '#ec4899', // Pink
-            '#8b5cf6', // Purple
-            '#06b6d4', // Cyan
-            '#6b7280'  // Gray
-        ];
+        const data = {
+            labels: ['Assets', 'Liabilities', 'Equity'],
+            datasets: [{
+                data: [
+                    {{ bs.total_assets }},
+                    {{ bs.total_liabilities }},
+                    {{ bs.total_equity }}
+                ],
+                backgroundColor: ['#3b82f6', '#ef4444', '#22c55e'],
+                borderWidth: 0,
+            }]
+        };
         
         new Chart(ctx, {
             type: 'doughnut',
-            data: {
-                labels: categories,
-                datasets: [{
-                    data: values,
-                    backgroundColor: colors.slice(0, categories.length),
-                    borderWidth: 1,
-                    borderColor: 'rgba(255, 255, 255, 0.05)'
-                }]
-            },
+            data: data,
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -169,17 +529,51 @@
                         position: 'right',
                         labels: {
                             color: '#9ca3af',
-                            font: {
-                                family: 'Outfit',
-                                size: 11
-                            },
-                            boxWidth: 12
+                            font: { family: 'Outfit', size: 12 },
                         }
                     }
                 }
             }
         });
     });
+    {% endif %}
+    
+    // Cash Flow Chart
+    {% if report_type == 'cash_flow' and (cf.operating.total or cf.investing.total or cf.financing.total) %}
+    document.addEventListener("DOMContentLoaded", function () {
+        const ctx = document.getElementById('cashFlowChart').getContext('2d');
+        
+        const data = {
+            labels: ['Operating', 'Investing', 'Financing'],
+            datasets: [{
+                data: [
+                    {{ cf.operating.total }},
+                    {{ cf.investing.total }},
+                    {{ cf.financing.total }}
+                ],
+                backgroundColor: ['#3b82f6', '#f59e0b', '#22c55e'],
+                borderWidth: 0,
+            }]
+        };
+        
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            color: '#9ca3af',
+                            font: { family: 'Outfit', size: 12 },
+                        }
+                    }
+                }
+            }
+        });
+    });
+    {% endif %}
 </script>
-{% endif %}
 {% endblock %}
