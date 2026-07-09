@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Git
+.git/
+.gitignore
+
+# Development files
+seed.py
+verify_db.py
+temp_out.txt
+_apply_phase1.py
+_read.ps1
+TODO.md
+UPGRADE.md
+ARCHITECTURE.md
+
+# Local instance
+instance/
+
+# Docker files (not needed for Vercel)
+Dockerfile
+docker-compose.yml
+
+# Deployment configs for other platforms
+deploy/
+
+# Scripts (optional - keep if needed)
+scripts/migrate.py

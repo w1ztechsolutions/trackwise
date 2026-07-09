@@ -1,6 +1,6 @@
 import importlib
 import os
-from flask import Flask, g
+from flask import Flask, g, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
@@ -9,7 +9,20 @@ from dotenv import load_dotenv
 
 _PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
-for _env_path in (os.path.join(os.getcwd(), ".env"), os.path.join(_PROJECT_ROOT, ".env")):
+# Determine templates and static directories for both local and Vercel environments
+_TEMPLATES_DIR = os.path.join(_PROJECT_ROOT, "..", "templates")
+_STATIC_DIR = os.path.join(_PROJECT_ROOT, "..", "static")
+
+# Ensure paths are absolute for Vercel compatibility
+if not os.path.exists(_TEMPLATES_DIR):
+    # Fallback to relative paths (local development)
+    TEMPLATE_FOLDER = "templates"
+    STATIC_FOLDER = "static"
+else:
+    TEMPLATE_FOLDER = os.path.abspath(_TEMPLATES_DIR)
+    STATIC_FOLDER = os.path.abspath(_STATIC_DIR)
+
+for _env_path in (os.path.join(os.getcwd(), ".env"), os.path.join(_PROJECT_ROOT, "..", ".env")):
     if os.path.exists(_env_path):
         load_dotenv(_env_path, override=False)
         break
@@ -29,7 +42,11 @@ csrf = CSRFProtect()
 
 
 def create_app(config_object=None):
-    app = Flask(__name__, static_folder="../static", template_folder="../templates")
+    app = Flask(
+        __name__,
+        static_folder=STATIC_FOLDER,
+        template_folder=TEMPLATE_FOLDER
+    )
 
     app.config.setdefault(
         "SECRET_KEY",
