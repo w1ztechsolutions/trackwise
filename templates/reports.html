@@ -14,8 +14,7 @@
 <div class="glass-card mb-5">
     <h3 class="section-title">Filter Report Period</h3>
     <form method="GET" action="{{ url_for('reports.reports') }}" class="form-row flex-column items-end gap-4">
-        {{ csrf_token() }}
-        <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 180px;">
+            {{ csrf_token() }}<div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 180px;">
             <label class="form-label" for="start_date">Start Date</label>
             <input type="date" id="start_date" name="start_date" value="{{ start_date }}" class="form-control">
         </div>

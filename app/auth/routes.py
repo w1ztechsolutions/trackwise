@@ -27,7 +27,7 @@ def login():
 
         flash('Invalid credentials or inactive account.', 'danger')
 
-    return render_template('auth.html', hide_nav=True)
+    return render_template('auth.html', show_nav=False)
 
 
 @auth_bp.route('/logout')

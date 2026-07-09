@@ -16,7 +16,7 @@
         <h3 class="section-title">Log Expense</h3>
         
         <form method="POST" action="{{ url_for('expenses.expenses') }}">
-            {{ csrf_token() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label class="form-label" for="category">Category</label>
                 <select id="category" name="category" required class="form-control">

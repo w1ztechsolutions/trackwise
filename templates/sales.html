@@ -16,8 +16,7 @@
         <h3>Checkout Terminal</h3>
 
         <form method="POST" action="{{ url_for('sales.sales') }}" id="sale-checkout-form" onsubmit="return validateSaleSubmission()">
-            {{ csrf_token() }}
-            <div class="grid-asym">
+            {{ csrf_token() }}<div class="grid-asym">
                 <div class="form-group">
                     <label class="form-label" for="customer_name">Customer Name</label>
                     <input type="text" id="customer_name" name="customer_name" placeholder="e.g. Walk-in / Zomba Groceries" class="form-control">

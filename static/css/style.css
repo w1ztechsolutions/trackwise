@@ -32,6 +32,10 @@
     box-sizing: border-box;
 }
 
+input[name="csrf_token"] {
+    display: none !important;
+}
+
 body {
     margin: 0;
     background: var(--bg);

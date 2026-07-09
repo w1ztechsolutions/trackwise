@@ -7,8 +7,7 @@
     </div>
     <div class="header-actions">
         <form method="post" class="inline-form">
-            {{ csrf_token() }}
-            <input type="text" name="name" placeholder="Supplier name" required class="form-control">
+            {{ csrf_token() }}<input type="text" name="name" placeholder="Supplier name" required class="form-control">
             <button type="submit" class="btn-primary btn-sm">Add Supplier</button>
         </form>
     </div>

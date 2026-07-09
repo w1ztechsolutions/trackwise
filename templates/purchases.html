@@ -16,7 +16,7 @@
         <h3>Record Purchase Intake</h3>
 
         <form method="POST" action="{{ url_for('purchases.purchases') }}">
-            {{ csrf_token() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="grid-asym">
                 <div class="form-group">
                     <label class="form-label" for="supplier">Supplier Name</label>

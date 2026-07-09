@@ -8,8 +8,7 @@
 </div>
 <div class="glass-card">
     <form method="post" class="stack-form">
-        {{ csrf_token() }}
-        <div class="form-group">
+            {{ csrf_token() }}<div class="form-group">
             <label class="form-label" for="supplier_id">Supplier</label>
             <select id="supplier_id" name="supplier_id" required class="form-control">
                 {% for supplier in suppliers %}

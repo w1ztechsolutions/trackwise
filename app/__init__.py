@@ -6,7 +6,6 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_wtf import CSRFProtect
 from dotenv import load_dotenv
-from flask_wtf.csrf import generate_csrf
 
 _PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -111,8 +110,14 @@ def create_app(config_object=None):
         return _db.session.get(User, int(user_id))
 
     @app.context_processor
-    def inject_csrf_token():
-        return dict(raw_csrf_token=generate_csrf)
+    def _inject_nav():
+        show_nav = True
+        try:
+            if request.endpoint in ("static",):
+                show_nav = False
+        except Exception:
+            show_nav = True
+        return dict(show_nav=show_nav)
 
     @app.after_request
     def set_security_headers(response):

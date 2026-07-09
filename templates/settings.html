@@ -17,8 +17,7 @@
         <p class="text-muted text-sm mb-4">Configure the flat tax rate and review active business rules.</p>
         
         <form method="POST" action="{{ url_for('settings.settings') }}" class="mb-5">
-            {{ csrf_token() }}
-            <input type="hidden" name="action" value="update_tax">
+            {{ csrf_token() }}<input type="hidden" name="action" value="update_tax">
             
             <div class="form-group">
                 <label class="form-label" for="tax_rate">Flat Corporate Tax Rate (%)</label>
@@ -62,8 +61,7 @@
                     This will clear the current database and seed a realistic set of products (Malawi Soap, Thyolo Tea, Mzuzu Coffee, Illovo Sugar), several restocking purchases at different price layers, customer checkouts, and monthly operating expenses.
                 </p>
                 <form method="POST" action="{{ url_for('settings.settings') }}">
-                    {{ csrf_token() }}
-                    <input type="hidden" name="action" value="seed_data">
+            {{ csrf_token() }}<input type="hidden" name="action" value="seed_data">
                     <button type="submit" class="btn-primary btn-block" onclick="return confirm('WARNING: Seeding data will wipe out all current transactions and products in the database. Are you sure you want to proceed?')">
                         Seed Demonstration Data
                     </button>

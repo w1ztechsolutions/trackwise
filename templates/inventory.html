@@ -105,7 +105,7 @@
             <button class="modal-close" onclick="toggleModal('warehouseModal', false)">&times;</button>
         </div>
         <form method="POST" action="{{ url_for('inventory.inventory') }}">
-            {{ csrf_token() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="action" value="create_warehouse">
             <div class="form-group">
                 <label class="form-label" for="warehouse_name">Warehouse Name</label>
@@ -141,7 +141,7 @@
             <button class="modal-close" onclick="toggleModal('stockCountModal', false)">&times;</button>
         </div>
         <form method="POST" action="{{ url_for('inventory.inventory') }}">
-            {{ csrf_token() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="action" value="record_stock_count">
             <div class="form-group">
                 <label class="form-label" for="count_product_id">Product</label>
@@ -184,7 +184,7 @@
             <button class="modal-close" onclick="toggleModal('stockTransferModal', false)">&times;</button>
         </div>
         <form method="POST" action="{{ url_for('inventory.inventory') }}">
-            {{ csrf_token() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="action" value="transfer_stock">
             <div class="form-group">
                 <label class="form-label" for="transfer_product_id">Product</label>
@@ -236,7 +236,7 @@
             <button class="modal-close" onclick="toggleModal('addProductModal', false)">&times;</button>
         </div>
         <form method="POST" action="{{ url_for('inventory.inventory') }}">
-            {{ csrf_token() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label class="form-label" for="sku">SKU Code (Unique ID)</label>
                 <input type="text" id="sku" name="sku" required placeholder="e.g. SOAP-001" class="form-control">

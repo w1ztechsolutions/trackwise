@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}TrackWise{% endblock %} - Accounting & Inventory</title>
-    <meta name="csrf-token" content="{{ raw_csrf_token() }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -15,8 +14,6 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    {% set show_nav = not hide_nav|default(false) %}
-
     <!-- Flash Messages -->
     <div class="flash-container">
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -48,7 +45,7 @@
 
         <nav class="nav-menu">
             <li>
-                <a href="{{ url_for('dashboard.dashboard') }}" class="nav-link {% if request.path == url_for('dashboard.dashboard') %}active{% endif %}">
+                <a href="{{ url_for('dashboard.dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="3" y="3" width="7" height="9"></rect>
                         <rect x="14" y="3" width="7" height="5"></rect>
@@ -59,7 +56,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url_for('inventory.inventory') }}" class="nav-link {% if request.path == url_for('inventory.inventory') %}active{% endif %}">
+                <a href="{{ url_for('inventory.inventory') }}" class="nav-link {% if request.endpoint == 'inventory.inventory' %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                         <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
@@ -69,7 +66,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url_for('purchases.purchases') }}" class="nav-link {% if request.path == url_for('purchases.purchases') %}active{% endif %}">
+                <a href="{{ url_for('purchases.purchases') }}" class="nav-link {% if request.endpoint == 'purchases.purchases' %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
                     </svg>
@@ -77,7 +74,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url_for('sales.sales') }}" class="nav-link {% if request.path == url_for('sales.sales') %}active{% endif %}">
+                <a href="{{ url_for('sales.sales') }}" class="nav-link {% if request.endpoint == 'sales.sales' %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="9" cy="21" r="1"></circle>
                         <circle cx="20" cy="21" r="1"></circle>
@@ -87,7 +84,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url_for('expenses.expenses') }}" class="nav-link {% if request.path == url_for('expenses.expenses') %}active{% endif %}">
+                <a href="{{ url_for('expenses.expenses') }}" class="nav-link {% if request.endpoint == 'expenses.expenses' %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="12" y1="1" x2="12" y2="23"></line>
                         <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
@@ -96,7 +93,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url_for('reports.reports') }}" class="nav-link {% if request.path == url_for('reports.reports') %}active{% endif %}">
+                <a href="{{ url_for('reports.reports') }}" class="nav-link {% if request.endpoint == 'reports.reports' %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                         <polyline points="14 2 14 8 20 8"></polyline>
@@ -108,7 +105,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url_for('sales.customers') }}" class="nav-link {% if request.path == url_for('sales.customers') %}active{% endif %}">
+                <a href="{{ url_for('sales.customers') }}" class="nav-link {% if request.endpoint == 'sales.customers' %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                         <circle cx="8.5" cy="7" r="4"></circle>
@@ -118,7 +115,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url_for('purchases.suppliers') }}" class="nav-link {% if request.path == url_for('purchases.suppliers') %}active{% endif %}">
+                <a href="{{ url_for('purchases.suppliers') }}" class="nav-link {% if request.endpoint == 'purchases.suppliers' %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 7h18"></path>
                         <path d="M3 12h18"></path>
@@ -128,7 +125,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url_for('sales.invoices') }}" class="nav-link {% if request.path == url_for('sales.invoices') %}active{% endif %}">
+                <a href="{{ url_for('sales.invoices') }}" class="nav-link {% if request.endpoint == 'sales.invoices' %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                         <polyline points="14 2 14 8 20 8"></polyline>
@@ -137,7 +134,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url_for('purchases.payments') }}" class="nav-link {% if request.path == url_for('purchases.payments') %}active{% endif %}">
+                <a href="{{ url_for('purchases.payments') }}" class="nav-link {% if request.endpoint == 'purchases.payments' %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="2" y="5" width="20" height="14" rx="2"></rect>
                         <line x1="2" y1="10" x2="22" y2="10"></line>
@@ -146,7 +143,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url_for('production.production') }}" class="nav-link {% if request.path == url_for('production.production') %}active{% endif %}">
+                <a href="{{ url_for('production.production') }}" class="nav-link {% if request.endpoint == 'production.production' %}active{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 6h18"></path>
                         <path d="M7 6v12"></path>
@@ -159,7 +156,7 @@
         </nav>
 
         <div class="sidebar-footer">
-            <a href="{{ url_for('settings.settings') }}" class="nav-link {% if request.path == url_for('settings.settings') %}active{% endif %}">
+            <a href="{{ url_for('settings.settings') }}" class="nav-link {% if request.endpoint == 'settings.settings' %}active{% endif %}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3"></circle>
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>

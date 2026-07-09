@@ -21,17 +21,17 @@ def register():
 
         if not business_name or not email or not password:
             flash('Business name, email and password are required.', 'danger')
-            return render_template('register.html', hide_nav=True)
+            return render_template('register.html', show_nav=False)
 
 
         if password != confirm_password:
             flash('Passwords do not match.', 'danger')
-            return render_template('register.html', hide_nav=True)
+            return render_template('register.html', show_nav=False)
 
         existing = User.query.filter_by(email=email).first()
         if existing:
             flash('An account with this email already exists.', 'danger')
-            return render_template('register.html', hide_nav=True)
+            return render_template('register.html', show_nav=False)
 
         # Multi-business: business name is currently for display/workflow only.
         # Data separation is not wired in the backend yet.
@@ -43,5 +43,5 @@ def register():
         flash('Account created successfully. Please sign in.', 'success')
         return redirect(url_for('auth.login'))
 
-    return render_template('register.html', hide_nav=True)
+    return render_template('register.html', show_nav=False)
 
