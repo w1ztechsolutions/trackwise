@@ -7,18 +7,22 @@
       "config": {
         "maxLambdaSize": "50mb",
         "includeFiles": [
-          "../templates/**",
-          "../static/**",
-          "../migrations/**"
+          "templates/**",
+          "static/**",
+          "migrations/**"
         ]
+      }
+    },
+    {
+      "src": "static/(.*)",
+      "use": "@vercel/static",
+      "config": {
+        "distDir": "."
       }
     }
   ],
   "routes": [
-    {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
-    },
+    { "handle": "filesystem" },
     {
       "src": "/health",
       "dest": "/api/index.py"
@@ -29,6 +33,7 @@
     }
   ],
   "env": {
-    "FLASK_ENV": "production"
+    "FLASK_ENV": "production",
+    "INSTANCE_PATH": "/tmp/instance"
   }
 }
