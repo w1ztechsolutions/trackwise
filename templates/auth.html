@@ -8,7 +8,7 @@
     </div>
 
     <form method="POST" action="{{ url_for('auth.login') }}">
-            {{ csrf_token() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label class="form-label" for="business_name">Business name</label>
             <input type="text" id="business_name" name="business_name" required class="form-control" autocomplete="organization" autofocus>

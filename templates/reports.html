@@ -56,7 +56,7 @@
 <div class="glass-card mb-4">
     <h3 class="section-title">Filter Report Period</h3>
     <form method="GET" action="{{ url_for('reports.' + report_type) }}" class="form-row flex-column items-end gap-4">
-        {{ csrf_token() }}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 180px;">
             <label class="form-label" for="start_date">Start Date</label>
             <input type="date" id="start_date" name="start_date" value="{{ start_date }}" class="form-control">
@@ -80,7 +80,7 @@
 <div class="glass-card mb-4">
     <h3 class="section-title">As Of Date</h3>
     <form method="GET" action="{{ url_for('reports.' + report_type) }}" class="form-row flex-column items-end gap-4">
-        {{ csrf_token() }}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 180px;">
             <label class="form-label" for="as_of_date">As Of Date</label>
             <input type="date" id="as_of_date" name="as_of_date" value="{{ as_of_date }}" class="form-control">
@@ -347,7 +347,7 @@
     <h3 class="section-title">General Ledger</h3>
     
     <form method="GET" action="{{ url_for('reports.general_ledger') }}" class="form-row flex-column items-end gap-4 mb-4">
-        {{ csrf_token() }}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
             <label class="form-label" for="account_id">Select Account</label>
             <select id="account_id" name="account_id" class="form-control" onchange="this.form.submit()">
