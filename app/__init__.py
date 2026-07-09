@@ -1,6 +1,6 @@
 import importlib
 import os
-from flask import Flask
+from flask import Flask, g
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
@@ -98,6 +98,29 @@ def create_app(config_object=None):
 
     app.url_map.strict_slashes = False
 
+    @app.route('/health')
+    def health_check():
+        """Health check endpoint for container orchestration."""
+        from flask import jsonify
+        import time
+
+        health_status = {
+            'status': 'healthy',
+            'version': '1.0.0',
+            'timestamp': time.time(),
+        }
+
+        # Check database connectivity
+        try:
+            _db.session.execute(_db.text('SELECT 1'))
+            health_status['database'] = 'connected'
+        except Exception as e:
+            health_status['database'] = 'disconnected'
+            health_status['status'] = 'degraded'
+            health_status['database_error'] = str(e)
+
+        return jsonify(health_status)
+
     @app.route('/legacy-redirect')
     def _unused_legacy():
         from flask import redirect, url_for
@@ -108,6 +131,18 @@ def create_app(config_object=None):
     @login_manager.user_loader
     def load_user(user_id):
         return _db.session.get(User, int(user_id))
+
+    @app.before_request
+    def _set_business_context():
+        """Set g.business_id from the current user for multi-tenant scoping."""
+        try:
+            from flask_login import current_user
+            if current_user is not None and current_user.is_authenticated:
+                g.business_id = getattr(current_user, 'business_id', None)
+            else:
+                g.business_id = None
+        except Exception:
+            g.business_id = None
 
     @app.context_processor
     def _inject_nav():
@@ -121,7 +156,7 @@ def create_app(config_object=None):
 
     @app.after_request
     def set_security_headers(response):
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none';"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"

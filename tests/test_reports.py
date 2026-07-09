@@ -55,7 +55,7 @@ class TestReportServices(unittest.TestCase):
         db.session.add_all(self.accounts.values())
         
         # Create test product
-        p = Product(sku='PROD001', name='Widget', default_selling_price=200.0)
+        p = Product(sku='PROD001', name='Widget', default_selling_price=200.0, business_id=self.business.id)
         db.session.add(p)
         db.session.commit()
         self.product = p
@@ -130,6 +130,16 @@ class TestReportServices(unittest.TestCase):
     
     def test_cash_flow(self):
         """Test cash flow statement generation."""
+        # Record a purchase first (to have inventory)
+        record_purchase(
+            purchase_date=datetime(2026, 6, 1),
+            supplier='Supplier X',
+            notes='Test',
+            items_data=[{'product_id': self.product.id, 'quantity': 10, 'unit_cost': 100.0}],
+            business_id=self.business.id,
+            created_by=self.user.id,
+        )
+        
         # Record a sale
         record_sale(
             sale_date=datetime(2026, 6, 2),

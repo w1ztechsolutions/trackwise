@@ -16,6 +16,8 @@ def index():
 @dashboard_bp.route('/dashboard')
 @login_required
 def dashboard():
+    from flask_login import current_user
+    biz_id = getattr(current_user, 'business_id', None)
     today = datetime.now()
     start_of_month = datetime(today.year, today.month, 1)
 
@@ -25,8 +27,8 @@ def dashboard():
     else:
         end_of_month = datetime(today.year, today.month + 1, 1)
 
-    pl_stats = get_profit_loss()  # All-time stats for the dashboard overview
-    month_stats = get_profit_loss(start_date=start_of_month, end_date=end_of_month)
+    pl_stats = get_profit_loss(business_id=biz_id)  # All-time stats for the dashboard overview
+    month_stats = get_profit_loss(start_date=start_of_month, end_date=end_of_month, business_id=biz_id)
     val_stats = get_inventory_valuation()
 
     low_stock_products = Product.query.filter(
@@ -53,7 +55,7 @@ def dashboard():
 
     for offset in range(-5, 1):
         m_start, m_end = month_bounds(today, offset)
-        m_pl = get_profit_loss(start_date=m_start, end_date=m_end)
+        m_pl = get_profit_loss(start_date=m_start, end_date=m_end, business_id=biz_id)
         chart_labels.append(m_start.strftime("%b %Y"))
         chart_sales.append(m_pl['total_sales'])
         chart_expenses.append(m_pl['total_expenses'])

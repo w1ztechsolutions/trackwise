@@ -7,6 +7,32 @@ from services.fifo_service import (
     get_profit_loss, get_inventory_valuation, set_tax_rate, get_tax_rate,
     InventoryException
 )
+from app.models.accounting import Business, ChartOfAccounts
+
+
+def _seed_business_and_accounts():
+    business = Business(name='Test Business', currency='MWK')
+    db.session.add(business)
+    db.session.flush()
+
+    accounts = [
+        ('1000', 'Cash', 'asset'),
+        ('1100', 'Bank', 'asset'),
+        ('1200', 'Accounts Receivable', 'asset'),
+        ('1400', 'Inventory', 'asset'),
+        ('2100', 'Accounts Payable', 'liability'),
+        ('4000', 'Sales Revenue', 'income'),
+        ('5000', 'Cost of Goods Sold', 'expense'),
+        ('5100', 'Rent Expense', 'expense'),
+        ('5200', 'Utilities Expense', 'expense'),
+        ('5300', 'Salaries Expense', 'expense'),
+        ('5900', 'Other Expenses', 'expense'),
+    ]
+    for code, name, type_ in accounts:
+        db.session.add(ChartOfAccounts(business_id=business.id, code=code, name=name, type=type_, is_active=True))
+    db.session.commit()
+    return business
+
 
 class TestFIFOService(unittest.TestCase):
     
@@ -15,6 +41,7 @@ class TestFIFOService(unittest.TestCase):
         self.app = Flask(__name__)
         self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
         self.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        self.app.config['SECRET_KEY'] = 'test'
         db.init_app(self.app)
         
         # Create tables and load context
@@ -22,10 +49,13 @@ class TestFIFOService(unittest.TestCase):
         self.app_context.push()
         db.create_all()
         
+        # Seed business and chart of accounts
+        self.business = _seed_business_and_accounts()
+        
         # Ensure default tax rate setting exists
         Setting.query.delete()
         db.session.commit()
-        set_tax_rate(30.0)
+        set_tax_rate(30.0, business_id=self.business.id)
 
     def tearDown(self):
         db.session.remove()
@@ -33,7 +63,7 @@ class TestFIFOService(unittest.TestCase):
         self.app_context.pop()
 
     def test_product_creation(self):
-        p = Product(sku='PROD001', name='Test Product', default_selling_price=200.0)
+        p = Product(sku='PROD001', name='Test Product', default_selling_price=200.0, business_id=self.business.id)
         db.session.add(p)
         db.session.commit()
         
@@ -44,7 +74,7 @@ class TestFIFOService(unittest.TestCase):
 
     def test_fifo_inventory_and_p_l(self):
         # 1. Create a product
-        p = Product(sku='LAP001', name='Laptop', default_selling_price=200.0)
+        p = Product(sku='LAP001', name='Laptop', default_selling_price=200.0, business_id=self.business.id)
         db.session.add(p)
         db.session.commit()
         
@@ -53,7 +83,8 @@ class TestFIFOService(unittest.TestCase):
             purchase_date=datetime(2026, 6, 1, 10, 0, 0),
             supplier="Supplier A",
             notes="Initial stock",
-            items_data=[{'product_id': p.id, 'quantity': 10, 'unit_cost': 100.0}]
+            items_data=[{'product_id': p.id, 'quantity': 10, 'unit_cost': 100.0}],
+            business_id=self.business.id,
         )
         
         # Verify product quantity
@@ -70,7 +101,8 @@ class TestFIFOService(unittest.TestCase):
             purchase_date=datetime(2026, 6, 2, 10, 0, 0),
             supplier="Supplier B",
             notes="Restock batch 2",
-            items_data=[{'product_id': p.id, 'quantity': 10, 'unit_cost': 120.0}]
+            items_data=[{'product_id': p.id, 'quantity': 10, 'unit_cost': 120.0}],
+            business_id=self.business.id,
         )
         
         # Verify product quantity is now 20
@@ -90,7 +122,8 @@ class TestFIFOService(unittest.TestCase):
         sale = record_sale(
             sale_date=datetime(2026, 6, 3, 15, 0, 0),
             customer_name="Customer X",
-            items_data=[{'product_id': p.id, 'quantity': 12, 'unit_price': 200.0}]
+            items_data=[{'product_id': p.id, 'quantity': 12, 'unit_price': 200.0}],
+            business_id=self.business.id,
         )
         
         # Verify product stock level dropped to 8
@@ -119,7 +152,8 @@ class TestFIFOService(unittest.TestCase):
             expense_date=datetime(2026, 6, 4, 10, 0, 0),
             category="Utilities",
             description="Office Internet",
-            amount=160.0
+            amount=160.0,
+            business_id=self.business.id,
         )
         
         # 6. Verify P&L calculations
@@ -141,7 +175,7 @@ class TestFIFOService(unittest.TestCase):
         self.assertEqual(pl['net_profit'], 700.0)
 
     def test_insufficient_inventory(self):
-        p = Product(sku='PROD002', name='Gadget', default_selling_price=100.0)
+        p = Product(sku='PROD002', name='Gadget', default_selling_price=100.0, business_id=self.business.id)
         db.session.add(p)
         db.session.commit()
         
@@ -150,7 +184,8 @@ class TestFIFOService(unittest.TestCase):
             purchase_date=datetime.now(timezone.utc),
             supplier="Supplier A",
             notes="Refill",
-            items_data=[{'product_id': p.id, 'quantity': 5, 'unit_cost': 50.0}]
+            items_data=[{'product_id': p.id, 'quantity': 5, 'unit_cost': 50.0}],
+            business_id=self.business.id,
         )
         
         # Try to sell 6 items
@@ -158,7 +193,8 @@ class TestFIFOService(unittest.TestCase):
             record_sale(
                 sale_date=datetime.now(timezone.utc),
                 customer_name="Failing Customer",
-                items_data=[{'product_id': p.id, 'quantity': 6, 'unit_price': 100.0}]
+                items_data=[{'product_id': p.id, 'quantity': 6, 'unit_price': 100.0}],
+                business_id=self.business.id,
             )
 
 if __name__ == '__main__':

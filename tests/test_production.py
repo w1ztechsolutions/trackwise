@@ -21,8 +21,8 @@ def test_production_batch_flow_updates_inventory_and_outputs(app):
         db.session.add(user)
         db.session.flush()
 
-        raw_material = Product(sku='RAW-001', name='Sand', quantity_in_stock=20, default_selling_price=0.0)
-        finished_good = Product(sku='FG-001', name='Block', quantity_in_stock=0, default_selling_price=100.0)
+        raw_material = Product(sku='RAW-001', name='Sand', quantity_in_stock=20, default_selling_price=0.0, business_id=business.id)
+        finished_good = Product(sku='FG-001', name='Block', quantity_in_stock=0, default_selling_price=100.0, business_id=business.id)
         db.session.add_all([raw_material, finished_good])
         db.session.commit()
 

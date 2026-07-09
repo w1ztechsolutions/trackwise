@@ -128,6 +128,9 @@ def seed_demo_data():
 @login_required
 @role_required('admin', 'accountant')
 def settings():
+    from flask_login import current_user
+    biz_id = getattr(current_user, 'business_id', None)
+
     if request.method == 'POST':
         action = request.form.get('action')
 
@@ -136,7 +139,7 @@ def settings():
             if rate < 0 or rate > 100:
                 flash('Tax rate must be between 0% and 100%.', 'danger')
             else:
-                set_tax_rate(rate)
+                set_tax_rate(rate, business_id=biz_id)
                 flash(f'Tax rate updated to {rate}% successfully!', 'success')
 
         elif action == 'seed_data':
@@ -148,6 +151,6 @@ def settings():
 
         return redirect(url_for('settings.settings'))
 
-    tax_rate = get_tax_rate()
+    tax_rate = get_tax_rate(business_id=biz_id)
     return render_template('settings.html', tax_rate=tax_rate)
 

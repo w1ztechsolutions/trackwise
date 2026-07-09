@@ -10,7 +10,7 @@ db = SQLAlchemy()
 class Product(db.Model):
     __tablename__ = 'products'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     sku = db.Column(db.String(50), unique=True, nullable=False)
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
@@ -43,7 +43,7 @@ class Product(db.Model):
 class Purchase(db.Model):
     __tablename__ = 'purchases'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     purchase_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     supplier = db.Column(db.String(200))
     notes = db.Column(db.Text)
@@ -54,7 +54,7 @@ class Purchase(db.Model):
 class PurchaseItem(db.Model):
     __tablename__ = 'purchase_items'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     purchase_id = db.Column(db.Integer, db.ForeignKey('purchases.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
@@ -65,7 +65,7 @@ class PurchaseItem(db.Model):
 class Sale(db.Model):
     __tablename__ = 'sales'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     sale_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     customer_name = db.Column(db.String(200))
     total_revenue = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
@@ -76,7 +76,7 @@ class Sale(db.Model):
 class SaleItem(db.Model):
     __tablename__ = 'sale_items'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     sale_id = db.Column(db.Integer, db.ForeignKey('sales.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
@@ -88,7 +88,7 @@ class SaleItem(db.Model):
 class Expense(db.Model):
     __tablename__ = 'expenses'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     expense_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     category = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
@@ -98,7 +98,7 @@ class Expense(db.Model):
 class Setting(db.Model):
     __tablename__ = 'settings'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     key = db.Column(db.String(100), nullable=False)
     value = db.Column(db.String(255), nullable=False)
 
@@ -110,7 +110,7 @@ class Setting(db.Model):
 class StockTransaction(db.Model):
     __tablename__ = 'stock_transactions'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=0)
     remaining_quantity = db.Column(db.Integer, nullable=False, default=0)
@@ -125,7 +125,7 @@ class StockTransaction(db.Model):
 class Warehouse(db.Model):
     __tablename__ = 'warehouses'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     name = db.Column(db.String(200), nullable=False)
     location = db.Column(db.String(200), nullable=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
@@ -136,7 +136,7 @@ class Warehouse(db.Model):
 class StockMovement(db.Model):
     __tablename__ = 'stock_movements'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     warehouse_id = db.Column(db.Integer, db.ForeignKey('warehouses.id'), nullable=True)
     from_warehouse_id = db.Column(db.Integer, db.ForeignKey('warehouses.id'), nullable=True)
@@ -160,7 +160,7 @@ class StockMovement(db.Model):
 class Customer(db.Model):
     __tablename__ = 'customers'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     name = db.Column(db.String(200), nullable=False)
     phone = db.Column(db.String(50), nullable=True)
     email = db.Column(db.String(120), nullable=True)
@@ -173,7 +173,7 @@ class Customer(db.Model):
 class Supplier(db.Model):
     __tablename__ = 'suppliers'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     name = db.Column(db.String(200), nullable=False)
     phone = db.Column(db.String(50), nullable=True)
     email = db.Column(db.String(120), nullable=True)
@@ -186,7 +186,7 @@ class Supplier(db.Model):
 class Invoice(db.Model):
     __tablename__ = 'invoices'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=True)
     invoice_number = db.Column(db.String(60), nullable=True)
     invoice_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
@@ -203,7 +203,7 @@ class Invoice(db.Model):
 class InvoiceItem(db.Model):
     __tablename__ = 'invoice_items'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoices.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True)
     description = db.Column(db.Text, nullable=True)
@@ -218,7 +218,7 @@ class InvoiceItem(db.Model):
 class Receipt(db.Model):
     __tablename__ = 'receipts'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=True)
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoices.id'), nullable=True)
     receipt_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
@@ -234,7 +234,7 @@ class Receipt(db.Model):
 class Bill(db.Model):
     __tablename__ = 'bills'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.id'), nullable=True)
     bill_number = db.Column(db.String(60), nullable=True)
     bill_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
@@ -251,7 +251,7 @@ class Bill(db.Model):
 class BillItem(db.Model):
     __tablename__ = 'bill_items'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     bill_id = db.Column(db.Integer, db.ForeignKey('bills.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True)
     description = db.Column(db.Text, nullable=True)
@@ -266,7 +266,7 @@ class BillItem(db.Model):
 class Payment(db.Model):
     __tablename__ = 'payments'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.id'), nullable=True)
     bill_id = db.Column(db.Integer, db.ForeignKey('bills.id'), nullable=True)
     payment_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
@@ -281,7 +281,7 @@ class Payment(db.Model):
 class User(db.Model, UserMixin):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False, default='viewer')
@@ -300,7 +300,7 @@ class User(db.Model, UserMixin):
 class ProductionBatch(db.Model):
     __tablename__ = 'production_batches'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     batch_number = db.Column(db.String(60), nullable=False, unique=True)
     production_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
@@ -318,7 +318,7 @@ class ProductionBatch(db.Model):
 class MaterialUsage(db.Model):
     __tablename__ = 'material_usages'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     production_batch_id = db.Column(db.Integer, db.ForeignKey('production_batches.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     quantity_consumed = db.Column(db.Integer, nullable=False, default=0)
@@ -330,13 +330,40 @@ class MaterialUsage(db.Model):
 class FinishedGoodOutput(db.Model):
     __tablename__ = 'finished_good_outputs'
     id = db.Column(db.Integer, primary_key=True)
-    business_id = db.Column(db.Integer, nullable=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     production_batch_id = db.Column(db.Integer, db.ForeignKey('production_batches.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=0)
     unit_cost = db.Column(db.Numeric(12, 2), nullable=False, default=0.0)
 
     product = db.relationship('Product', backref='finished_good_outputs')
+
+
+# Plan model for subscription plans
+class Plan(db.Model):
+    __tablename__ = 'plans'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    price = db.Column(db.Numeric(10, 2), nullable=False, default=0.0)
+    max_users = db.Column(db.Integer, nullable=False, default=1)
+    features = db.Column(db.Text, nullable=True)  # JSON string
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+
+# Subscription model for business subscriptions
+class Subscription(db.Model):
+    __tablename__ = 'subscriptions'
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
+    plan_id = db.Column(db.Integer, db.ForeignKey('plans.id'), nullable=False)
+    status = db.Column(db.String(30), nullable=False, default='active')
+    start_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    renewal_date = db.Column(db.DateTime, nullable=True)
+    stripe_subscription_id = db.Column(db.String(255), nullable=True)
+    payment_method = db.Column(db.String(50), nullable=True)
+
+    plan = db.relationship('Plan', backref='subscriptions')
+    business = db.relationship('Business', backref='subscriptions', foreign_keys=[business_id])
 
 
 from app.models.accounting import Business, ChartOfAccounts, JournalEntry, JournalLine, AuditLog

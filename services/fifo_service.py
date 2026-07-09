@@ -43,10 +43,16 @@ _EXPENSE_ACCOUNT_MAP = {
 }
 
 
-def get_tax_rate():
-    setting = Setting.query.filter_by(key='tax_rate').first()
+def get_tax_rate(business_id=None):
+    if business_id is None:
+        setting = Setting.query.filter_by(key='tax_rate').first()
+    else:
+        setting = Setting.query.filter_by(business_id=business_id, key='tax_rate').first()
     if not setting:
-        setting = Setting(key='tax_rate', value='30.0')
+        if business_id is None:
+            setting = Setting(key='tax_rate', value='30.0')
+        else:
+            setting = Setting(business_id=business_id, key='tax_rate', value='30.0')
         db.session.add(setting)
         db.session.commit()
     try:
@@ -55,10 +61,16 @@ def get_tax_rate():
         return 30.0
 
 
-def set_tax_rate(rate):
-    setting = Setting.query.filter_by(key='tax_rate').first()
+def set_tax_rate(rate, business_id=None):
+    if business_id is None:
+        setting = Setting.query.filter_by(key='tax_rate').first()
+    else:
+        setting = Setting.query.filter_by(business_id=business_id, key='tax_rate').first()
     if not setting:
-        setting = Setting(key='tax_rate')
+        if business_id is None:
+            setting = Setting(key='tax_rate')
+        else:
+            setting = Setting(business_id=business_id, key='tax_rate')
         db.session.add(setting)
     setting.value = str(float(rate))
     db.session.commit()
@@ -226,7 +238,7 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
 
         total_amount += quantity * unit_cost
 
-        pi = PurchaseItem(product_id=product_id, quantity=quantity, unit_cost=unit_cost)
+        pi = PurchaseItem(business_id=business_id, product_id=product_id, quantity=quantity, unit_cost=unit_cost)
         purchase_items.append((pi, product))
 
     purchase = Purchase(
@@ -286,7 +298,7 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
         db.session.add(tx)
 
         if bill is not None:
-            db.session.add(BillItem(
+            bi = BillItem(
                 business_id=business_id,
                 bill_id=bill.id,
                 product_id=product.id,
@@ -294,7 +306,8 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
                 quantity=pi.quantity,
                 unit_cost=pi.unit_cost,
                 line_total=float(pi.quantity) * float(pi.unit_cost),
-            ))
+            )
+            db.session.add(bi)
 
     db.session.commit()
 
@@ -452,7 +465,7 @@ def record_sale(sale_date, customer_name, items_data, business_id=None, created_
         db.session.flush()
 
         for si in sale_items:
-            db.session.add(InvoiceItem(
+            ii = InvoiceItem(
                 business_id=business_id,
                 invoice_id=invoice.id,
                 product_id=si.product_id,
@@ -460,7 +473,8 @@ def record_sale(sale_date, customer_name, items_data, business_id=None, created_
                 quantity=si.quantity,
                 unit_price=si.unit_price,
                 line_total=float(si.quantity) * float(si.unit_price),
-            ))
+            )
+            db.session.add(ii)
 
         receipt = Receipt(
             business_id=business_id,
@@ -515,8 +529,10 @@ def record_expense(expense_date, category, description, amount, business_id=None
     return expense
 
 
-def get_profit_loss(start_date=None, end_date=None):
+def get_profit_loss(start_date=None, end_date=None, business_id=None):
     sales_query = Sale.query
+    if business_id is not None:
+        sales_query = sales_query.filter(Sale.business_id == business_id)
     if start_date:
         sales_query = sales_query.filter(Sale.sale_date >= start_date)
     if end_date:
@@ -528,6 +544,8 @@ def get_profit_loss(start_date=None, end_date=None):
     gross_profit = total_sales - total_cogs
 
     expenses_query = Expense.query
+    if business_id is not None:
+        expenses_query = expenses_query.filter(Expense.business_id == business_id)
     if start_date:
         expenses_query = expenses_query.filter(Expense.expense_date >= start_date)
     if end_date:
@@ -536,7 +554,7 @@ def get_profit_loss(start_date=None, end_date=None):
 
     total_expenses = sum(float(e.amount) for e in expenses)
     pre_tax_profit = gross_profit - total_expenses
-    tax_rate = get_tax_rate()
+    tax_rate = get_tax_rate(business_id=business_id)
     tax_amount = max(0.0, pre_tax_profit * (tax_rate / 100.0))
     net_profit = pre_tax_profit - tax_amount
 

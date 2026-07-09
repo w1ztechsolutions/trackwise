@@ -74,6 +74,7 @@ def consume_material(*, business_id: int | None, production_batch_id: int, produ
         raise ProductionServiceException(f'Insufficient stock for product {product.name}')
 
     usage = MaterialUsage(
+        business_id=business_id,
         production_batch_id=batch.id,
         product_id=product.id,
         quantity_consumed=quantity,
@@ -85,6 +86,7 @@ def consume_material(*, business_id: int | None, production_batch_id: int, produ
     product.quantity_in_stock -= quantity
 
     tx = StockTransaction(
+        business_id=business_id,
         product_id=product.id,
         transaction_type='PRODUCTION_CONSUMPTION',
         quantity=-quantity,
@@ -137,6 +139,7 @@ def complete_batch(*, business_id: int | None, production_batch_id: int, unit_co
 
     unit_cost_value = float(unit_cost) if unit_cost is not None else (total_material_cost / total_output if total_output else 0.0)
     output = FinishedGoodOutput(
+        business_id=business_id,
         production_batch_id=batch.id,
         product_id=finished_product.id,
         quantity=total_output,
@@ -148,6 +151,7 @@ def complete_batch(*, business_id: int | None, production_batch_id: int, unit_co
     finished_product.quantity_in_stock += total_output
 
     tx = StockTransaction(
+        business_id=business_id,
         product_id=finished_product.id,
         transaction_type='PRODUCTION_OUTPUT',
         quantity=total_output,

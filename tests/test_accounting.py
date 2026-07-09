@@ -45,7 +45,7 @@ class TestAccountingEngine(unittest.TestCase):
         }
         db.session.add_all(self.accounts.values())
         
-        p = Product(sku='PROD001', name='Widget', default_selling_price=200.0)
+        p = Product(sku='PROD001', name='Widget', default_selling_price=200.0, business_id=self.business.id)
         db.session.add(p)
         db.session.commit()
         self.product = p
