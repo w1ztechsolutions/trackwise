@@ -55,6 +55,11 @@ def create_app(config_object=None):
 
     app.config.setdefault("SQLALCHEMY_TRACK_MODIFICATIONS", False)
 
+    # Handle instance path early for serverless compatibility (must be before SQLite fallback)
+    # Use INSTANCE_PATH env var if set (for Vercel serverless /tmp storage)
+    if os.environ.get("INSTANCE_PATH"):
+        app.instance_path = os.environ.get("INSTANCE_PATH")
+
     # Determine which config class to use
     env = os.environ.get("FLASK_ENV", "development")
     if env == "production":
@@ -82,7 +87,13 @@ def create_app(config_object=None):
         app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(app.instance_path, "trackwise.db")
         app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {}
 
-    os.makedirs(app.instance_path, exist_ok=True)
+    # Handle instance path creation - skip if read-only filesystem (Vercel)
+    try:
+        os.makedirs(app.instance_path, exist_ok=True)
+    except OSError:
+        # Read-only filesystem (Vercel serverless) - instance path may already exist or be unwritable
+        # This is fine for SQLite ephemeral storage in /tmp
+        pass
 
     _db.init_app(app)
     migrate.init_app(app, _db)
@@ -104,7 +115,6 @@ def create_app(config_object=None):
 
     app.register_blueprint(_auth_bp)
     app.register_blueprint(_dashboard_bp)
-    app.register_blueprint(_inventory_bp)
     app.register_blueprint(_purchases_bp)
     app.register_blueprint(_sales_bp)
     app.register_blueprint(_expenses_bp)

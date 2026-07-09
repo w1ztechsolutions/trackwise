@@ -14,11 +14,17 @@ import sys
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, PROJECT_ROOT)
 
+# Force production environment on Vercel (prevents SQLite fallback to read-only instance path)
+os.environ['FLASK_ENV'] = 'production'
+
 # Disable Celery in serverless mode (tasks run synchronously)
 os.environ.setdefault('CELERY_DISABLED', 'true')
 
 # Configure WeasyPrint cache directory for serverless (ephemeral /tmp)
 os.environ.setdefault('WEASYPRINT_CACHEDIR', '/tmp/weasyprint-cache')
+
+# Configure instance path for serverless (ephemeral /tmp for SQLite fallback)
+os.environ.setdefault('INSTANCE_PATH', '/tmp/instance')
 
 # Change working directory to project root for relative paths
 os.chdir(PROJECT_ROOT)

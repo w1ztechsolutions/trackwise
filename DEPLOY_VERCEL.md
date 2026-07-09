@@ -21,8 +21,9 @@ In your Vercel project settings, add these environment variables:
 | Variable | Value | Required |
 |----------|-------|----------|
 | `FLASK_ENV` | `production` | Yes |
-| `SECRET_KEY` | Random string (e.g., `python -c "import secrets; print(secrets.token_hex(32))"`) | Yes |
+| `SECRET_KEY` | Random string (e.g., `python -c "import secrets; print(secrets.token_hex(32)}"`) | Yes |
 | `DATABASE_URL` | Your Neon connection string | Yes |
+| `INSTANCE_PATH` | `/tmp/instance` | Optional (auto-set for serverless) |
 | `STRIPE_SECRET_KEY` | Your Stripe secret key | Yes (for payments) |
 | `STRIPE_PUBLISHABLE_KEY` | Your Stripe publishable key | Yes |
 | `STRIPE_WEBHOOK_SECRET` | Your Stripe webhook secret | Yes |
