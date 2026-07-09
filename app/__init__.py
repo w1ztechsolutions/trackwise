@@ -115,6 +115,7 @@ def create_app(config_object=None):
 
     app.register_blueprint(_auth_bp)
     app.register_blueprint(_dashboard_bp)
+    app.register_blueprint(_inventory_bp)
     app.register_blueprint(_purchases_bp)
     app.register_blueprint(_sales_bp)
     app.register_blueprint(_expenses_bp)
