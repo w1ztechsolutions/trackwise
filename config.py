@@ -120,9 +120,10 @@ class ProductionConfig(Config):
     TESTING = False
     SQLALCHEMY_DATABASE_URI = _default_database_uri()
     SQLALCHEMY_ENGINE_OPTIONS = _get_pool_options(is_neon=_is_neon(os.environ.get("DATABASE_URL")))
+    SECRET_KEY = os.environ.get("SECRET_KEY")
 
     def __init__(self):
-        if not os.environ.get("SECRET_KEY"):
+        if not self.SECRET_KEY:
             raise RuntimeError(
                 "SECRET_KEY environment variable must be set in production. "
                 "Generate a strong random key (e.g. via 'python -c \"import secrets; print(secrets.token_hex(32))\"') "

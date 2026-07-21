@@ -1,3 +1,4 @@
+import click
 import importlib
 import os
 from flask import Flask, g, request
@@ -183,10 +184,33 @@ def create_app(config_object=None):
 
     @app.after_request
     def set_security_headers(response):
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none';"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline' https://cdn.vercel-insights.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none';"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         return response
+
+    @app.cli.command("create-superadmin")
+    @click.argument("email")
+    @click.argument("name")
+    @click.argument("password")
+    def create_superadmin_command(email, name, password):
+        """Create a superadmin user.
+
+        Example:
+            flask create-superadmin admin@trackwise.app "Super Admin" TrackWiseSA2026!
+        """
+        from app.models import SuperAdmin
+
+        existing = SuperAdmin.query.filter_by(email=email).first()
+        if existing:
+            click.echo(f"SuperAdmin with email '{email}' already exists.")
+            return
+
+        sa = SuperAdmin(email=email, name=name)
+        sa.set_password(password)
+        _db.session.add(sa)
+        _db.session.commit()
+        click.echo(f"SuperAdmin created: {email} ({name})")
 
     return app

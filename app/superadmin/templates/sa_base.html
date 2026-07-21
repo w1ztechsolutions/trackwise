@@ -61,9 +61,58 @@
         .logout-btn:hover {
             text-decoration: underline;
         }
+        @media (max-width: 768px) {
+            .sidebar {
+                left: -240px;
+                transition: left 0.25s ease;
+                z-index: 1050;
+            }
+            .sidebar.open {
+                left: 0;
+            }
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 1040;
+            }
+            .sidebar-overlay.open {
+                display: block;
+            }
+            .sa-toggle {
+                display: flex !important;
+            }
+            .main-content {
+                margin-left: 0 !important;
+            }
+        }
+        .sa-toggle {
+            display: none;
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            z-index: 1060;
+            background: #1a1a2e;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            border-radius: 10px;
+            padding: 8px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
+    <!-- Mobile sidebar toggle -->
+    <button id="saSidebarToggle" class="sa-toggle" aria-label="Toggle navigation">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+    <div id="saSidebarOverlay" class="sidebar-overlay"></div>
+
     <!-- Sidebar -->
     <div class="sidebar">
         <div class="brand">
@@ -112,5 +161,26 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const saToggle = document.getElementById('saSidebarToggle');
+        const saSidebar = document.querySelector('.sidebar');
+        const saOverlay = document.getElementById('saSidebarOverlay');
+
+        function closeSaSidebar() {
+            saSidebar.classList.remove('open');
+            saOverlay.classList.remove('open');
+        }
+
+        if (saToggle && saSidebar && saOverlay) {
+            saToggle.addEventListener('click', () => {
+                saSidebar.classList.toggle('open');
+                saOverlay.classList.toggle('open');
+            });
+            saOverlay.addEventListener('click', closeSaSidebar);
+            saSidebar.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', closeSaSidebar);
+            });
+        }
+    </script>
 </body>
 </html>
