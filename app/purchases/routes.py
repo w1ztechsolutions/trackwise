@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone
 
 from flask import flash, redirect, render_template, request, url_for
@@ -19,9 +20,23 @@ def suppliers():
             return redirect(url_for('purchases.suppliers'))
 
         business_id = getattr(current_user, 'business_id', None)
+        
+        # Check if supplier with same name exists
         supplier = Supplier.query.filter_by(business_id=business_id, name=name).first()
         if not supplier:
-            supplier = Supplier(business_id=business_id, name=name, is_active=True)
+            # Generate unique supplier ID
+            supplier_id = f"SUPP-{uuid.uuid4().hex[:8].upper()}"
+            supplier = Supplier(
+                business_id=business_id,
+                name=name,
+                supplier_id=supplier_id,
+                phone=request.form.get('phone', '').strip() or None,
+                email=request.form.get('email', '').strip() or None,
+                address=request.form.get('address', '').strip() or None,
+                bank_details=request.form.get('bank_details', '').strip() or None,
+                payment_terms=request.form.get('payment_terms', '').strip() or None,
+                is_active=True
+            )
             db.session.add(supplier)
             db.session.commit()
             flash(f'Supplier "{name}" added successfully!', 'success')
@@ -29,8 +44,15 @@ def suppliers():
             flash(f'Supplier "{name}" already exists.', 'info')
         return redirect(url_for('purchases.suppliers'))
 
+    search_query = request.args.get('search', '').strip()
     suppliers = Supplier.query.order_by(Supplier.name.asc()).all()
-    return render_template('suppliers.html', suppliers=suppliers)
+    
+    if search_query:
+        suppliers = [s for s in suppliers if search_query.lower() in s.name.lower() or 
+                     (s.email and search_query.lower() in s.email.lower()) or
+                     (s.phone and search_query in s.phone)]
+    
+    return render_template('suppliers.html', suppliers=suppliers, search_query=search_query)
 
 
 @purchases_bp.route('/payments', methods=['GET', 'POST'])

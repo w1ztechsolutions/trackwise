@@ -49,7 +49,7 @@ def create_config():
 
         if not transaction_type:
             flash('Transaction type is required.', 'danger')
-            return render_template('approval_config_form.html')
+            return render_template('approval_config_form.html', approval_config=None)
 
         # Validate levels
         valid_roles = ['accountant', 'manager']
@@ -57,7 +57,7 @@ def create_config():
 
         if not levels:
             flash('At least one approval level is required.', 'danger')
-            return render_template('approval_config_form.html')
+            return render_template('approval_config_form.html', approval_config=None)
 
         existing = ApprovalConfig.query.filter_by(
             business_id=biz_id, transaction_type=transaction_type
@@ -78,7 +78,7 @@ def create_config():
         flash(f'Approval workflow for "{transaction_type}" created.', 'success')
         return redirect(url_for('approvals.list_configs'))
 
-    return render_template('approval_config_form.html')
+    return render_template('approval_config_form.html', approval_config=None)
 
 
 @approvals_bp.route('/config/<int:config_id>/edit', methods=['GET', 'POST'])
@@ -102,7 +102,7 @@ def edit_config(config_id):
 
         if not levels:
             flash('At least one approval level is required.', 'danger')
-            return render_template('approval_config_form.html', config=config)
+            return render_template('approval_config_form.html', approval_config=config)
 
         config.levels = json.dumps(levels)
         config.is_active = request.form.get('is_active') == 'on'
@@ -111,7 +111,7 @@ def edit_config(config_id):
         flash(f'Approval workflow for "{config.transaction_type}" updated.', 'success')
         return redirect(url_for('approvals.list_configs'))
 
-    return render_template('approval_config_form.html', config=config)
+    return render_template('approval_config_form.html', approval_config=config)
 
 
 @approvals_bp.route('/config/<int:config_id>/delete', methods=['POST'])

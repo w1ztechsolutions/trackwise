@@ -48,7 +48,7 @@ class ApprovalRequest(db.Model):
     transaction_id = db.Column(db.Integer, nullable=False)
     current_level = db.Column(db.Integer, nullable=False, default=0)
     status = db.Column(db.String(20), nullable=False, default='pending')  # pending | approved | rejected | completed
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     completed_at = db.Column(db.DateTime, nullable=True)
 
@@ -74,7 +74,7 @@ class ApprovalAction(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     approval_request_id = db.Column(db.Integer, db.ForeignKey('approval_requests.id'), nullable=False)
-    actor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    actor_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     action = db.Column(db.String(20), nullable=False)  # approved | rejected
     level = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.Text, nullable=True)

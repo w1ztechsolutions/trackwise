@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone
 from flask_login import login_required, current_user
 from flask import flash, redirect, render_template, request, url_for
@@ -18,9 +19,22 @@ def customers():
             return redirect(url_for('sales.customers'))
 
         business_id = getattr(current_user, 'business_id', None)
+        
+        # Check if customer with same name exists
         customer = Customer.query.filter_by(business_id=business_id, name=name).first()
         if not customer:
-            customer = Customer(business_id=business_id, name=name, is_active=True)
+            # Generate unique customer ID
+            customer_id = f"CUST-{uuid.uuid4().hex[:8].upper()}"
+            customer = Customer(
+                business_id=business_id,
+                name=name,
+                customer_id=customer_id,
+                phone=request.form.get('phone', '').strip() or None,
+                email=request.form.get('email', '').strip() or None,
+                address=request.form.get('address', '').strip() or None,
+                bank_details=request.form.get('bank_details', '').strip() or None,
+                is_active=True
+            )
             db.session.add(customer)
             db.session.commit()
             flash(f'Customer "{name}" added successfully!', 'success')
@@ -28,8 +42,15 @@ def customers():
             flash(f'Customer "{name}" already exists.', 'info')
         return redirect(url_for('sales.customers'))
 
+    search_query = request.args.get('search', '').strip()
     customers = Customer.query.order_by(Customer.name.asc()).all()
-    return render_template('customers.html', customers=customers)
+    
+    if search_query:
+        customers = [c for c in customers if search_query.lower() in c.name.lower() or 
+                     (c.email and search_query.lower() in c.email.lower()) or
+                     (c.phone and search_query in c.phone)]
+    
+    return render_template('customers.html', customers=customers, search_query=search_query)
 
 
 @sales_bp.route('/invoices', methods=['GET', 'POST'])

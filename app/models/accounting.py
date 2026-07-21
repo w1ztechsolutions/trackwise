@@ -39,7 +39,7 @@ class JournalEntry(db.Model):
     reference_type = db.Column(db.String(50), nullable=True)
     reference_id = db.Column(db.Integer, nullable=True)
     description = db.Column(db.Text, nullable=False)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     lines = db.relationship('JournalLine', backref='journal_entry', cascade='all, delete-orphan')
@@ -62,7 +62,7 @@ class AuditLog(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'), nullable=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     action = db.Column(db.String(50), nullable=False)
     table_name = db.Column(db.String(100), nullable=False)
     record_id = db.Column(db.Integer, nullable=True)

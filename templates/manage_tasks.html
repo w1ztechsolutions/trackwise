@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Manage Custom Tasks{% endblock %}
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Manage Custom Tasks</h1>
+        <p>Assign special permissions for {{ user.email }}</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('auth.user_management') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</div>
+
+<div class="glass-card" style="max-width: 600px;">
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% for task_id, task_label in available_tasks %}
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="tasks" value="{{ task_id }}" id="task_{{ task_id }}" {{ 'checked' if task_id in current_tasks else '' }}>
+            <label class="form-check-label" for="task_{{ task_id }}">{{ task_label }}</label>
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary">Save Tasks</button>
+    </form>
+</div>
+{% endblock %}

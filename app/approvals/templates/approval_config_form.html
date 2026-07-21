@@ -1,21 +1,25 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Edit' if config else 'Create' }} Approval Workflow{% endblock %}
+{% block title %}{{ 'Edit' if approval_config else 'Create' }} Approval Workflow{% endblock %}
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card shadow-sm">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">{{ 'Edit' if config else 'Create' }} Approval Workflow</h5>
-                </div>
-                <div class="card-body">
-                    {% set levels = config.to_dict().levels if config else [] %}
-                    {% set transaction_type = config.transaction_type if config else '' %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>{{ 'Edit' if approval_config else 'Create' }} Approval Workflow</h1>
+        <p>Configure approval levels for {{ approval_config.transaction_type if approval_config else 'a transaction type' }}</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('approvals.list_configs') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</div>
+
+<div class="glass-card" style="max-width: 700px;">
+                    {% set levels = approval_config.to_dict().levels if approval_config else [] %}
+                    {% set transaction_type = approval_config.transaction_type if approval_config else '' %}
 
                     <form method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="mb-3">
                             <label for="transaction_type" class="form-label">Transaction Type</label>
-                            <select class="form-select" id="transaction_type" name="transaction_type" required {{ 'disabled' if config }}>
+                            <select class="form-select" id="transaction_type" name="transaction_type" required {{ 'disabled' if approval_config }}>
                                 <option value="">-- Select --</option>
                                 <option value="sale" {% if transaction_type == 'sale' %}selected{% endif %}>Sale</option>
                                 <option value="purchase" {% if transaction_type == 'purchase' %}selected{% endif %}>Purchase</option>
@@ -45,16 +49,15 @@
                             </div>
                         </div>
 
-                        {% if config %}
+                        {% if approval_config %}
                         <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if config.is_active %}checked{% endif %}>
+                            <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if approval_config.is_active %}checked{% endif %}>
                             <label class="form-check-label" for="is_active">Active</label>
                         </div>
                         {% endif %}
 
                         <div class="d-flex justify-content-between">
-                            <a href="{{ url_for('approvals.list_configs') }}" class="btn btn-outline-secondary">Cancel</a>
-                            <button type="submit" class="btn btn-primary">{{ 'Update' if config else 'Create' }} Workflow</button>
+                            <button type="submit" class="btn btn-primary">{{ 'Update' if approval_config else 'Create' }} Workflow</button>
                         </div>
                     </form>
                 </div>

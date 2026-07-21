@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Edit User{% endblock %}
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Edit User</h1>
+        <p>Update user details and access settings</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('auth.user_management') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</div>
+
+<div class="glass-card" style="max-width: 600px;">
+    <form method="POST">
+        <div class="mb-3">
+            <label class="form-label" for="email">Email</label>
+            <input type="email" id="email" name="email" value="{{ user.email }}" required class="form-control">
+        </div>
+        <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="is_active" name="is_active" {{ 'checked' if user.is_active else '' }}>
+            <label class="form-check-label" for="is_active">Active</label>
+        </div>
+        <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="must_change_password" name="must_change_password" {{ 'checked' if user.must_change_password else '' }}>
+            <label class="form-check-label" for="must_change_password">Require password change on next login</label>
+        </div>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+    </form>
+</div>
+{% endblock %}

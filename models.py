@@ -146,7 +146,7 @@ class StockMovement(db.Model):
     unit_cost = db.Column(db.Numeric(12, 2), nullable=True)
     reference_type = db.Column(db.String(50), nullable=True)
     reference_id = db.Column(db.Integer, nullable=True)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     notes = db.Column(db.Text, nullable=True)
     timestamp = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
@@ -161,10 +161,12 @@ class Customer(db.Model):
     __tablename__ = 'customers'
     id = db.Column(db.Integer, primary_key=True)
     business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
+    customer_id = db.Column(db.String(20), unique=True, nullable=True)
     name = db.Column(db.String(200), nullable=False)
     phone = db.Column(db.String(50), nullable=True)
     email = db.Column(db.String(120), nullable=True)
     address = db.Column(db.Text, nullable=True)
+    bank_details = db.Column(db.String(120), nullable=True)
     credit_limit = db.Column(db.Numeric(14, 2), nullable=True)
     opening_balance = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
@@ -174,10 +176,12 @@ class Supplier(db.Model):
     __tablename__ = 'suppliers'
     id = db.Column(db.Integer, primary_key=True)
     business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
+    supplier_id = db.Column(db.String(20), unique=True, nullable=True)
     name = db.Column(db.String(200), nullable=False)
     phone = db.Column(db.String(50), nullable=True)
     email = db.Column(db.String(120), nullable=True)
     address = db.Column(db.Text, nullable=True)
+    bank_details = db.Column(db.String(120), nullable=True)
     payment_terms = db.Column(db.String(100), nullable=True)
     opening_balance = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
@@ -287,6 +291,7 @@ class User(db.Model, UserMixin):
     role = db.Column(db.String(20), nullable=False, default='viewer')
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     must_change_password = db.Column(db.Boolean, nullable=False, default=False)
+    custom_tasks = db.Column(db.Text, nullable=True)
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)

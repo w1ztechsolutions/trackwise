@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Assign Role{% endblock %}
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Assign Role</h1>
+        <p>Change role for {{ user.email }}</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('auth.user_management') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</div>
+
+<div class="glass-card" style="max-width: 600px;">
+    <form method="POST">
+        <div class="mb-3">
+            <label class="form-label" for="role">Role</label>
+            <select id="role" name="role" class="form-select" required>
+                <option value="admin" {{ 'selected' if user.role == 'admin' }}>Admin</option>
+                <option value="manager" {{ 'selected' if user.role == 'manager' }}>Manager</option>
+                <option value="accountant" {{ 'selected' if user.role == 'accountant' }}>Accountant</option>
+                <option value="cashier" {{ 'selected' if user.role == 'cashier' }}>Cashier</option>
+                <option value="storekeeper" {{ 'selected' if user.role == 'storekeeper' }}>Storekeeper</option>
+                <option value="viewer" {{ 'selected' if user.role == 'viewer' }}>Viewer</option>
+            </select>
+            <div class="form-text">Changing a user's role will update their permissions immediately.</div>
+        </div>
+        <button type="submit" class="btn btn-primary">Update Role</button>
+    </form>
+</div>
+{% endblock %}
