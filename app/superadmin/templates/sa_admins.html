@@ -1,0 +1,52 @@
+{% extends "sa_base.html" %}
+{% block title %}Admins - {{ business.name }}{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">Administrators</h2>
+            <p class="text-muted mb-0">for <strong>{{ business.name }}</strong></p>
+        </div>
+        <a href="{{ url_for('superadmin.create_admin', biz_id=business.id) }}" class="btn btn-danger">+ New Admin</a>
+    </div>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Active</th>
+                            <th>Must Change Password</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for admin in admins %}
+                        <tr>
+                            <td>{{ admin.id }}</td>
+                            <td>{{ admin.email }}</td>
+                            <td><span class="badge bg-danger">admin</span></td>
+                            <td>{{ 'Yes' if admin.is_active else 'No' }}</td>
+                            <td>{{ 'Yes' if admin.must_change_password else 'No' }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('superadmin.delete_admin', biz_id=business.id, admin_id=admin.id) }}" style="display:inline" onsubmit="return confirm('Delete this admin?');">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6" class="text-center text-muted py-4">No admin users for this business.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="mt-3">
+        <a href="{{ url_for('superadmin.dashboard') }}" class="btn btn-outline-secondary">&larr; Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}

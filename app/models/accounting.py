@@ -11,6 +11,7 @@ class Business(db.Model):
     tax_id = db.Column(db.String(100), nullable=True)
     currency = db.Column(db.String(10), nullable=False, default='MWK')
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_by_superadmin_id = db.Column(db.Integer, db.ForeignKey('super_admins.id'), nullable=True)
 
 
 class ChartOfAccounts(db.Model):

@@ -1,0 +1,81 @@
+{% extends "sa_base.html" %}
+{% block title %}Super Admin Dashboard{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4">Platform Dashboard</h2>
+
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body text-center py-4">
+                    <h5 class="card-title">Total Businesses</h5>
+                    <h2 class="display-4 fw-bold">{{ total_businesses }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body text-center py-4">
+                    <h5 class="card-title">Total Admins</h5>
+                    <h2 class="display-4 fw-bold">{{ total_admins }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm bg-info text-white">
+                <div class="card-body text-center py-4">
+                    <h5 class="card-title">Total Users</h5>
+                    <h2 class="display-4 fw-bold">{{ total_users }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Businesses Overview</h5>
+            <a href="{{ url_for('superadmin.create_business') }}" class="btn btn-danger btn-sm">+ New Business</a>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Business</th>
+                            <th>Currency</th>
+                            <th>Tax ID</th>
+                            <th>Admins</th>
+                            <th>Users</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in business_stats %}
+                        <tr>
+                            <td><strong>{{ stat.business.name }}</strong></td>
+                            <td>{{ stat.business.currency }}</td>
+                            <td>{{ stat.business.tax_id or '-' }}</td>
+                            <td>{{ stat.admin_count }}</td>
+                            <td>{{ stat.user_count }}</td>
+                            <td>{{ stat.business.created_at.strftime('%Y-%m-%d') if stat.business.created_at else '-' }}</td>
+                            <td>
+                                <a href="{{ url_for('superadmin.list_admins', biz_id=stat.business.id) }}" class="btn btn-outline-primary btn-sm">Admins</a>
+                                <a href="{{ url_for('superadmin.edit_business', biz_id=stat.business.id) }}" class="btn btn-outline-secondary btn-sm">Edit</a>
+                                <form method="POST" action="{{ url_for('superadmin.delete_business', biz_id=stat.business.id) }}" style="display:inline" onsubmit="return confirm('Delete this business and ALL its data? This cannot be undone.');">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">No businesses registered yet.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

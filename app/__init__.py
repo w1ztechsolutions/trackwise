@@ -107,6 +107,8 @@ def create_app(config_object=None):
     from .api import api_bp as _api_bp
     from .auth import auth_bp as _auth_bp
     from .production import production_bp as _production_bp
+    from .superadmin import superadmin_bp as _superadmin_bp
+    from .approvals import approvals_bp as _approvals_bp
 
     app.register_blueprint(_auth_bp)
     app.register_blueprint(_dashboard_bp)
@@ -118,6 +120,8 @@ def create_app(config_object=None):
     app.register_blueprint(_settings_bp)
     app.register_blueprint(_api_bp)
     app.register_blueprint(_production_bp)
+    app.register_blueprint(_superadmin_bp)
+    app.register_blueprint(_approvals_bp)
 
     app.url_map.strict_slashes = False
 

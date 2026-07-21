@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if config else 'Create' }} Approval Workflow{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">{{ 'Edit' if config else 'Create' }} Approval Workflow</h5>
+                </div>
+                <div class="card-body">
+                    {% set levels = config.to_dict().levels if config else [] %}
+                    {% set transaction_type = config.transaction_type if config else '' %}
+
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="transaction_type" class="form-label">Transaction Type</label>
+                            <select class="form-select" id="transaction_type" name="transaction_type" required {{ 'disabled' if config }}>
+                                <option value="">-- Select --</option>
+                                <option value="sale" {% if transaction_type == 'sale' %}selected{% endif %}>Sale</option>
+                                <option value="purchase" {% if transaction_type == 'purchase' %}selected{% endif %}>Purchase</option>
+                                <option value="expense" {% if transaction_type == 'expense' %}selected{% endif %}>Expense</option>
+                                <option value="receipt" {% if transaction_type == 'receipt' %}selected{% endif %}>Receipt</option>
+                                <option value="payment" {% if transaction_type == 'payment' %}selected{% endif %}>Payment</option>
+                                <option value="journal_entry" {% if transaction_type == 'journal_entry' %}selected{% endif %}>Journal Entry</option>
+                                <option value="production" {% if transaction_type == 'production' %}selected{% endif %}>Production Batch</option>
+                                <option value="invoice" {% if transaction_type == 'invoice' %}selected{% endif %}>Invoice</option>
+                                <option value="bill" {% if transaction_type == 'bill' %}selected{% endif %}>Bill</option>
+                            </select>
+                            <div class="form-text">The type of transaction that requires approval.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Approval Levels (in order)</label>
+                            <div class="form-text mb-2">Select roles in the order they must approve. Cashier submits → First level approves → Second level finalizes.</div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="level_accountant" name="levels[]" value="accountant"
+                                    {% if 'accountant' in levels %}checked{% endif %}>
+                                <label class="form-check-label" for="level_accountant">Level 1: Accountant</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="level_manager" name="levels[]" value="manager"
+                                    {% if 'manager' in levels %}checked{% endif %}>
+                                <label class="form-check-label" for="level_manager">Level 2: Manager</label>
+                            </div>
+                        </div>
+
+                        {% if config %}
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if config.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">Active</label>
+                        </div>
+                        {% endif %}
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('approvals.list_configs') }}" class="btn btn-outline-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">{{ 'Update' if config else 'Create' }} Workflow</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

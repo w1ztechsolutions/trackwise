@@ -1,112 +1,75 @@
+"""Admin-only user creation route.
+
+Replaced the public registration flow. Now only business admins can create
+new users for their business. New users are created with must_change_password=True
+so they are forced to set their own password on first login.
+"""
+
 from flask import flash, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
 from werkzeug.security import generate_password_hash
 
 from app.models import db as _db
+from app.auth.permissions import permission_required
 
 from . import auth_bp
 
 db = _db
 
 
-def _seed_accounting_data(business_id):
-    """Seed default chart of accounts for a new business."""
-    from app.models.accounting import ChartOfAccounts
-
-    default_accounts = [
-        ('1000', 'Cash', 'asset'),
-        ('1100', 'Bank', 'asset'),
-        ('1200', 'Accounts Receivable', 'asset'),
-        ('1400', 'Inventory', 'asset'),
-        ('1410', 'Raw Materials', 'asset'),
-        ('1450', 'Work in Progress', 'asset'),
-        ('1460', 'Finished Goods', 'asset'),
-        ('1500', 'Fixed Assets', 'asset'),
-        ('2100', 'Accounts Payable', 'liability'),
-        ('2200', 'Tax Payable', 'liability'),
-        ('3000', 'Capital', 'equity'),
-        ('3100', 'Retained Earnings', 'equity'),
-        ('4000', 'Sales Revenue', 'income'),
-        ('4100', 'Other Income', 'income'),
-        ('5000', 'Cost of Goods Sold', 'expense'),
-        ('5100', 'Rent Expense', 'expense'),
-        ('5200', 'Utilities Expense', 'expense'),
-        ('5300', 'Salaries Expense', 'expense'),
-        ('5400', 'Marketing Expense', 'expense'),
-        ('5900', 'Other Expenses', 'expense'),
-    ]
-
-    for code, name, type_ in default_accounts:
-        db.session.add(ChartOfAccounts(
-            business_id=business_id,
-            code=code,
-            name=name,
-            type=type_,
-            is_active=True,
-        ))
-
-    # Seed default settings
-    from models import Setting
-    db.session.add(Setting(business_id=business_id, key='tax_rate', value='30.0'))
-    db.session.commit()
-
-
-@auth_bp.route('/register', methods=['GET', 'POST'])
-def register():
-    # Local import to avoid circular imports
+@auth_bp.route('/users/create', methods=['GET', 'POST'])
+@login_required
+@permission_required('manage_settings')
+def create_user():
+    """Admin-only: Create a new user for the current business."""
     from app.models import User
-    from app.models.accounting import Business
+
+    if current_user.role != 'admin':
+        flash('Only administrators can create new users.', 'danger')
+        return redirect(url_for('dashboard.dashboard'))
+
+    biz_id = getattr(current_user, 'business_id', None)
+    if not biz_id:
+        flash('No business associated with your account.', 'danger')
+        return redirect(url_for('dashboard.dashboard'))
 
     if request.method == 'POST':
-        business_name = request.form.get('business_name', '').strip()
         email = request.form.get('email', '').strip().lower()
+        name = request.form.get('name', '').strip()
         password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
-        tax_id = request.form.get('tax_id', '').strip() or None
-        currency = request.form.get('currency', 'MWK').strip().upper()
+        role = request.form.get('role', 'viewer').strip().lower()
 
-        if not business_name or not email or not password:
-            flash('Business name, email and password are required.', 'danger')
-            return render_template('register.html', show_nav=False)
+        if not email or not name or not password:
+            flash('Email, name and password are required.', 'danger')
+            return render_template('create_user.html')
 
         if password != confirm_password:
             flash('Passwords do not match.', 'danger')
-            return render_template('register.html', show_nav=False)
+            return render_template('create_user.html')
+
+        valid_roles = ['admin', 'manager', 'accountant', 'cashier', 'storekeeper', 'viewer']
+        if role not in valid_roles:
+            flash(f'Invalid role. Must be one of: {", ".join(valid_roles)}', 'danger')
+            return render_template('create_user.html')
 
         existing = User.query.filter_by(email=email).first()
         if existing:
-            flash('An account with this email already exists.', 'danger')
-            return render_template('register.html', show_nav=False)
+            flash('A user with this email already exists.', 'danger')
+            return render_template('create_user.html')
 
-        # Create Business first
-        business = Business(name=business_name, tax_id=tax_id, currency=currency)
-        db.session.add(business)
-        db.session.flush()
-
-        # Seed chart of accounts for the new business
-        _seed_accounting_data(business.id)
-
-        # Create admin user with business_id
         user = User(
-            business_id=business.id,
+            business_id=biz_id,
             email=email,
             password_hash=generate_password_hash(password),
-            role='admin',
+            role=role,
             is_active=True,
+            must_change_password=True,
         )
         db.session.add(user)
         db.session.commit()
 
-        # Subscribe to Free plan by default
-        try:
-            from app.services.subscription_service import seed_default_plans, subscribe
-            seed_default_plans()
-            free_plan = __import__('models', fromlist=['Plan']).Plan.query.filter_by(name='Free').first()
-            if free_plan:
-                subscribe(business.id, free_plan.id)
-        except Exception:
-            pass  # Non-critical - subscription can be set up later
+        flash(f'User "{name}" ({role}) created successfully. They must change password on first login.', 'success')
+        return redirect(url_for('settings.settings'))
 
-        flash('Account created successfully. Please sign in.', 'success')
-        return redirect(url_for('auth.login'))
-
-    return render_template('register.html', show_nav=False)
+    return render_template('create_user.html')

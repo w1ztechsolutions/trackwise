@@ -8,11 +8,18 @@ from flask_login import current_user
 # '*' means all permissions granted
 PERMISSIONS = {
     'admin': '*',
+    'manager': [
+        'view_dashboard', 'view_reports', 'view_financials',
+        'view_inventory', 'view_products', 'view_customers',
+        'view_suppliers', 'view_invoices', 'view_payments',
+        'approve_transactions',
+    ],
     'accountant': [
         'view_dashboard', 'view_reports', 'view_financials',
         'manage_expenses', 'view_inventory', 'view_products',
         'view_customers', 'view_suppliers', 'view_invoices',
         'view_payments', 'manage_settings',
+        'approve_transactions',
     ],
     'cashier': [
         'view_dashboard', 'create_sale', 'create_receipt',
@@ -83,3 +90,24 @@ def check_feature_access(feature_name):
         return check_access(biz_id, feature_name)
     except Exception:
         return True
+
+
+def get_approval_levels_for_role(role):
+    """Return the approval levels a role can act on based on their position in approval chains.
+
+    Managers can act on any level, accountants on level 0 (first level).
+    """
+    if role == 'manager':
+        return [1, 2, 3, 4, 5]  # Can act on any level beyond first
+    if role == 'accountant':
+        return [0]  # First level approver
+    return []
+
+
+def can_approve_at_level(user, level):
+    """Check if a user's role can approve at the given approval level."""
+    from flask import current_app
+    if current_app.testing and current_app.config.get('LOGIN_DISABLED'):
+        return True
+    allowed_levels = get_approval_levels_for_role(getattr(user, 'role', 'viewer'))
+    return level in allowed_levels

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Super Admin{% endblock %} - TrackWise</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: #f5f6fa;
+        }
+        .sidebar {
+            background: #1a1a2e;
+            min-height: 100vh;
+            width: 240px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 100;
+        }
+        .sidebar .brand {
+            color: #fff;
+            font-size: 1.2rem;
+            font-weight: 700;
+            padding: 1.2rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .sidebar .brand .badge {
+            font-size: 0.6rem;
+            vertical-align: middle;
+        }
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.7);
+            padding: 0.7rem 1rem;
+            font-size: 0.9rem;
+            border-left: 3px solid transparent;
+        }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            color: #fff;
+            background: rgba(255,255,255,0.05);
+            border-left-color: #dc3545;
+        }
+        .sidebar .nav-link i {
+            width: 20px;
+            margin-right: 8px;
+        }
+        .main-content {
+            margin-left: 240px;
+        }
+        .topbar {
+            background: #fff;
+            border-bottom: 1px solid #e9ecef;
+            padding: 0.8rem 1.5rem;
+        }
+        .logout-btn {
+            color: #dc3545;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        .logout-btn:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="brand">
+            TrackWise <span class="badge bg-danger">SA</span>
+        </div>
+        <nav class="mt-2">
+            <a href="{{ url_for('superadmin.dashboard') }}" class="nav-link {% if request.endpoint == 'superadmin.dashboard' %}active{% endif %}">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+            <a href="{{ url_for('superadmin.list_businesses') }}" class="nav-link {% if request.endpoint and 'business' in request.endpoint %}active{% endif %}">
+                <i class="bi bi-building"></i> Businesses
+            </a>
+            <a href="{{ url_for('superadmin.list_all_users') }}" class="nav-link {% if request.endpoint == 'superadmin.list_all_users' %}active{% endif %}">
+                <i class="bi bi-people"></i> All Users
+            </a>
+            <hr class="text-secondary mx-3">
+            <a href="{{ url_for('superadmin.logout') }}" class="nav-link">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="topbar d-flex justify-content-between align-items-center">
+            <span>Welcome, <strong>{{ sa.name }}</strong></span>
+            <a href="{{ url_for('superadmin.logout') }}" class="logout-btn">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="container-fluid mt-3">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
