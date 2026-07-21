@@ -90,7 +90,6 @@ def _get_pool_options(is_neon: bool = False) -> dict:
 
 
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-fallback-key")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 300}
     REMEMBER_COOKIE_DURATION = timedelta(days=14)
@@ -99,6 +98,7 @@ class Config:
 class DevelopmentConfig(Config):
     DEBUG = True
     TESTING = False
+    SECRET_KEY = os.environ.get("SECRET_KEY", os.urandom(32).hex())
     SQLALCHEMY_DATABASE_URI = _default_database_uri()
     SQLALCHEMY_ENGINE_OPTIONS = _get_pool_options(is_neon=_is_neon(os.environ.get("DATABASE_URL")))
 
@@ -106,6 +106,8 @@ class DevelopmentConfig(Config):
 class TestingConfig(Config):
     DEBUG = False
     TESTING = True
+    # Use a fixed deterministic key for tests
+    SECRET_KEY = os.environ.get("SECRET_KEY", "test-secret-key-for-testing-only")
     # Always use SQLite in-memory for tests to ensure isolation
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     SQLALCHEMY_ENGINE_OPTIONS = {}  # disable pooling for in-memory SQLite tests
@@ -118,3 +120,11 @@ class ProductionConfig(Config):
     TESTING = False
     SQLALCHEMY_DATABASE_URI = _default_database_uri()
     SQLALCHEMY_ENGINE_OPTIONS = _get_pool_options(is_neon=_is_neon(os.environ.get("DATABASE_URL")))
+
+    def __init__(self):
+        if not os.environ.get("SECRET_KEY"):
+            raise RuntimeError(
+                "SECRET_KEY environment variable must be set in production. "
+                "Generate a strong random key (e.g. via 'python -c \"import secrets; print(secrets.token_hex(32))\"') "
+                "and set it as the SECRET_KEY environment variable."
+            )

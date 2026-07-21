@@ -48,11 +48,6 @@ def create_app(config_object=None):
         template_folder=TEMPLATE_FOLDER
     )
 
-    app.config.setdefault(
-        "SECRET_KEY",
-        os.environ.get("SECRET_KEY", "dev-fallback-key"),
-    )
-
     app.config.setdefault("SQLALCHEMY_TRACK_MODIFICATIONS", False)
 
     # Handle instance path early for serverless compatibility (must be before SQLite fallback)
