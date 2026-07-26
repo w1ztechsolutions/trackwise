@@ -1,9 +1,11 @@
 import uuid
+import json
 from datetime import datetime, timezone
 from flask_login import login_required, current_user
-from flask import flash, redirect, render_template, request, url_for
+from flask import flash, redirect, render_template, request, url_for, abort
 
 from models import Product, Sale, SaleItem, Customer, Invoice, InvoiceItem, Receipt, db
+from models.approval import ApprovalRequest
 from services.fifo_service import InventoryException, record_sale
 
 from . import sales_bp
@@ -32,7 +34,9 @@ def customers():
                 phone=request.form.get('phone', '').strip() or None,
                 email=request.form.get('email', '').strip() or None,
                 address=request.form.get('address', '').strip() or None,
-                bank_details=request.form.get('bank_details', '').strip() or None,
+                bank_name=request.form.get('bank_name', '').strip() or None,
+                bank_branch=request.form.get('bank_branch', '').strip() or None,
+                bank_account_number=request.form.get('bank_account_number', '').strip() or None,
                 is_active=True
             )
             db.session.add(customer)
@@ -162,4 +166,59 @@ def sales():
     page = request.args.get('page', 1, type=int)
     sale_records = Sale.query.order_by(Sale.sale_date.desc()).paginate(page=page, per_page=10)
     return render_template('sales.html', products=products, sales=sale_records)
+
+
+@sales_bp.route('/customers/<int:customer_id>/edit', methods=['POST'])
+@login_required
+def edit_customer(customer_id):
+    customer = db.session.get(Customer, customer_id)
+    if not customer or customer.business_id != getattr(current_user, 'business_id', None):
+        abort(404)
+
+    biz_id = getattr(current_user, 'business_id', None)
+    data = json.dumps({
+        'name': request.form.get('name', '').strip(),
+        'phone': request.form.get('phone', '').strip() or None,
+        'email': request.form.get('email', '').strip() or None,
+        'address': request.form.get('address', '').strip() or None,
+        'bank_name': request.form.get('bank_name', '').strip() or None,
+        'bank_branch': request.form.get('bank_branch', '').strip() or None,
+        'bank_account_number': request.form.get('bank_account_number', '').strip() or None,
+    })
+
+    req = ApprovalRequest(
+        business_id=biz_id,
+        transaction_type='customer_edit',
+        transaction_id=customer.id,
+        current_level=0,
+        status='pending',
+        data=data,
+        created_by=current_user.id,
+    )
+    db.session.add(req)
+    db.session.commit()
+    flash('Customer edit request submitted for approval.', 'success')
+    return redirect(url_for('sales.customers'))
+
+
+@sales_bp.route('/customers/<int:customer_id>/delete', methods=['POST'])
+@login_required
+def delete_customer(customer_id):
+    customer = db.session.get(Customer, customer_id)
+    if not customer or customer.business_id != getattr(current_user, 'business_id', None):
+        abort(404)
+
+    biz_id = getattr(current_user, 'business_id', None)
+    req = ApprovalRequest(
+        business_id=biz_id,
+        transaction_type='customer_delete',
+        transaction_id=customer.id,
+        current_level=0,
+        status='pending',
+        created_by=current_user.id,
+    )
+    db.session.add(req)
+    db.session.commit()
+    flash('Customer delete request submitted for approval.', 'success')
+    return redirect(url_for('sales.customers'))
 

@@ -48,6 +48,8 @@ class ApprovalRequest(db.Model):
     transaction_id = db.Column(db.Integer, nullable=False)
     current_level = db.Column(db.Integer, nullable=False, default=0)
     status = db.Column(db.String(20), nullable=False, default='pending')  # pending | approved | rejected | completed
+    # JSON data for pending changes (e.g., edit proposals)
+    data = db.Column(db.Text, nullable=True)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     completed_at = db.Column(db.DateTime, nullable=True)
@@ -63,6 +65,7 @@ class ApprovalRequest(db.Model):
             'transaction_id': self.transaction_id,
             'current_level': self.current_level,
             'status': self.status,
+            'data': self.data,
             'created_by': self.created_by,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }

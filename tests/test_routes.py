@@ -26,7 +26,6 @@ class TestInventoryRoutes:
     def test_create_product(self, client, app):
         with app.app_context():
             resp = client.post('/inventory', data={
-                'sku': 'TEST-001',
                 'name': 'Test Product',
                 'description': 'A test product',
                 'low_stock_threshold': 5,
@@ -35,23 +34,56 @@ class TestInventoryRoutes:
             assert resp.status_code == 200
             assert b'Test Product' in resp.data or b'success' in resp.data.lower()
 
-    def test_duplicate_sku_rejected(self, client, app):
+    def test_duplicate_name_rejected(self, client, app):
         with app.app_context():
             client.post('/inventory', data={
-                'sku': 'DUP-001',
-                'name': 'First',
+                'name': 'Unique Name',
                 'description': '',
                 'low_stock_threshold': 5,
                 'default_selling_price': 100.0,
             })
             resp = client.post('/inventory', data={
-                'sku': 'DUP-001',
-                'name': 'Second',
+                'name': 'Unique Name',
                 'description': '',
                 'low_stock_threshold': 5,
                 'default_selling_price': 100.0,
             }, follow_redirects=True)
-            assert b'already exists' in resp.data or b'DUP-001' in resp.data
+            assert b'already exists' in resp.data or b'Unique Name' in resp.data
+
+    def test_delete_product(self, client, app):
+        with app.app_context():
+            from models import db
+            p = Product(sku='DEL-001', name='To Delete', default_selling_price=10.0)
+            db.session.add(p)
+            db.session.commit()
+        resp = client.post('/inventory', data={
+            'action': 'delete_product',
+            'product_id': p.id,
+        }, follow_redirects=True)
+        assert resp.status_code == 200
+        with app.app_context():
+            db.session.refresh(p)
+            assert p.is_active is False
+
+    def test_edit_product(self, client, app):
+        with app.app_context():
+            from models import db
+            p = Product(sku='EDIT-001', name='To Edit', default_selling_price=10.0)
+            db.session.add(p)
+            db.session.commit()
+        resp = client.post('/inventory', data={
+            'action': 'edit_product',
+            'product_id': p.id,
+            'name': 'Edited Name',
+            'description': 'Edited description',
+            'low_stock_threshold': 10,
+            'default_selling_price': 25.0,
+        }, follow_redirects=True)
+        assert resp.status_code == 200
+        with app.app_context():
+            db.session.refresh(p)
+            assert p.name == 'Edited Name'
+            assert p.default_selling_price == 25.0
 
     def test_api_products(self, client, app):
         with app.app_context():

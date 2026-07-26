@@ -11,6 +11,7 @@ from flask_login import current_user, login_required
 from app.models import db
 from app.auth.permissions import permission_required, can_approve_at_level
 from app.models.approval import ApprovalConfig, ApprovalRequest, ApprovalAction
+from models import Supplier, Customer
 
 from . import approvals_bp
 
@@ -190,13 +191,18 @@ def approve_request(request_id):
 
     # Check if there are more levels
     import json
-    levels = json.loads(req.approval_config.levels) if hasattr(req, 'approval_config') else []
+    config = ApprovalConfig.query.filter_by(
+        business_id=req.business_id,
+        transaction_type=req.transaction_type,
+    ).first()
+    levels = json.loads(config.levels) if config and config.levels else []
 
     if req.current_level + 1 >= len(levels):
-        # All levels approved — mark as completed
+        # All levels approved — mark as completed and execute
         req.status = 'completed'
         req.completed_at = datetime.now(timezone.utc)
-        flash('Transaction fully approved.', 'success')
+        _execute_approval(req)
+        flash('Transaction fully approved and executed.', 'success')
     else:
         # Move to next level
         req.current_level += 1
@@ -289,6 +295,50 @@ def create_approval_request(business_id, transaction_type, transaction_id, creat
     db.session.add(req)
     db.session.commit()
     return req
+
+
+def _execute_approval(req):
+    """Execute the actual action when an approval request is fully approved."""
+    transaction_type = req.transaction_type
+    transaction_id = req.transaction_id
+    data = json.loads(req.data) if req.data else None
+
+    if transaction_type == 'supplier_edit':
+        supplier = db.session.get(Supplier, transaction_id)
+        if supplier and data:
+            supplier.name = data.get('name', supplier.name)
+            supplier.phone = data.get('phone', supplier.phone)
+            supplier.email = data.get('email', supplier.email)
+            supplier.address = data.get('address', supplier.address)
+            supplier.bank_name = data.get('bank_name', supplier.bank_name)
+            supplier.bank_branch = data.get('bank_branch', supplier.bank_branch)
+            supplier.bank_account_number = data.get('bank_account_number', supplier.bank_account_number)
+            supplier.payment_terms = data.get('payment_terms', supplier.payment_terms)
+            db.session.commit()
+
+    elif transaction_type == 'supplier_delete':
+        supplier = db.session.get(Supplier, transaction_id)
+        if supplier:
+            supplier.is_active = False
+            db.session.commit()
+
+    elif transaction_type == 'customer_edit':
+        customer = db.session.get(Customer, transaction_id)
+        if customer and data:
+            customer.name = data.get('name', customer.name)
+            customer.phone = data.get('phone', customer.phone)
+            customer.email = data.get('email', customer.email)
+            customer.address = data.get('address', customer.address)
+            customer.bank_name = data.get('bank_name', customer.bank_name)
+            customer.bank_branch = data.get('bank_branch', customer.bank_branch)
+            customer.bank_account_number = data.get('bank_account_number', customer.bank_account_number)
+            db.session.commit()
+
+    elif transaction_type == 'customer_delete':
+        customer = db.session.get(Customer, transaction_id)
+        if customer:
+            customer.is_active = False
+            db.session.commit()
 
 
 from . import approvals_bp  # noqa: E402, F811

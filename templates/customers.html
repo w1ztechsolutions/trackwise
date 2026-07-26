@@ -55,8 +55,16 @@
                         <textarea id="customer_address" name="address" class="form-control" rows="2"></textarea>
                     </div>
                     <div class="mb-3">
-                        <label for="customer_bank" class="form-label">Bank Details</label>
-                        <input type="text" id="customer_bank" name="bank_details" class="form-control" placeholder="Account number / Bank name">
+                        <label for="customer_bank_name" class="form-label">Bank Name</label>
+                        <input type="text" id="customer_bank_name" name="bank_name" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label for="customer_bank_branch" class="form-label">Bank Branch</label>
+                        <input type="text" id="customer_bank_branch" name="bank_branch" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label for="customer_bank_account" class="form-label">Bank Account Number</label>
+                        <input type="text" id="customer_bank_account" name="bank_account_number" class="form-control">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -68,6 +76,57 @@
     </div>
 </div>
 
+<!-- Edit Customer Modal -->
+{% for customer in customers %}
+<div class="modal fade" id="editCustomerModal{{ customer.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('sales.edit_customer', customer_id=customer.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Customer</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="edit_customer_name{{ customer.id }}" class="form-label">Customer Name *</label>
+                        <input type="text" id="edit_customer_name{{ customer.id }}" name="name" class="form-control" value="{{ customer.name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_customer_phone{{ customer.id }}" class="form-label">Phone</label>
+                        <input type="tel" id="edit_customer_phone{{ customer.id }}" name="phone" class="form-control" value="{{ customer.phone or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_customer_email{{ customer.id }}" class="form-label">Email</label>
+                        <input type="email" id="edit_customer_email{{ customer.id }}" name="email" class="form-control" value="{{ customer.email or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_customer_address{{ customer.id }}" class="form-label">Address</label>
+                        <textarea id="edit_customer_address{{ customer.id }}" name="address" class="form-control" rows="2">{{ customer.address or '' }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_customer_bank_name{{ customer.id }}" class="form-label">Bank Name</label>
+                        <input type="text" id="edit_customer_bank_name{{ customer.id }}" name="bank_name" class="form-control" value="{{ customer.bank_name or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_customer_bank_branch{{ customer.id }}" class="form-label">Bank Branch</label>
+                        <input type="text" id="edit_customer_bank_branch{{ customer.id }}" name="bank_branch" class="form-control" value="{{ customer.bank_branch or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_customer_bank_account{{ customer.id }}" class="form-label">Bank Account Number</label>
+                        <input type="text" id="edit_customer_bank_account{{ customer.id }}" name="bank_account_number" class="form-control" value="{{ customer.bank_account_number or '' }}">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
 <div class="glass-card">
     <div class="table-container">
         <table class="custom-table">
@@ -78,8 +137,11 @@
                     <th>Phone</th>
                     <th>Email</th>
                     <th>Address</th>
-                    <th>Bank Details</th>
+                    <th>Bank Name</th>
+                    <th>Bank Branch</th>
+                    <th>Account Number</th>
                     <th>Status</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -90,7 +152,9 @@
                     <td>{{ customer.phone or '-' }}</td>
                     <td>{{ customer.email or '-' }}</td>
                     <td>{{ customer.address or '-' }}</td>
-                    <td>{{ customer.bank_details or '-' }}</td>
+                    <td>{{ customer.bank_name or '-' }}</td>
+                    <td>{{ customer.bank_branch or '-' }}</td>
+                    <td>{{ customer.bank_account_number or '-' }}</td>
                     <td>
                         {% if customer.is_active %}
                             <span class="badge badge-success">Active</span>
@@ -98,10 +162,17 @@
                             <span class="badge badge-danger">Inactive</span>
                         {% endif %}
                     </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editCustomerModal{{ customer.id }}">Edit</button>
+                        <form method="POST" action="{{ url_for('sales.delete_customer', customer_id=customer.id) }}" style="display:inline" onsubmit="return confirm('Delete this customer?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                        </form>
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7" class="empty-state">No customers found.</td>
+                    <td colspan="10" class="empty-state">No customers found.</td>
                 </tr>
                 {% endfor %}
             </tbody>

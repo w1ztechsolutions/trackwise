@@ -21,6 +21,10 @@
                             <label for="transaction_type" class="form-label">Transaction Type</label>
                             <select class="form-select" id="transaction_type" name="transaction_type" required {{ 'disabled' if approval_config }}>
                                 <option value="">-- Select --</option>
+                                <option value="supplier_edit" {% if transaction_type == 'supplier_edit' %}selected{% endif %}>Supplier Edit</option>
+                                <option value="supplier_delete" {% if transaction_type == 'supplier_delete' %}selected{% endif %}>Supplier Delete</option>
+                                <option value="customer_edit" {% if transaction_type == 'customer_edit' %}selected{% endif %}>Customer Edit</option>
+                                <option value="customer_delete" {% if transaction_type == 'customer_delete' %}selected{% endif %}>Customer Delete</option>
                                 <option value="sale" {% if transaction_type == 'sale' %}selected{% endif %}>Sale</option>
                                 <option value="purchase" {% if transaction_type == 'purchase' %}selected{% endif %}>Purchase</option>
                                 <option value="expense" {% if transaction_type == 'expense' %}selected{% endif %}>Expense</option>

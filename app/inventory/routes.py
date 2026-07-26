@@ -21,7 +21,6 @@ def inventory():
         action = request.form.get('action', 'create_product')
 
         if action == 'create_product':
-            sku = request.form.get('sku').strip().upper()
             name = request.form.get('name').strip()
             description = request.form.get('description', '').strip()
             threshold = int(request.form.get('low_stock_threshold', 5))
@@ -30,13 +29,17 @@ def inventory():
             warehouse_id_raw = request.form.get('warehouse_id', '').strip()
             warehouse_id = int(warehouse_id_raw) if warehouse_id_raw else None
 
-            if not sku or not name:
-                flash('SKU and Product Name are required!', 'danger')
+            if not name:
+                flash('Product Name is required!', 'danger')
                 return redirect(url_for('inventory.inventory'))
 
-            existing = Product.query.filter_by(sku=sku).first()
+            max_product = Product.query.order_by(Product.id.desc()).first()
+            next_num = max_product.id + 1 if max_product else 1
+            sku = f'PROD-{next_num:03d}'
+
+            existing = Product.query.filter_by(name=name).first()
             if existing:
-                flash(f'Product with SKU {sku} already exists!', 'danger')
+                flash(f'Product with name "{name}" already exists!', 'danger')
                 return redirect(url_for('inventory.inventory'))
 
             product = Product(
@@ -54,7 +57,39 @@ def inventory():
 
             db.session.add(product)
             db.session.commit()
-            flash(f'Product "{name}" added successfully!', 'success')
+            flash(f'Product "{name}" added successfully with SKU {sku}!', 'success')
+            return redirect(url_for('inventory.inventory'))
+
+        elif action == 'delete_product':
+            product_id = int(request.form['product_id'])
+            product = db.session.get(Product, product_id)
+            if product:
+                product.is_active = False
+                db.session.commit()
+                flash(f'Product "{product.name}" has been deactivated.', 'success')
+            else:
+                flash('Product not found.', 'danger')
+            return redirect(url_for('inventory.inventory'))
+
+        elif action == 'edit_product':
+            product_id = int(request.form['product_id'])
+            product = db.session.get(Product, product_id)
+            if not product:
+                flash('Product not found.', 'danger')
+                return redirect(url_for('inventory.inventory'))
+
+            product.name = request.form.get('name', '').strip() or product.name
+            product.description = request.form.get('description', '').strip() or None
+            product.low_stock_threshold = int(request.form.get('low_stock_threshold', 5))
+            product.default_selling_price = float(request.form.get('default_selling_price', 0.0))
+            product.warehouse_id = request.form.get('warehouse_id', '').strip()
+            product.warehouse_id = int(product.warehouse_id) if product.warehouse_id else None
+            product.category = request.form.get('category', '').strip() or None
+            product.unit_of_measure = request.form.get('unit_of_measure', '').strip() or None
+            product.barcode = request.form.get('barcode', '').strip() or None
+
+            db.session.commit()
+            flash(f'Product "{product.name}" updated successfully!', 'success')
             return redirect(url_for('inventory.inventory'))
 
         elif action == 'create_warehouse':
@@ -155,7 +190,7 @@ def inventory():
             flash('Unknown inventory action.', 'danger')
             return redirect(url_for('inventory.inventory'))
 
-    products = Product.query.order_by(Product.name.asc()).all()
+    products = Product.query.filter_by(is_active=True).order_by(Product.name.asc()).all()
     warehouses = Warehouse.query.filter_by(is_active=True).order_by(Warehouse.name.asc()).all()
     low_stock_count = sum(1 for p in products if p.quantity_in_stock <= p.low_stock_threshold)
 

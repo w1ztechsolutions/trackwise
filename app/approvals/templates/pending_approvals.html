@@ -1,4 +1,18 @@
-{% extends "base.html" %}
+{% set transaction_type_labels = {
+    'supplier_edit': 'Supplier Edit',
+    'supplier_delete': 'Supplier Delete',
+    'customer_edit': 'Customer Edit',
+    'customer_delete': 'Customer Delete',
+    'sale': 'Sale',
+    'purchase': 'Purchase',
+    'expense': 'Expense',
+    'receipt': 'Receipt',
+    'payment': 'Payment',
+    'journal_entry': 'Journal Entry',
+    'production': 'Production Batch',
+    'invoice': 'Invoice',
+    'bill': 'Bill',
+} %}
 {% block title %}Pending Approvals{% endblock %}
 {% block content %}
 <div class="header-bar">
@@ -25,7 +39,7 @@
                 {% for req in requests %}
                 <tr>
                     <td>{{ req.id }}</td>
-                    <td><strong>{{ req.transaction_type }}</strong></td>
+                    <td><strong>{{ transaction_type_labels.get(req.transaction_type, req.transaction_type) }}</strong></td>
                     <td>{{ req.transaction_id }}</td>
                     <td>Level {{ req.current_level + 1 }}</td>
                     <td>{{ req.created_at.strftime('%Y-%m-%d %H:%M') if req.created_at else '-' }}</td>

@@ -55,8 +55,16 @@
                         <textarea id="supplier_address" name="address" class="form-control" rows="2"></textarea>
                     </div>
                     <div class="mb-3">
-                        <label for="supplier_bank" class="form-label">Bank Details</label>
-                        <input type="text" id="supplier_bank" name="bank_details" class="form-control" placeholder="Account number / Bank name">
+                        <label for="supplier_bank_name" class="form-label">Bank Name</label>
+                        <input type="text" id="supplier_bank_name" name="bank_name" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label for="supplier_bank_branch" class="form-label">Bank Branch</label>
+                        <input type="text" id="supplier_bank_branch" name="bank_branch" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label for="supplier_bank_account" class="form-label">Bank Account Number</label>
+                        <input type="text" id="supplier_bank_account" name="bank_account_number" class="form-control">
                     </div>
                     <div class="mb-3">
                         <label for="payment_terms" class="form-label">Payment Terms</label>
@@ -72,6 +80,61 @@
     </div>
 </div>
 
+<!-- Edit Supplier Modal -->
+{% for supplier in suppliers %}
+<div class="modal fade" id="editSupplierModal{{ supplier.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('purchases.edit_supplier', supplier_id=supplier.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Supplier</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="edit_supplier_name{{ supplier.id }}" class="form-label">Supplier Name *</label>
+                        <input type="text" id="edit_supplier_name{{ supplier.id }}" name="name" class="form-control" value="{{ supplier.name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_supplier_phone{{ supplier.id }}" class="form-label">Phone</label>
+                        <input type="tel" id="edit_supplier_phone{{ supplier.id }}" name="phone" class="form-control" value="{{ supplier.phone or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_supplier_email{{ supplier.id }}" class="form-label">Email</label>
+                        <input type="email" id="edit_supplier_email{{ supplier.id }}" name="email" class="form-control" value="{{ supplier.email or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_supplier_address{{ supplier.id }}" class="form-label">Address</label>
+                        <textarea id="edit_supplier_address{{ supplier.id }}" name="address" class="form-control" rows="2">{{ supplier.address or '' }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_supplier_bank_name{{ supplier.id }}" class="form-label">Bank Name</label>
+                        <input type="text" id="edit_supplier_bank_name{{ supplier.id }}" name="bank_name" class="form-control" value="{{ supplier.bank_name or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_supplier_bank_branch{{ supplier.id }}" class="form-label">Bank Branch</label>
+                        <input type="text" id="edit_supplier_bank_branch{{ supplier.id }}" name="bank_branch" class="form-control" value="{{ supplier.bank_branch or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_supplier_bank_account{{ supplier.id }}" class="form-label">Bank Account Number</label>
+                        <input type="text" id="edit_supplier_bank_account{{ supplier.id }}" name="bank_account_number" class="form-control" value="{{ supplier.bank_account_number or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_payment_terms{{ supplier.id }}" class="form-label">Payment Terms</label>
+                        <input type="text" id="edit_payment_terms{{ supplier.id }}" name="payment_terms" class="form-control" value="{{ supplier.payment_terms or '' }}">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
 <div class="glass-card">
     <div class="table-container">
         <table class="custom-table">
@@ -82,9 +145,12 @@
                     <th>Phone</th>
                     <th>Email</th>
                     <th>Address</th>
-                    <th>Bank Details</th>
+                    <th>Bank Name</th>
+                    <th>Bank Branch</th>
+                    <th>Account Number</th>
                     <th>Payment Terms</th>
                     <th>Status</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -95,7 +161,9 @@
                     <td>{{ supplier.phone or '-' }}</td>
                     <td>{{ supplier.email or '-' }}</td>
                     <td>{{ supplier.address or '-' }}</td>
-                    <td>{{ supplier.bank_details or '-' }}</td>
+                    <td>{{ supplier.bank_name or '-' }}</td>
+                    <td>{{ supplier.bank_branch or '-' }}</td>
+                    <td>{{ supplier.bank_account_number or '-' }}</td>
                     <td>{{ supplier.payment_terms or '-' }}</td>
                     <td>
                         {% if supplier.is_active %}
@@ -104,10 +172,17 @@
                             <span class="badge badge-danger">Inactive</span>
                         {% endif %}
                     </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editSupplierModal{{ supplier.id }}">Edit</button>
+                        <form method="POST" action="{{ url_for('purchases.delete_supplier', supplier_id=supplier.id) }}" style="display:inline" onsubmit="return confirm('Delete this supplier?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                        </form>
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="8" class="empty-state">No suppliers found.</td>
+                    <td colspan="11" class="empty-state">No suppliers found.</td>
                 </tr>
                 {% endfor %}
             </tbody>

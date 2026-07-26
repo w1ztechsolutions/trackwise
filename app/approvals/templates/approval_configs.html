@@ -29,9 +29,24 @@
                 </tr>
             </thead>
             <tbody>
+{% set transaction_type_labels = {
+    'supplier_edit': 'Supplier Edit',
+    'supplier_delete': 'Supplier Delete',
+    'customer_edit': 'Customer Edit',
+    'customer_delete': 'Customer Delete',
+    'sale': 'Sale',
+    'purchase': 'Purchase',
+    'expense': 'Expense',
+    'receipt': 'Receipt',
+    'payment': 'Payment',
+    'journal_entry': 'Journal Entry',
+    'production': 'Production Batch',
+    'invoice': 'Invoice',
+    'bill': 'Bill',
+} %}
                 {% for config in configs %}
                 <tr>
-                    <td><strong>{{ config.transaction_type }}</strong></td>
+                    <td><strong>{{ transaction_type_labels.get(config.transaction_type, config.transaction_type) }}</strong></td>
                     <td>
                         {% set levels = config.to_dict().levels %}
                         {% for level in levels %}

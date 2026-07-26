@@ -1,11 +1,14 @@
 import uuid
+import json
 from datetime import datetime, timezone
 
-from flask import flash, redirect, render_template, request, url_for
+from flask import flash, redirect, render_template, request, url_for, abort
 from flask_login import login_required, current_user
 
 from models import Product, Purchase, PurchaseItem, Supplier, Payment, db
+from models.approval import ApprovalConfig, ApprovalRequest, ApprovalAction
 from services.fifo_service import record_purchase
+from app.auth.permissions import can_approve_at_level
 
 from . import purchases_bp
 
@@ -33,7 +36,9 @@ def suppliers():
                 phone=request.form.get('phone', '').strip() or None,
                 email=request.form.get('email', '').strip() or None,
                 address=request.form.get('address', '').strip() or None,
-                bank_details=request.form.get('bank_details', '').strip() or None,
+                bank_name=request.form.get('bank_name', '').strip() or None,
+                bank_branch=request.form.get('bank_branch', '').strip() or None,
+                bank_account_number=request.form.get('bank_account_number', '').strip() or None,
                 payment_terms=request.form.get('payment_terms', '').strip() or None,
                 is_active=True
             )
@@ -134,3 +139,60 @@ def purchases():
     page = request.args.get('page', 1, type=int)
     purchase_records = Purchase.query.order_by(Purchase.purchase_date.desc()).paginate(page=page, per_page=10)
     return render_template('purchases.html', products=products, purchases=purchase_records)
+
+
+@purchases_bp.route('/suppliers/<int:supplier_id>/edit', methods=['POST'])
+@login_required
+def edit_supplier(supplier_id):
+    supplier = db.session.get(Supplier, supplier_id)
+    if not supplier or supplier.business_id != getattr(current_user, 'business_id', None):
+        abort(404)
+
+    biz_id = getattr(current_user, 'business_id', None)
+    import json
+    data = json.dumps({
+        'name': request.form.get('name', '').strip(),
+        'phone': request.form.get('phone', '').strip() or None,
+        'email': request.form.get('email', '').strip() or None,
+        'address': request.form.get('address', '').strip() or None,
+        'bank_name': request.form.get('bank_name', '').strip() or None,
+        'bank_branch': request.form.get('bank_branch', '').strip() or None,
+        'bank_account_number': request.form.get('bank_account_number', '').strip() or None,
+        'payment_terms': request.form.get('payment_terms', '').strip() or None,
+    })
+
+    req = ApprovalRequest(
+        business_id=biz_id,
+        transaction_type='supplier_edit',
+        transaction_id=supplier.id,
+        current_level=0,
+        status='pending',
+        data=data,
+        created_by=current_user.id,
+    )
+    db.session.add(req)
+    db.session.commit()
+    flash('Supplier edit request submitted for approval.', 'success')
+    return redirect(url_for('purchases.suppliers'))
+
+
+@purchases_bp.route('/suppliers/<int:supplier_id>/delete', methods=['POST'])
+@login_required
+def delete_supplier(supplier_id):
+    supplier = db.session.get(Supplier, supplier_id)
+    if not supplier or supplier.business_id != getattr(current_user, 'business_id', None):
+        abort(404)
+
+    biz_id = getattr(current_user, 'business_id', None)
+    req = ApprovalRequest(
+        business_id=biz_id,
+        transaction_type='supplier_delete',
+        transaction_id=supplier.id,
+        current_level=0,
+        status='pending',
+        created_by=current_user.id,
+    )
+    db.session.add(req)
+    db.session.commit()
+    flash('Supplier delete request submitted for approval.', 'success')
+    return redirect(url_for('purchases.suppliers'))
