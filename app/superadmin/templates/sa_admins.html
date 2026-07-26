@@ -33,6 +33,7 @@
                             <td>{{ 'Yes' if admin.must_change_password else 'No' }}</td>
                             <td>
                                 <form method="POST" action="{{ url_for('superadmin.delete_admin', biz_id=business.id, admin_id=admin.id) }}" style="display:inline" onsubmit="return confirm('Delete this admin?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
                                 </form>
                             </td>

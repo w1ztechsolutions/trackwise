@@ -32,6 +32,7 @@
                                 <a href="{{ url_for('superadmin.list_admins', biz_id=biz.id) }}" class="btn btn-outline-primary btn-sm">Admins</a>
                                 <a href="{{ url_for('superadmin.edit_business', biz_id=biz.id) }}" class="btn btn-outline-secondary btn-sm">Edit</a>
                                 <form method="POST" action="{{ url_for('superadmin.delete_business', biz_id=biz.id) }}" style="display:inline" onsubmit="return confirm('Delete this business and ALL its data?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
                                 </form>
                             </td>

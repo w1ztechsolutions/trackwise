@@ -1600,3 +1600,60 @@ button[type="submit"]:disabled,
     gap: 24px;
     align-items: center;
 }
+
+/* ============================================================
+   Dark-themed Bootstrap 5 Modals
+   ============================================================ */
+.modal-content {
+    background-color: #1e293b;
+    border: 1px solid var(--border-glass);
+    border-radius: 16px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+    border-bottom-color: var(--border-glass);
+}
+
+.modal-title {
+    color: var(--text-main);
+}
+
+.modal-body {
+    color: var(--text);
+}
+
+.modal-footer {
+    border-top-color: var(--border-glass);
+}
+
+.modal-content .form-label {
+    color: rgba(248, 250, 252, 0.85);
+}
+
+.modal-content .form-control,
+.modal-content .form-select {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: var(--border-glass);
+    color: var(--text);
+}
+
+.modal-content .form-control:focus,
+.modal-content .form-select:focus {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: var(--primary);
+    color: var(--text);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.modal-content .form-control::placeholder {
+    color: var(--text-muted);
+}
+
+.modal-content .btn-close {
+    filter: invert(1) grayscale(100%) brightness(2);
+}
+
+.modal-content .text-muted {
+    color: rgba(248, 250, 252, 0.55) !important;
+}

@@ -48,6 +48,7 @@
                     <td>
                         <a href="{{ url_for('approvals.edit_config', config_id=config.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
                         <form method="POST" action="{{ url_for('approvals.delete_config', config_id=config.id) }}" style="display:inline" onsubmit="return confirm('Delete this workflow configuration?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
                         </form>
                     </td>

@@ -13,6 +13,7 @@
 
 <div class="glass-card" style="max-width: 600px;">
     <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="mb-3">
             <label class="form-label" for="role">Role</label>
             <select id="role" name="role" class="form-select" required>
