@@ -1,4 +1,4 @@
-from flask_login import login_required
+from flask_login import current_user, login_required
 from flask import flash, redirect, render_template, request, url_for
 
 from models import Product, Warehouse, db
@@ -43,7 +43,7 @@ def inventory():
                 return redirect(url_for('inventory.inventory'))
 
             product = Product(
-                business_id=getattr(getattr(request, 'user', None), 'business_id', None),
+                business_id=getattr(current_user, 'business_id', None),
                 sku=sku,
                 name=name,
                 description=description,
@@ -115,7 +115,7 @@ def inventory():
                 notes = request.form.get('notes', '').strip() or None
 
                 record_stock_count(
-                    business_id=getattr(getattr(request, 'user', None), 'business_id', None),
+                    business_id=getattr(current_user, 'business_id', None),
                     product_id=product_id,
                     warehouse_id=warehouse_id,
                     counted_quantity=counted_quantity,
@@ -139,7 +139,7 @@ def inventory():
                 notes = request.form.get('notes', '').strip() or None
 
                 sm = transfer_stock(
-                    business_id=getattr(getattr(request, 'user', None), 'business_id', None),
+                    business_id=getattr(current_user, 'business_id', None),
                     product_id=product_id,
                     from_warehouse_id=from_warehouse_id,
                     to_warehouse_id=to_warehouse_id,
@@ -168,7 +168,7 @@ def inventory():
                 notes = request.form.get('notes', '').strip() or None
 
                 adjust_stock(
-                    business_id=getattr(getattr(request, 'user', None), 'business_id', None),
+                    business_id=getattr(current_user, 'business_id', None),
                     product_id=product_id,
                     warehouse_id=warehouse_id,
                     adjustment_type=adjustment_type,
