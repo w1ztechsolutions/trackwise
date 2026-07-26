@@ -796,6 +796,47 @@ body {
     font-weight: 600;
 }
 
+/* Approve / Reject action buttons */
+.btn-approve {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 10px;
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    background: rgba(34, 197, 94, 0.12);
+    color: #86efac;
+    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn-approve:hover {
+    background: rgba(34, 197, 94, 0.22);
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.25);
+}
+
+.btn-reject {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 10px;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.12);
+    color: #fca5a5;
+    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn-reject:hover {
+    background: rgba(239, 68, 68, 0.22);
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.25);
+}
+
 /* Disabled submit state */
 button[type="submit"]:disabled,
 .btn-primary:disabled {

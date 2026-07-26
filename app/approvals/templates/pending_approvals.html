@@ -1,3 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Pending Approvals{% endblock %}
+{% block content %}
 {% set transaction_type_labels = {
     'supplier_edit': 'Supplier Edit',
     'supplier_delete': 'Supplier Delete',
@@ -13,8 +16,6 @@
     'invoice': 'Invoice',
     'bill': 'Bill',
 } %}
-{% block title %}Pending Approvals{% endblock %}
-{% block content %}
 <div class="header-bar">
     <div class="page-title">
         <h1>Pending Approvals</h1>
@@ -44,20 +45,18 @@
                     <td>Level {{ req.current_level + 1 }}</td>
                     <td>{{ req.created_at.strftime('%Y-%m-%d %H:%M') if req.created_at else '-' }}</td>
                     <td>
-                        <form method="POST" action="{{ url_for('approvals.approve_request', request_id=req.id) }}" style="display:inline">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <div class="input-group input-group-sm">
-                                <input type="text" class="form-control" name="comment" placeholder="Comment (optional)" style="max-width:150px;">
-                                <button type="submit" class="btn btn-success btn-sm">Approve</button>
-                            </div>
-                        </form>
-                        <form method="POST" action="{{ url_for('approvals.reject_request', request_id=req.id) }}" style="display:inline" class="ms-1">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <div class="input-group input-group-sm">
-                                <input type="text" class="form-control" name="comment" placeholder="Reason (optional)" style="max-width:150px;">
-                                <button type="submit" class="btn btn-danger btn-sm">Reject</button>
-                            </div>
-                        </form>
+                        <div class="d-inline-flex flex-column gap-2">
+                            <form method="POST" action="{{ url_for('approvals.approve_request', request_id=req.id) }}" class="d-inline-flex gap-2 align-items-center">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="text" class="form-control" name="comment" placeholder="Comment (optional)" style="max-width:140px; padding:6px 10px; font-size:13px;">
+                                <button type="submit" class="btn-approve">Approve</button>
+                            </form>
+                            <form method="POST" action="{{ url_for('approvals.reject_request', request_id=req.id) }}" class="d-inline-flex gap-2 align-items-center">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="text" class="form-control" name="comment" placeholder="Reason (optional)" style="max-width:140px; padding:6px 10px; font-size:13px;">
+                                <button type="submit" class="btn-reject">Reject</button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 {% else %}
