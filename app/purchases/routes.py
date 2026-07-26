@@ -101,7 +101,7 @@ def payments():
 @login_required
 def purchases():
     if request.method == 'POST':
-        supplier = request.form.get('supplier', '').strip()
+        supplier_id = request.form.get('supplier_id', '').strip()
         notes = request.form.get('notes', '').strip()
         purchase_date_str = request.form.get('purchase_date')
 
@@ -127,8 +127,17 @@ def purchases():
             flash('You must add at least one item to record a purchase.', 'danger')
             return redirect(url_for('purchases.purchases'))
 
+        # Validate supplier exists
+        supplier_name = None
+        if supplier_id:
+            supplier = db.session.get(Supplier, int(supplier_id))
+            if not supplier or supplier.business_id != current_user.business_id:
+                flash('Invalid supplier selected.', 'danger')
+                return redirect(url_for('purchases.purchases'))
+            supplier_name = supplier.name
+
         try:
-            record_purchase(purchase_date, supplier, notes, items_data, current_user.business_id, current_user.id)
+            record_purchase(purchase_date, supplier_name, notes, items_data, current_user.business_id, current_user.id)
             flash('Inventory purchase recorded successfully and stock updated!', 'success')
         except Exception as e:
             flash(f'Error recording purchase: {str(e)}', 'danger')

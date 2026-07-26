@@ -19,8 +19,10 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="grid-asym">
                 <div class="form-group">
-                    <label class="form-label" for="supplier">Supplier Name</label>
-                    <input type="text" id="supplier" name="supplier" placeholder="e.g. Shirley Highlands Estate" class="form-control">
+                    <label class="form-label" for="supplier_id">Supplier Name</label>
+                    <select id="supplier_id" name="supplier_id" required class="form-control">
+                        <option value="">-- Choose Supplier --</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="purchase_date">Intake Date</label>
@@ -112,6 +114,7 @@
 <script>
     // Load products database for row selections
     let productsList = [];
+    let suppliersList = [];
 
     fetch('/api/products')
         .then(res => res.json())
@@ -120,6 +123,23 @@
             // Add initial row
             addPurchaseRow();
         });
+
+    fetch('/api/suppliers')
+        .then(res => res.json())
+        .then(data => {
+            suppliersList = data;
+            populateSupplierDropdown();
+        });
+
+    function populateSupplierDropdown() {
+        const select = document.getElementById('supplier_id');
+        suppliersList.forEach(s => {
+            const option = document.createElement('option');
+            option.value = s.id;
+            option.textContent = s.name;
+            select.appendChild(option);
+        });
+    }
 
     function addPurchaseRow() {
         const container = document.getElementById('purchase-items-container');

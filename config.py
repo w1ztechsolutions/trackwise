@@ -8,10 +8,15 @@ from dotenv import load_dotenv
 
 _PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
-for _env_path in (os.path.join(os.getcwd(), ".env"), os.path.join(_PROJECT_ROOT, ".env")):
+# Load .env files in order of precedence (later files override earlier ones)
+for _env_path in [
+    os.path.join(os.getcwd(), ".env"),
+    os.path.join(_PROJECT_ROOT, ".env"),
+    os.path.join(os.getcwd(), ".env.local"),
+    os.path.join(_PROJECT_ROOT, ".env.local"),
+]:
     if os.path.exists(_env_path):
-        load_dotenv(_env_path, override=False)
-        break
+        load_dotenv(_env_path, override=True)
 
 
 def _sqlite_instance_uri(app_instance_path: str) -> str:
