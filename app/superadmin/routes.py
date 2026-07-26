@@ -50,7 +50,6 @@ def login():
         sa = SuperAdmin.query.filter_by(email=email).first()
         if sa and sa.check_password(password):
             session['superadmin_id'] = sa.id
-            session.permanent = True
             flash(f'Welcome back, {sa.name}!', 'success')
             return redirect(url_for('superadmin.dashboard'))
 

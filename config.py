@@ -93,6 +93,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 300}
     REMEMBER_COOKIE_DURATION = timedelta(days=14)
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=1)
 
 
 class DevelopmentConfig(Config):
