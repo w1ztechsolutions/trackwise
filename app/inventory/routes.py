@@ -43,6 +43,7 @@ def inventory():
                 return redirect(url_for('inventory.inventory'))
 
             product = Product(
+                business_id=getattr(getattr(request, 'user', None), 'business_id', None),
                 sku=sku,
                 name=name,
                 description=description,

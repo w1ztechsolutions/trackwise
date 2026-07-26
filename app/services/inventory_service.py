@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional
 
-from models import db, Product, StockTransaction, StockMovement, Warehouse
+from app.models import db, Product, StockTransaction, StockMovement, Warehouse
 from app.services.accounting_service import post_entry, get_account_by_code
 
 

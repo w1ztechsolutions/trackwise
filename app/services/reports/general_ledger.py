@@ -1,6 +1,6 @@
 """General Ledger report derived from journal entries."""
 
-from models import db, ChartOfAccounts, JournalLine, JournalEntry
+from app.models import db, ChartOfAccounts, JournalLine, JournalEntry
 
 
 def get_general_ledger(business_id, account_id=None, start_date=None, end_date=None):

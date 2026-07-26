@@ -2,7 +2,7 @@ from datetime import datetime
 from flask_login import login_required, current_user
 from flask import flash, redirect, render_template, request, url_for
 
-from models import Expense
+from app.models import Expense
 from services.fifo_service import record_expense
 
 from . import expenses_bp

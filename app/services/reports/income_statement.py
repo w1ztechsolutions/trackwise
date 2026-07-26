@@ -1,7 +1,7 @@
 """Income Statement report derived from journal entries."""
 
 from datetime import datetime
-from models import db, ChartOfAccounts, JournalLine, JournalEntry
+from app.models import db, ChartOfAccounts, JournalLine, JournalEntry
 
 
 def get_income_statement(business_id, start_date=None, end_date=None):
@@ -87,7 +87,7 @@ def get_income_statement(business_id, start_date=None, end_date=None):
     pre_tax_profit = gross_profit - total_expenses
     
     # Get tax rate from settings
-    from models import Setting
+    from app.models import Setting
     tax_setting = Setting.query.filter_by(key='tax_rate').first()
     tax_rate = float(tax_setting.value) if tax_setting else 30.0
     tax_amount = max(0.0, pre_tax_profit * (tax_rate / 100.0))

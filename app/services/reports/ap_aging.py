@@ -1,7 +1,7 @@
 """AP Aging report derived from journal entries."""
 
 from datetime import datetime, timedelta
-from models import db, Supplier, Bill, ChartOfAccounts, JournalLine, JournalEntry
+from app.models import db, Supplier, Bill, ChartOfAccounts, JournalLine, JournalEntry
 
 
 def get_ap_aging(business_id, as_of_date=None):

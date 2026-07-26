@@ -5,7 +5,7 @@ from flask_login import login_required, current_user
 from flask import flash, redirect, render_template, request, url_for, abort
 
 from models import Product, Sale, SaleItem, Customer, Invoice, InvoiceItem, Receipt, db
-from models.approval import ApprovalRequest
+from app.models.approval import ApprovalRequest
 from services.fifo_service import InventoryException, record_sale
 
 from . import sales_bp

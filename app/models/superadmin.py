@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db
+from app.models import db
 
 
 class SuperAdmin(db.Model):

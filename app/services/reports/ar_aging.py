@@ -1,7 +1,7 @@
 """AR Aging report derived from journal entries."""
 
 from datetime import datetime, timedelta
-from models import db, Customer, Invoice, ChartOfAccounts, JournalLine, JournalEntry
+from app.models import db, Customer, Invoice, ChartOfAccounts, JournalLine, JournalEntry
 
 
 def get_ar_aging(business_id, as_of_date=None):

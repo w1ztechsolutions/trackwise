@@ -2,7 +2,7 @@
 
 from flask import g
 from sqlalchemy.orm import declared_attr
-from models import db
+from app.models import db
 
 
 class BusinessScopedMixin:

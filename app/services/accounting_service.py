@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 
-from models import db, ChartOfAccounts, JournalEntry, JournalLine, AuditLog, User
+from app.models import db, ChartOfAccounts, JournalEntry, JournalLine, AuditLog, User
 
 
 class AccountingException(Exception):

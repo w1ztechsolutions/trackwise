@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from flask_login import login_required
 from flask import render_template, request, redirect, url_for, flash, Response
 
-from models import Product, Setting
+from app.models import Product, Setting
 from services.fifo_service import get_inventory_valuation, get_profit_loss
 from app.services.reports import (
     get_income_statement,

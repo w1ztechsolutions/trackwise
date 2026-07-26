@@ -1,6 +1,6 @@
 from flask import jsonify
 
-from models import Product
+from app.models import Product
 from app.services.accounting_service import verify_balances
 
 from . import api_bp
@@ -15,7 +15,7 @@ def api_products():
 @api_bp.route('/api/accounting/verify')
 def api_accounting_verify():
     try:
-        from models import User
+        from app.models import User
         from flask_login import current_user
         user = current_user if current_user.is_authenticated else None
         if not user or not user.business_id:

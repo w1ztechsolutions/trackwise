@@ -5,7 +5,7 @@ Handles plan selection, subscription lifecycle, and feature access control.
 
 import json
 from datetime import datetime, timezone, timedelta
-from models import db, Plan, Subscription
+from app.models import db, Plan, Subscription
 
 
 # Default plan definitions
@@ -172,7 +172,7 @@ def enforce_user_limit(business_id):
 
     Returns True if limit is not exceeded, False if limit is reached.
     """
-    from models import User
+    from app.models import User
 
     if business_id is None:
         return True

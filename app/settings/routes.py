@@ -2,7 +2,7 @@ from datetime import datetime
 from flask_login import login_required
 from flask import flash, redirect, render_template, request, url_for
 
-from models import Expense, Product, Purchase, PurchaseItem, Sale, SaleItem, Setting, StockTransaction
+from app.models import Expense, Product, Purchase, PurchaseItem, Sale, SaleItem, Setting, StockTransaction
 from services.fifo_service import record_expense, record_purchase, record_sale, get_tax_rate, set_tax_rate
 
 from . import settings_bp
@@ -12,7 +12,7 @@ from app.auth.decorators import role_required
 def seed_demo_data():
     """Seed sample data to show how the app works."""
     # Delete existing records to prevent clutter/duplicates
-    from models import db
+    from app.models import db
 
     db.session.query(StockTransaction).delete()
     db.session.query(PurchaseItem).delete()
@@ -29,7 +29,7 @@ def seed_demo_data():
     p3 = Product(sku='COF-003', name='Mzuzu Ground Coffee (500g)', description='Rich aromatic medium-roast coffee.', low_stock_threshold=5, default_selling_price=8500.0)
     p4 = Product(sku='SUG-004', name='Illovo White Sugar (1kg)', description='Fine granulated sugar.', low_stock_threshold=20, default_selling_price=2200.0)
 
-    from models import db
+    from app.models import db
 
     db.session.add_all([p1, p2, p3, p4])
     db.session.commit()

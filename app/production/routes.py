@@ -1,7 +1,7 @@
 from flask import flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
-from models import Product, ProductionBatch, MaterialUsage, FinishedGoodOutput, db
+from app.models import Product, ProductionBatch, MaterialUsage, FinishedGoodOutput, db
 from app.services.production_service import (
     ProductionServiceException,
     create_batch,

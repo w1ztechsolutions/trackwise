@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from models import db, Product, StockTransaction, ProductionBatch, MaterialUsage, FinishedGoodOutput, ChartOfAccounts
+from app.models import db, Product, StockTransaction, ProductionBatch, MaterialUsage, FinishedGoodOutput, ChartOfAccounts
 from app.services.accounting_service import get_account_by_code, post_entry
 
 

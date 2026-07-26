@@ -6,7 +6,7 @@ from flask import flash, redirect, render_template, request, url_for, abort
 from flask_login import login_required, current_user
 
 from models import Product, Purchase, PurchaseItem, Supplier, Payment, db
-from models.approval import ApprovalConfig, ApprovalRequest, ApprovalAction
+from app.models.approval import ApprovalConfig, ApprovalRequest, ApprovalAction
 from services.fifo_service import record_purchase
 from app.auth.permissions import can_approve_at_level
 

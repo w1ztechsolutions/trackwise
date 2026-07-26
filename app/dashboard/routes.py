@@ -2,7 +2,7 @@ from datetime import datetime
 from flask_login import login_required
 from flask import redirect, render_template, url_for
 
-from models import Product, Purchase, Sale, Expense
+from app.models import Product, Purchase, Sale, Expense
 from services.fifo_service import get_profit_loss, get_inventory_valuation
 
 from . import dashboard_bp

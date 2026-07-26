@@ -1,7 +1,7 @@
 """Cash Flow Statement report derived from journal entries."""
 
 from datetime import datetime
-from models import db, ChartOfAccounts, JournalLine, JournalEntry, Invoice, Bill
+from app.models import db, ChartOfAccounts, JournalLine, JournalEntry, Invoice, Bill
 
 
 def get_cash_flow(business_id, start_date=None, end_date=None):

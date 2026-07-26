@@ -1,6 +1,6 @@
 """Trial Balance report derived from journal entries."""
 
-from models import db, ChartOfAccounts, JournalLine, JournalEntry
+from app.models import db, ChartOfAccounts, JournalLine, JournalEntry
 
 
 def get_trial_balance(business_id, as_of_date=None):

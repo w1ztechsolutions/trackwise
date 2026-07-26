@@ -1,6 +1,6 @@
 """Balance Sheet report derived from journal entries."""
 
-from models import db, ChartOfAccounts, JournalLine, JournalEntry
+from app.models import db, ChartOfAccounts, JournalLine, JournalEntry
 
 
 def get_balance_sheet(business_id, as_of_date=None):
