@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timedelta
 from app import create_app
-from models import db, Product, StockTransaction, Purchase, PurchaseItem, Sale, SaleItem, Expense, Setting, User
+from models import db, Product, StockTransaction, Purchase, PurchaseItem, Sale, SaleItem, Expense, Setting, User, FinancialCategory, LineItem, Staff
 from services.fifo_service import record_purchase, record_sale, record_expense, set_tax_rate
 from app.models.accounting import Business, ChartOfAccounts
 
@@ -59,11 +59,151 @@ def seed_accounting_data():
     return business
 
 
+def seed_financial_categories(business):
+    """Seed financial statement categories and line items."""
+    categories_data = [
+        {
+            'name': 'Cost of Sales',
+            'code': 'COS',
+            'description': 'Direct costs attributable to the production of goods sold',
+            'sort_order': 1,
+            'line_items': [
+                {'name': 'Raw Materials Purchases', 'code': 'RAW_MAT', 'account_code': '5000', 'sort_order': 1},
+                {'name': 'Direct Labor', 'code': 'DIR_LAB', 'account_code': '5000', 'sort_order': 2},
+                {'name': 'Freight & Shipping', 'code': 'FREIGHT', 'account_code': '5000', 'sort_order': 3},
+                {'name': 'Manufacturing Overhead', 'code': 'MFR_OVH', 'account_code': '5000', 'sort_order': 4},
+            ]
+        },
+        {
+            'name': 'Operating Expenses',
+            'code': 'OPEX',
+            'description': 'Regular operational costs to run the business',
+            'sort_order': 2,
+            'line_items': [
+                {'name': 'Rent & Rates', 'code': 'RENT', 'account_code': '5100', 'sort_order': 1},
+                {'name': 'Utilities (Electricity, Water, Internet)', 'code': 'UTIL', 'account_code': '5200', 'sort_order': 2},
+                {'name': 'Salaries & Wages', 'code': 'SALARY', 'account_code': '5300', 'sort_order': 3},
+                {'name': 'Marketing & Advertising', 'code': 'MARKET', 'account_code': '5400', 'sort_order': 4},
+                {'name': 'Logistics & Transport', 'code': 'LOGIST', 'account_code': '5900', 'sort_order': 5},
+                {'name': 'Office Supplies', 'code': 'SUPPLY', 'account_code': '5900', 'sort_order': 6},
+                {'name': 'Insurance', 'code': 'INSUR', 'account_code': '5900', 'sort_order': 7},
+            ]
+        },
+        {
+            'name': 'Administrative Expenses',
+            'code': 'ADMIN',
+            'description': 'General administrative and office management costs',
+            'sort_order': 3,
+            'line_items': [
+                {'name': 'Professional Fees (Legal, Audit)', 'code': 'PROF_FEE', 'account_code': '5900', 'sort_order': 1},
+                {'name': 'Travel & Entertainment', 'code': 'TRAVEL', 'account_code': '5900', 'sort_order': 2},
+                {'name': 'Communication (Phone, Internet)', 'code': 'COMMS', 'account_code': '5900', 'sort_order': 3},
+                {'name': 'Bank Charges', 'code': 'BANK_CHG', 'account_code': '5900', 'sort_order': 4},
+            ]
+        },
+        {
+            'name': 'Selling & Distribution Expenses',
+            'code': 'SELL',
+            'description': 'Costs directly related to selling products and distribution',
+            'sort_order': 4,
+            'line_items': [
+                {'name': 'Sales Commissions', 'code': 'COMM', 'account_code': '5900', 'sort_order': 1},
+                {'name': 'Distribution Costs', 'code': 'DIST', 'account_code': '5900', 'sort_order': 2},
+                {'name': 'Promotional Materials', 'code': 'PROMO', 'account_code': '5900', 'sort_order': 3},
+            ]
+        },
+        {
+            'name': 'Finance Costs',
+            'code': 'FIN',
+            'description': 'Interest and other financing expenses',
+            'sort_order': 5,
+            'line_items': [
+                {'name': 'Interest on Loans', 'code': 'INT_LOAN', 'account_code': '5900', 'sort_order': 1},
+                {'name': 'Loan Processing Fees', 'code': 'LOAN_FEE', 'account_code': '5900', 'sort_order': 2},
+            ]
+        },
+        {
+            'name': 'Other Income',
+            'code': 'OTH_INC',
+            'description': 'Non-operating income and miscellaneous revenue',
+            'sort_order': 6,
+            'line_items': [
+                {'name': 'Interest Income', 'code': 'INT_INC', 'account_code': '4100', 'sort_order': 1},
+                {'name': 'Other Miscellaneous Income', 'code': 'MISC_INC', 'account_code': '4100', 'sort_order': 2},
+            ]
+        },
+        {
+            'name': 'Tax',
+            'code': 'TAX',
+            'description': 'Tax obligations and payments',
+            'sort_order': 7,
+            'line_items': [
+                {'name': 'Income Tax', 'code': 'INC_TAX', 'account_code': '2200', 'sort_order': 1},
+                {'name': 'Withholding Tax', 'code': 'WHT', 'account_code': '2200', 'sort_order': 2},
+                {'name': 'Other Taxes', 'code': 'OTH_TAX', 'account_code': '2200', 'sort_order': 3},
+            ]
+        },
+    ]
+
+    for cat_data in categories_data:
+        existing = FinancialCategory.query.filter_by(business_id=business.id, code=cat_data['code']).first()
+        if not existing:
+            category = FinancialCategory(
+                business_id=business.id,
+                name=cat_data['name'],
+                code=cat_data['code'],
+                description=cat_data['description'],
+                sort_order=cat_data['sort_order'],
+                is_active=True,
+            )
+            db.session.add(category)
+            db.session.flush()
+
+            for li_data in cat_data['line_items']:
+                line_item = LineItem(
+                    business_id=business.id,
+                    category_id=category.id,
+                    name=li_data['name'],
+                    code=li_data['code'],
+                    account_code=li_data['account_code'],
+                    sort_order=li_data['sort_order'],
+                    is_active=True,
+                )
+                db.session.add(line_item)
+
+    db.session.commit()
+
+
+def seed_staff(business):
+    """Seed sample staff records."""
+    staff_data = [
+        {'name': 'John Banda', 'phone': '+265 999 123 456', 'role': 'Sales Clerk', 'department': 'Sales'},
+        {'name': 'Mary Kachale', 'phone': '+265 888 789 012', 'role': 'Cashier', 'department': 'Finance'},
+        {'name': 'David Mwale', 'phone': '+265 777 345 678', 'role': 'Driver', 'department': 'Logistics'},
+    ]
+    for s in staff_data:
+        existing = Staff.query.filter_by(business_id=business.id, name=s['name']).first()
+        if not existing:
+            staff = Staff(
+                business_id=business.id,
+                staff_id=f"STF-{s['name'][:3].upper()}-{business.id}",
+                name=s['name'],
+                phone=s['phone'],
+                role=s['role'],
+                department=s['department'],
+                is_active=True,
+            )
+            db.session.add(staff)
+    db.session.commit()
+
+
 def seed_demo_data():
     """Seed sample data to show how the app works."""
     from models import db as _db
 
     business = seed_accounting_data()
+    seed_financial_categories(business)
+    seed_staff(business)
 
     # Delete existing records to prevent clutter/duplicates
     _db.session.query(StockTransaction).delete()

@@ -16,6 +16,7 @@ from models import (
     Receipt,
     Bill,
     BillItem,
+    Payment,
 )
 from app.services.accounting_service import AccountingException, post_entry, get_account_by_code
 
@@ -102,14 +103,35 @@ def _post_receipt_accounting(receipt_date, amount, receipt_id, business_id, crea
         )
 
 
-def _post_payment_accounting(payment_date, amount, payment_id, business_id, created_by):
+def _post_payment_accounting(payment_date, amount, payment_id, business_id, created_by, category_id=None, line_item_id=None, payee_type='supplier'):
+    """Post double-entry accounting for a payment.
+    
+    For supplier payments: Debit Accounts Payable, Credit Cash
+    For staff/expense payments: Debit Expense Account, Credit Cash
+    """
     if business_id is None:
         return
 
     lines = []
-    ap_acct = get_account_by_code(business_id, ACCOUNT_CODE_AP)
-    if ap_acct:
-        lines.append({'account_id': ap_acct.id, 'debit_amount': amount, 'credit_amount': 0})
+    
+    if payee_type == 'supplier':
+        # Supplier payment: Debit AP, Credit Cash
+        ap_acct = get_account_by_code(business_id, ACCOUNT_CODE_AP)
+        if ap_acct:
+            lines.append({'account_id': ap_acct.id, 'debit_amount': amount, 'credit_amount': 0})
+    else:
+        # Staff/expense payment: Debit Expense Account, Credit Cash
+        # Try to get the account from the line item's account_code mapping
+        expense_account_code = '5900'  # Default Other Expenses
+        if line_item_id:
+            from models import LineItem
+            line_item = db.session.get(LineItem, line_item_id)
+            if line_item and line_item.account_code:
+                expense_account_code = line_item.account_code
+        
+        expense_acct = get_account_by_code(business_id, expense_account_code)
+        if expense_acct:
+            lines.append({'account_id': expense_acct.id, 'debit_amount': amount, 'credit_amount': 0})
 
     cash_acct = get_account_by_code(business_id, ACCOUNT_CODE_CASH)
     if cash_acct:
@@ -530,6 +552,11 @@ def record_expense(expense_date, category, description, amount, business_id=None
 
 
 def get_profit_loss(start_date=None, end_date=None, business_id=None):
+    """Compute profit & loss metrics with optional date filtering and business filtering.
+    
+    Includes only APPROVED payments for expense calculations.
+    Expenses from the old expense table are also included for backward compatibility.
+    """
     sales_query = Sale.query
     if business_id is not None:
         sales_query = sales_query.filter(Sale.business_id == business_id)
@@ -543,6 +570,7 @@ def get_profit_loss(start_date=None, end_date=None, business_id=None):
     total_cogs = sum(float(s.total_cogs) for s in sales)
     gross_profit = total_sales - total_cogs
 
+    # Get expenses from old expenses table
     expenses_query = Expense.query
     if business_id is not None:
         expenses_query = expenses_query.filter(Expense.business_id == business_id)
@@ -552,7 +580,23 @@ def get_profit_loss(start_date=None, end_date=None, business_id=None):
         expenses_query = expenses_query.filter(Expense.expense_date <= end_date)
     expenses = expenses_query.all()
 
-    total_expenses = sum(float(e.amount) for e in expenses)
+    total_old_expenses = sum(float(e.amount) for e in expenses)
+
+    # Get approved payments for the period
+    payments_query = Payment.query.filter(Payment.status == 'approved')
+    if business_id is not None:
+        payments_query = payments_query.filter(Payment.business_id == business_id)
+    if start_date:
+        payments_query = payments_query.filter(Payment.payment_date >= start_date)
+    if end_date:
+        payments_query = payments_query.filter(Payment.payment_date <= end_date)
+    approved_payments = payments_query.all()
+
+    total_payment_expenses = sum(float(p.amount) for p in approved_payments)
+
+    # Combine both expense sources
+    total_expenses = total_old_expenses + total_payment_expenses
+
     pre_tax_profit = gross_profit - total_expenses
     tax_rate = get_tax_rate(business_id=business_id)
     tax_amount = max(0.0, pre_tax_profit * (tax_rate / 100.0))
@@ -561,6 +605,9 @@ def get_profit_loss(start_date=None, end_date=None, business_id=None):
     expense_by_category = {}
     for e in expenses:
         expense_by_category[e.category] = expense_by_category.get(e.category, 0.0) + float(e.amount)
+    for p in approved_payments:
+        cat_name = p.category.name if p.category else 'Payments'
+        expense_by_category[cat_name] = expense_by_category.get(cat_name, 0.0) + float(p.amount)
 
     return {
         'total_sales': total_sales,
@@ -574,6 +621,7 @@ def get_profit_loss(start_date=None, end_date=None, business_id=None):
         'net_profit': net_profit,
         'sales_count': len(sales),
         'expenses_count': len(expenses),
+        'payment_expenses_count': len(approved_payments),
     }
 
 

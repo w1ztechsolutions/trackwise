@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block title %}Payment Status{% endblock %}
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Payment Status</h1>
+        <p>Approval workflow status for payment #{{ payment.id }}</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('purchases.payments') }}" class="btn-outline">Back to Payments</a>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Payment Details -->
+    <div class="glass-card">
+        <h3 class="section-title">Payment Details</h3>
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span class="detail-label">Amount</span>
+                <span class="detail-value">{{ payment.amount | currency }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Payee</span>
+                <span class="detail-value">
+                    {% if payment.payee_type == 'supplier' and payment.supplier %}
+                        {{ payment.supplier.name }}
+                    {% elif payment.payee_type == 'staff' and payment.staff_member %}
+                        {{ payment.staff_member.name }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Category</span>
+                <span class="detail-value">{{ payment.category.name if payment.category else '-' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Line Item</span>
+                <span class="detail-value">{{ payment.line_item.name if payment.line_item else '-' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Description</span>
+                <span class="detail-value">{{ payment.description or '-' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Payment Mode</span>
+                <span class="detail-value">{{ payment.payment_mode | replace('_', ' ') | title }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Status</span>
+                <span class="detail-value">
+                    {% set status_colors = {'pending': 'badge-warning', 'approved': 'badge-success', 'rejected': 'badge-danger'} %}
+                    <span class="badge {{ status_colors.get(payment.status, 'badge-info') }}">{{ payment.status | title }}</span>
+                </span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Date</span>
+                <span class="detail-value">{{ payment.payment_date.strftime('%d %b %Y %H:%M') }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Approval Workflow -->
+    <div class="glass-card">
+        <h3 class="section-title">Approval Workflow</h3>
+        {% if approval_request %}
+            <div class="approval-timeline">
+                <div class="timeline-item {% if approval_request.status == 'completed' %}completed{% elif approval_request.status == 'rejected' %}rejected{% else %}pending{% endif %}">
+                    <div class="timeline-marker"></div>
+                    <div class="timeline-content">
+                        <h4>Request Created</h4>
+                        <p>{{ approval_request.created_at.strftime('%d %b %Y %H:%M') }}</p>
+                        <span class="badge badge-info">{{ approval_request.transaction_type | title }}</span>
+                    </div>
+                </div>
+                {% for action in approval_request.actions %}
+                <div class="timeline-item {% if action.action == 'approved' %}approved{% else %}rejected{% endif %}">
+                    <div class="timeline-marker"></div>
+                    <div class="timeline-content">
+                        <h4>Level {{ action.level + 1 }}: {{ action.action | title }}</h4>
+                        <p>{{ action.timestamp.strftime('%d %b %Y %H:%M') }}</p>
+                        {% if action.comment %}
+                        <p class="comment">"{{ action.comment }}"</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="status-summary">
+                <strong>Final Status:</strong>
+                <span class="badge {% if approval_request.status == 'completed' %}badge-success{% elif approval_request.status == 'rejected' %}badge-danger{% else %}badge-warning{% endif %}">
+                    {{ approval_request.status | title }}
+                </span>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <p>No approval workflow was configured for this payment. The payment was processed directly.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

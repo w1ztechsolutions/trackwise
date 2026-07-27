@@ -143,33 +143,46 @@
         </div>
     </div>
     
-    <!-- Recent Expenses -->
+    <!-- Recent Payments -->
     <div class="glass-card">
         <div class="section-header">
-            <h3 class="section-title">Recent Expenses</h3>
-            <a href="{{ url_for('expenses.expenses') }}">View All</a>
+            <h3 class="section-title">Recent Payments</h3>
+            <a href="{{ url_for('purchases.payments') }}">View All</a>
         </div>
         <div class="table-container">
             <table class="custom-table">
                 <thead>
                     <tr>
                         <th>Date</th>
+                        <th>Payee</th>
                         <th>Category</th>
-                        <th>Description</th>
                         <th>Amount</th>
+                        <th>Mode</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for exp in recent_expenses %}
+                    {% for payment in recent_payments %}
                         <tr>
-                            <td>{{ exp.expense_date | datetime }}</td>
-                            <td><span class="badge badge-info">{{ exp.category }}</span></td>
-                            <td class="text-truncate">{{ exp.description or 'No details' }}</td>
-                            <td class="text-danger">{{ exp.amount | currency }}</td>
+                            <td>{{ payment.payment_date.strftime('%d %b %Y') }}</td>
+                            <td>
+                                {% if payment.payee_type == 'supplier' and payment.supplier %}
+                                    {{ payment.supplier.name }}
+                                {% elif payment.payee_type == 'staff' and payment.staff_member %}
+                                    {{ payment.staff_member.name }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>{{ payment.category.name if payment.category else '-' }}</td>
+                            <td class="text-danger">{{ payment.amount | currency }}</td>
+                            <td>
+                                {% set mode_labels = {'cash': 'Cash', 'bank_transfer': 'Bank Transfer', 'mobile_money': 'Mobile Money', 'cheque': 'Cheque', 'card': 'Card'} %}
+                                {{ mode_labels.get(payment.payment_mode, payment.payment_mode) }}
+                            </td>
                         </tr>
                     {% else %}
                         <tr>
-                            <td colspan="4" class="empty-state">No expenses recorded yet.</td>
+                            <td colspan="5" class="empty-state">No payments recorded yet.</td>
                         </tr>
                     {% endfor %}
                 </tbody>

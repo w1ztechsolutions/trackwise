@@ -340,5 +340,24 @@ def _execute_approval(req):
             customer.is_active = False
             db.session.commit()
 
+    elif transaction_type == 'payment':
+        # When a payment is fully approved, post the accounting entries
+        from models import Payment, FinancialCategory, LineItem
+        payment = db.session.get(Payment, transaction_id)
+        if payment:
+            payment.status = 'approved'
+            from services.fifo_service import _post_payment_accounting
+            _post_payment_accounting(
+                payment_date=payment.payment_date,
+                amount=float(payment.amount),
+                payment_id=payment.id,
+                business_id=payment.business_id,
+                created_by=payment.created_by or req.created_by,
+                category_id=payment.category_id,
+                line_item_id=payment.line_item_id,
+                payee_type=payment.payee_type,
+            )
+            db.session.commit()
+
 
 from . import approvals_bp  # noqa: E402, F811

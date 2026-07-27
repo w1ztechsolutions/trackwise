@@ -1,60 +1,257 @@
 {% extends 'base.html' %}
-{% block title %}Payments{% endblock %}
+{% block title %}Payments Hub{% endblock %}
 {% block content %}
 <div class="header-bar">
     <div class="page-title">
-        <h1>Payments</h1>
+        <h1>Payments Hub</h1>
+        <p>Record all outgoing disbursements: supplier payments, staff salaries, operational costs</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('purchases.suppliers') }}" class="btn-outline">
+            <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 7h18"></path>
+                <path d="M3 12h18"></path>
+                <path d="M3 17h18"></path>
+            </svg>
+            Manage Suppliers
+        </a>
     </div>
 </div>
-<div class="glass-card">
-    <form method="post" class="stack-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="form-group">
-            <label class="form-label" for="supplier_id">Supplier</label>
-            <select id="supplier_id" name="supplier_id" required class="form-control">
-                {% for supplier in suppliers %}
-                <option value="{{ supplier.id }}">{{ supplier.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="form-group">
-            <label class="form-label" for="amount">Amount</label>
-            <input type="number" step="0.01" id="amount" name="amount" required class="form-control">
-        </div>
-        <div class="form-group">
-            <label class="form-label" for="payment_method">Method</label>
-            <select id="payment_method" name="payment_method" class="form-control">
-                <option value="cash">Cash</option>
-                <option value="bank">Bank Transfer</option>
-                <option value="mobile money">Mobile Money</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label class="form-label" for="reference">Reference</label>
-            <input type="text" id="reference" name="reference" class="form-control">
-        </div>
-        <button type="submit" class="btn-primary btn-sm">Record Payment</button>
-    </form>
-</div>
-<div class="glass-card">
-    <div class="section-header">
-        <h3>Recent Payments</h3>
+
+<div class="dashboard-grid">
+    <!-- Record Payment Form -->
+    <div class="glass-card">
+        <h3 class="section-title">Record Payment</h3>
+        
+        <form method="POST" action="{{ url_for('purchases.payments') }}" id="paymentForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <!-- Payee Type Selector -->
+            <div class="form-group">
+                <label class="form-label">Payee Type</label>
+                <div class="payee-toggle">
+                    <label class="toggle-option">
+                        <input type="radio" name="payee_type" value="supplier" checked onchange="togglePayee()">
+                        <span class="toggle-label">Supplier</span>
+                    </label>
+                    <label class="toggle-option">
+                        <input type="radio" name="payee_type" value="staff" onchange="togglePayee()">
+                        <span class="toggle-label">Staff / Employee</span>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Supplier Selector (shown when payee_type = supplier) -->
+            <div class="form-group" id="supplierGroup">
+                <label class="form-label" for="supplier_id">Supplier</label>
+                <select id="supplier_id" name="supplier_id" class="form-control">
+                    <option value="">-- Select Supplier --</option>
+                    {% for supplier in suppliers %}
+                    <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Staff Selector (shown when payee_type = staff) -->
+            <div class="form-group" id="staffGroup" style="display: none;">
+                <label class="form-label" for="staff_id">Staff / Employee</label>
+                <select id="staff_id" name="staff_id" class="form-control">
+                    <option value="">-- Select Staff --</option>
+                    {% for staff in staff_members %}
+                    <option value="{{ staff.id }}">{{ staff.name }} {% if staff.role %} - {{ staff.role }}{% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Financial Category -->
+            <div class="form-group">
+                <label class="form-label" for="category_id">Financial Statement Category</label>
+                <select id="category_id" name="category_id" required class="form-control" onchange="filterLineItems()">
+                    <option value="">-- Select Category --</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}">{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+                <span class="field-hint">e.g., Cost of Sales, Operating Expenses, Administrative Expenses</span>
+            </div>
+            
+            <!-- Line Item -->
+            <div class="form-group">
+                <label class="form-label" for="line_item_id">Line Item</label>
+                <select id="line_item_id" name="line_item_id" required class="form-control">
+                    <option value="">-- Select Category First --</option>
+                    {% for item in line_items %}
+                    <option value="{{ item.id }}" data-category="{{ item.category_id }}">{{ item.name }}</option>
+                    {% endfor %}
+                </select>
+                <span class="field-hint">Specific account classification (filters based on category selected)</span>
+            </div>
+            
+            <!-- Payment Description -->
+            <div class="form-group">
+                <label class="form-label" for="description">Payment Description</label>
+                <textarea id="description" name="description" rows="2" placeholder="e.g., Payment for raw materials, Monthly salary, Rent for July" class="form-control"></textarea>
+            </div>
+            
+            <!-- Amount -->
+            <div class="form-group">
+                <label class="form-label" for="amount">Amount (MWK)</label>
+                <input type="number" id="amount" name="amount" step="0.01" min="0.01" required placeholder="e.g. 50000.00" class="form-control">
+            </div>
+            
+            <!-- Payment Mode -->
+            <div class="form-group">
+                <label class="form-label" for="payment_mode">Payment Mode</label>
+                <select id="payment_mode" name="payment_mode" class="form-control">
+                    <option value="cash">Cash</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="mobile_money">Mobile Money</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="card">Debit / Credit Card</option>
+                </select>
+            </div>
+            
+            <!-- Reference -->
+            <div class="form-group">
+                <label class="form-label" for="reference">Reference / Receipt No.</label>
+                <input type="text" id="reference" name="reference" placeholder="e.g., INV-001, Receipt #123" class="form-control">
+                <span class="field-hint">Optional: invoice number, receipt number, or transaction ID</span>
+            </div>
+            
+            <div class="form-actions-row">
+                <button type="submit" class="btn-primary">
+                    <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                        <line x1="2" y1="10" x2="22" y2="10"></line>
+                    </svg>
+                    Record Payment
+                </button>
+            </div>
+        </form>
     </div>
-    <div class="table-container">
-        <table>
-            <thead><tr><th>Supplier</th><th>Amount</th><th>Method</th><th>Date</th></tr></thead>
-            <tbody>
-                {% for payment in payments.items %}
-                <tr>
-                    <td>{{ payment.supplier.name if payment.supplier else '-' }}</td>
-                    <td>{{ payment.amount }}</td>
-                    <td>{{ payment.payment_method }}</td>
-                    <td>{{ payment.payment_date }}</td>
-                </tr>
-                {% else %}
-                <tr><td colspan="4">No payments yet.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    
+    <!-- Payments History -->
+    <div class="glass-card">
+        <h3 class="section-title">Payment History</h3>
+        
+        <div class="table-container">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Payee Type</th>
+                        <th>Payee Name</th>
+                        <th>Category</th>
+                        <th>Line Item</th>
+                        <th>Description</th>
+                        <th>Amount</th>
+                        <th>Mode</th>
+                        <th>Reference</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in payments.items %}
+                    <tr>
+                        <td>{{ payment.payment_date.strftime('%d %b %Y %H:%M') }}</td>
+                        <td>
+                            {% if payment.payee_type == 'supplier' %}
+                            <span class="badge badge-info">Supplier</span>
+                            {% else %}
+                            <span class="badge badge-success">Staff</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if payment.payee_type == 'supplier' and payment.supplier %}
+                            {{ payment.supplier.name }}
+                            {% elif payment.payee_type == 'staff' and payment.staff_member %}
+                            {{ payment.staff_member.name }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ payment.category.name if payment.category else '-' }}</td>
+                        <td>{{ payment.line_item.name if payment.line_item else '-' }}</td>
+                        <td class="text-truncate" title="{{ payment.description or '' }}">{{ payment.description or '-' }}</td>
+                        <td class="text-danger">{{ payment.amount | currency }}</td>
+                        <td>
+                            {% set mode_labels = {'cash': 'Cash', 'bank_transfer': 'Bank Transfer', 'mobile_money': 'Mobile Money', 'cheque': 'Cheque', 'card': 'Card'} %}
+                            {{ mode_labels.get(payment.payment_mode, payment.payment_mode) }}
+                        </td>
+                        <td>{{ payment.reference or '-' }}</td>
+                        <td>
+                            {% set status_colors = {'pending': 'badge-warning', 'approved': 'badge-success', 'rejected': 'badge-danger'} %}
+                            <span class="badge {{ status_colors.get(payment.status, 'badge-info') }}">{{ payment.status | title }}</span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" class="empty-state">
+                            <svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" stroke-width="1.5" fill="none">
+                                <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                                <line x1="2" y1="10" x2="22" y2="10"></line>
+                            </svg>
+                            <p>No payments recorded yet. Use the form to record your first payment.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if payments.pages > 1 %}
+        <div class="pagination">
+            {% if payments.has_prev %}
+                <a href="{{ url_for('purchases.payments', page=payments.prev_num) }}">&laquo; Prev</a>
+            {% endif %}
+            <span class="current">Page {{ payments.page }} of {{ payments.pages }}</span>
+            {% if payments.has_next %}
+                <a href="{{ url_for('purchases.payments', page=payments.next_num) }}">Next &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// All line items as a JSON array from server
+const ALL_LINE_ITEMS = {{ line_items_json | safe }};
+
+// Toggle between Supplier and Staff payee selectors
+function togglePayee() {
+    const payeeType = document.querySelector('input[name="payee_type"]:checked').value;
+    document.getElementById('supplierGroup').style.display = payeeType === 'supplier' ? 'block' : 'none';
+    document.getElementById('staffGroup').style.display = payeeType === 'staff' ? 'block' : 'none';
+}
+
+// Filter line items dropdown based on selected category
+function filterLineItems() {
+    const categoryId = document.getElementById('category_id').value;
+    const lineItemSelect = document.getElementById('line_item_id');
+    
+    lineItemSelect.innerHTML = '<option value="">-- Select Line Item --</option>';
+    
+    if (!categoryId) {
+        return;
+    }
+    
+    const filtered = ALL_LINE_ITEMS.filter(function(item) {
+        return String(item.category_id) === categoryId;
+    });
+    
+    if (filtered.length === 0) {
+        lineItemSelect.innerHTML = '<option value="">-- No line items for this category --</option>';
+        return;
+    }
+    
+    filtered.forEach(function(item) {
+        var opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = item.name;
+        lineItemSelect.appendChild(opt);
+    });
+}
+</script>
 {% endblock %}

@@ -277,13 +277,21 @@ class Payment(db.Model):
     business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.id'), nullable=True)
     bill_id = db.Column(db.Integer, db.ForeignKey('bills.id'), nullable=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('financial_categories.id'), nullable=True)
+    line_item_id = db.Column(db.Integer, db.ForeignKey('line_items.id'), nullable=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff.id'), nullable=True)
     payment_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    payee_type = db.Column(db.String(20), nullable=False, default='supplier')  # 'supplier' or 'staff'
+    description = db.Column(db.Text, nullable=True)
     amount = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
-    payment_method = db.Column(db.String(30), nullable=False, default='cash')
+    payment_mode = db.Column(db.String(30), nullable=False, default='cash')
     reference = db.Column(db.String(100), nullable=True)
+    status = db.Column(db.String(20), nullable=False, default='pending')  # pending | approved | rejected
 
     supplier = db.relationship('Supplier', backref='payments')
     bill = db.relationship('Bill', backref='payments')
+    category = db.relationship('FinancialCategory', backref='payments', lazy='select')
+    line_item = db.relationship('LineItem', backref='payments', lazy='select')
 
 
 class User(db.Model, UserMixin):
@@ -374,6 +382,48 @@ class Subscription(db.Model):
 
     plan = db.relationship('Plan', backref='subscriptions')
     business = db.relationship('Business', backref='subscriptions', foreign_keys=[business_id])
+
+
+# Financial Statement Categories for accounting classification
+class FinancialCategory(db.Model):
+    __tablename__ = 'financial_categories'
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
+    name = db.Column(db.String(100), nullable=False)
+    code = db.Column(db.String(10), nullable=False)  # e.g., COS, OPEX, ADMIN, SELL, FIN, OTH, TAX
+    description = db.Column(db.Text, nullable=True)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+    line_items = db.relationship('LineItem', backref='category', cascade='all, delete-orphan', lazy='select')
+
+
+class LineItem(db.Model):
+    __tablename__ = 'line_items'
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('financial_categories.id'), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    code = db.Column(db.String(20), nullable=True)  # e.g., RAW_MAT, RENT, SALARY
+    account_code = db.Column(db.String(20), nullable=True)  # Maps to Chart of Accounts code
+    description = db.Column(db.Text, nullable=True)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+
+class Staff(db.Model):
+    __tablename__ = 'staff'
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
+    staff_id = db.Column(db.String(20), unique=True, nullable=True)
+    name = db.Column(db.String(200), nullable=False)
+    phone = db.Column(db.String(50), nullable=True)
+    email = db.Column(db.String(120), nullable=True)
+    role = db.Column(db.String(100), nullable=True)  # e.g., Cashier, Driver, Manager, Laborer
+    department = db.Column(db.String(100), nullable=True)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+    payments = db.relationship('Payment', backref='staff_member', lazy='select', foreign_keys='Payment.staff_id')
 
 
 from app.models.accounting import Business, ChartOfAccounts, JournalEntry, JournalLine, AuditLog

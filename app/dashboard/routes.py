@@ -2,7 +2,7 @@ from datetime import datetime
 from flask_login import login_required
 from flask import redirect, render_template, url_for
 
-from app.models import Product, Purchase, Sale, Expense
+from app.models import Product, Purchase, Sale, Expense, Payment
 from services.fifo_service import get_profit_loss, get_inventory_valuation
 
 from . import dashboard_bp
@@ -38,6 +38,7 @@ def dashboard():
     recent_sales = Sale.query.order_by(Sale.sale_date.desc()).limit(5).all()
     recent_purchases = Purchase.query.order_by(Purchase.purchase_date.desc()).limit(5).all()
     recent_expenses = Expense.query.order_by(Expense.expense_date.desc()).limit(5).all()
+    recent_payments = Payment.query.order_by(Payment.payment_date.desc()).limit(5).all()
 
     chart_labels = []
     chart_sales = []
@@ -69,6 +70,7 @@ def dashboard():
         recent_sales=recent_sales,
         recent_purchases=recent_purchases,
         recent_expenses=recent_expenses,
+        recent_payments=recent_payments,
         chart_labels=chart_labels,
         chart_sales=chart_sales,
         chart_expenses=chart_expenses

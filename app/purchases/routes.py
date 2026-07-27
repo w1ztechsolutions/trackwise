@@ -5,12 +5,30 @@ from datetime import datetime, timezone
 from flask import flash, redirect, render_template, request, url_for, abort
 from flask_login import login_required, current_user
 
-from models import Product, Purchase, PurchaseItem, Supplier, Payment, db
+from models import Product, Purchase, PurchaseItem, Supplier, Payment, Staff, FinancialCategory, LineItem, db
 from app.models.approval import ApprovalConfig, ApprovalRequest, ApprovalAction
 from services.fifo_service import record_purchase
 from app.auth.permissions import can_approve_at_level
 
 from . import purchases_bp
+
+
+@purchases_bp.route('/payments/status/<int:payment_id>')
+@login_required
+def payment_status(payment_id):
+    """View the approval status of a specific payment."""
+    biz_id = getattr(current_user, 'business_id', None)
+    payment = db.session.get(Payment, payment_id)
+    if not payment or payment.business_id != biz_id:
+        abort(404)
+    
+    approval_req = ApprovalRequest.query.filter_by(
+        business_id=biz_id,
+        transaction_type='payment',
+        transaction_id=payment.id,
+    ).first()
+    
+    return render_template('payment_status.html', payment=payment, approval_request=approval_req)
 
 
 @purchases_bp.route('/suppliers', methods=['GET', 'POST'])
@@ -64,37 +82,105 @@ def suppliers():
 @login_required
 def payments():
     if request.method == 'POST':
+        payee_type = request.form.get('payee_type', 'supplier').strip()
         supplier_id = request.form.get('supplier_id', '').strip()
+        staff_id = request.form.get('staff_id', '').strip()
+        category_id = request.form.get('category_id', '').strip()
+        line_item_id = request.form.get('line_item_id', '').strip()
+        description = request.form.get('description', '').strip()
         amount = request.form.get('amount', '').strip()
+        payment_mode = request.form.get('payment_mode', 'cash').strip()
         reference = request.form.get('reference', '').strip()
-        payment_method = request.form.get('payment_method', 'cash').strip()
 
-        if not supplier_id or not amount:
-            flash('Supplier and payment amount are required.', 'danger')
+        if not amount or float(amount) <= 0:
+            flash('A positive payment amount is required.', 'danger')
             return redirect(url_for('purchases.payments'))
 
-        supplier = db.session.get(Supplier, int(supplier_id))
-        if not supplier:
-            flash('Selected supplier was not found.', 'danger')
+        if payee_type == 'supplier' and not supplier_id:
+            flash('Please select a supplier for the payment.', 'danger')
             return redirect(url_for('purchases.payments'))
+
+        if payee_type == 'staff' and not staff_id:
+            flash('Please select a staff member for the payment.', 'danger')
+            return redirect(url_for('purchases.payments'))
+
+        if not category_id or not line_item_id:
+            flash('Please select a financial category and line item.', 'danger')
+            return redirect(url_for('purchases.payments'))
+
+        biz_id = getattr(current_user, 'business_id', None)
 
         payment = Payment(
-            business_id=getattr(current_user, 'business_id', None),
-            supplier_id=supplier.id,
+            business_id=biz_id,
+            supplier_id=int(supplier_id) if supplier_id else None,
+            staff_id=int(staff_id) if staff_id else None,
+            category_id=int(category_id) if category_id else None,
+            line_item_id=int(line_item_id) if line_item_id else None,
+            payee_type=payee_type,
+            description=description or None,
             payment_date=datetime.now(timezone.utc),
             amount=float(amount),
-            payment_method=payment_method or 'cash',
+            payment_mode=payment_mode or 'cash',
             reference=reference or None,
+            status='pending',
         )
         db.session.add(payment)
-        db.session.commit()
-        flash('Payment recorded successfully.', 'success')
+        db.session.flush()
+
+        # Check if approval workflow is configured for payments
+        from app.approvals.routes import create_approval_request
+        approval_req = create_approval_request(
+            business_id=biz_id,
+            transaction_type='payment',
+            transaction_id=payment.id,
+            created_by=current_user.id,
+        )
+
+        if approval_req:
+            # Payment is pending approval - no accounting entries yet
+            db.session.commit()
+            flash('Payment submitted for approval. It will be processed once approved.', 'info')
+        else:
+            # No approval needed - post accounting directly
+            from services.fifo_service import _post_payment_accounting
+            _post_payment_accounting(
+                payment_date=payment.payment_date,
+                amount=float(amount),
+                payment_id=payment.id,
+                business_id=biz_id,
+                created_by=current_user.id,
+                category_id=int(category_id) if category_id else None,
+                line_item_id=int(line_item_id) if line_item_id else None,
+                payee_type=payee_type,
+            )
+            payment.status = 'approved'
+            db.session.commit()
+            flash('Payment recorded successfully.', 'success')
+
         return redirect(url_for('purchases.payments'))
 
     page = request.args.get('page', 1, type=int)
     suppliers = Supplier.query.order_by(Supplier.name.asc()).all()
+    staff_members = Staff.query.order_by(Staff.name.asc()).all()
+    categories = FinancialCategory.query.order_by(FinancialCategory.sort_order.asc()).all()
+    line_items = LineItem.query.order_by(LineItem.sort_order.asc()).all()
     payments = Payment.query.order_by(Payment.payment_date.desc()).paginate(page=page, per_page=10)
-    return render_template('payments.html', suppliers=suppliers, payments=payments)
+    
+    # Convert line items to JSON for JavaScript filtering
+    import json
+    line_items_json = json.dumps([{
+        'id': item.id,
+        'name': item.name,
+        'category_id': item.category_id
+    } for item in line_items])
+    
+    return render_template('payments.html', 
+                         suppliers=suppliers, 
+                         staff_members=staff_members,
+                         categories=categories, 
+                         line_items=line_items,
+                         line_items_json=line_items_json,
+                         payments=payments)
 
 
 @purchases_bp.route('/purchases', methods=['GET', 'POST'])
