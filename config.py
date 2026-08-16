@@ -98,7 +98,11 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 300}
     REMEMBER_COOKIE_DURATION = timedelta(days=14)
-    PERMANENT_SESSION_LIFETIME = timedelta(hours=1)
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=5)
+    SESSION_REFRESH_EACH_REQUEST = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    SUPERADMIN_SESSION_LIFETIME = timedelta(hours=1)
 
 
 class DevelopmentConfig(Config):
@@ -107,6 +111,7 @@ class DevelopmentConfig(Config):
     SECRET_KEY = os.environ.get("SECRET_KEY", os.urandom(32).hex())
     SQLALCHEMY_DATABASE_URI = _default_database_uri()
     SQLALCHEMY_ENGINE_OPTIONS = _get_pool_options(is_neon=_is_neon(os.environ.get("DATABASE_URL")))
+    SESSION_COOKIE_SECURE = False
 
 
 class TestingConfig(Config):
@@ -119,6 +124,7 @@ class TestingConfig(Config):
     SQLALCHEMY_ENGINE_OPTIONS = {}  # disable pooling for in-memory SQLite tests
     WTF_CSRF_ENABLED = False
     LOGIN_DISABLED = True
+    SESSION_COOKIE_SECURE = False
 
 
 class ProductionConfig(Config):
@@ -127,6 +133,7 @@ class ProductionConfig(Config):
     SQLALCHEMY_DATABASE_URI = _default_database_uri()
     SQLALCHEMY_ENGINE_OPTIONS = _get_pool_options(is_neon=_is_neon(os.environ.get("DATABASE_URL")))
     SECRET_KEY = os.environ.get("SECRET_KEY")
+    SESSION_COOKIE_SECURE = True
 
     def __init__(self):
         if not self.SECRET_KEY:

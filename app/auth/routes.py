@@ -1,4 +1,4 @@
-from flask import flash, redirect, render_template, request, url_for
+from flask import flash, redirect, render_template, request, session, url_for
 from flask_login import login_required
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -35,6 +35,7 @@ def login():
 
             if valid_password:
                 from flask_login import login_user
+                session.permanent = True
                 login_user(user)
 
                 if user.must_change_password:

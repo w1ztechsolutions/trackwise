@@ -1,6 +1,6 @@
 """SuperAdmin routes for platform-level management of businesses and their admins."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from functools import wraps
 
 from flask import (
@@ -9,6 +9,7 @@ from flask import (
 from werkzeug.security import generate_password_hash
 
 from app.models import db, SuperAdmin, Business, User
+from config import Config
 from . import superadmin_bp
 
 
@@ -24,6 +25,17 @@ def superadmin_required(f):
             session.pop('superadmin_id', None)
             flash('Super Admin session invalid.', 'warning')
             return redirect(url_for('superadmin.login'))
+
+        last_active = session.get('superadmin_last_active')
+        if last_active:
+            elapsed = datetime.now(timezone.utc) - datetime.fromisoformat(last_active)
+            if elapsed > Config.SUPERADMIN_SESSION_LIFETIME:
+                session.pop('superadmin_id', None)
+                session.pop('superadmin_last_active', None)
+                flash('Super Admin session expired. Please log in again.', 'warning')
+                return redirect(url_for('superadmin.login'))
+
+        session['superadmin_last_active'] = datetime.now(timezone.utc).isoformat()
         return f(*args, **kwargs)
     return wrapped
 
@@ -50,6 +62,7 @@ def login():
         sa = SuperAdmin.query.filter_by(email=email).first()
         if sa and sa.check_password(password):
             session['superadmin_id'] = sa.id
+            session['superadmin_last_active'] = datetime.now(timezone.utc).isoformat()
             flash(f'Welcome back, {sa.name}!', 'success')
             return redirect(url_for('superadmin.dashboard'))
 
@@ -62,6 +75,7 @@ def login():
 def logout():
     """Super Admin logout."""
     session.pop('superadmin_id', None)
+    session.pop('superadmin_last_active', None)
     flash('Logged out successfully.', 'success')
     return redirect(url_for('superadmin.login'))
 
