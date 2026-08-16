@@ -1,6 +1,6 @@
 """General Ledger report derived from journal entries."""
 
-from app.models import db, ChartOfAccounts, JournalLine, JournalEntry
+from app.models import db, ChartOfAccounts, JournalLine, JournalEntry, User
 
 
 def get_general_ledger(business_id, account_id=None, start_date=None, end_date=None):
@@ -69,6 +69,8 @@ def get_general_ledger(business_id, account_id=None, start_date=None, end_date=N
             'debit': debit,
             'credit': credit,
             'balance': running_balance,
+            'created_by': entry.created_by,
+            'created_at': entry.created_at,
         })
     
     # Get the specific account if filtering
@@ -78,6 +80,17 @@ def get_general_ledger(business_id, account_id=None, start_date=None, end_date=N
             id=account_id, business_id=business_id
         ).first()
     
+    # Resolve created_by user IDs to display names (avoids N+1 queries)
+    user_ids = {e['created_by'] for e in entries if e.get('created_by') is not None}
+    users = {}
+    if user_ids:
+        for u in db.session.query(User.id, User.name, User.email).filter(User.id.in_(user_ids)).all():
+            display = u.name or u.email or str(u.id)
+            users[u.id] = display
+
+    for e in entries:
+        e['created_by_name'] = users.get(e.get('created_by'), 'Unknown')
+
     return {
         'entries': entries,
         'accounts': accounts,

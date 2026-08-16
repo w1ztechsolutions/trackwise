@@ -45,7 +45,7 @@
 <div class="glass-card">
     <div class="section-header">
         <h3 class="section-title">Product Catalogue</h3>
-        <input type="text" id="searchInput" onkeyup="searchInventory()" placeholder="Search by name or SKU..." class="form-control search-input">
+        <label for="searchInput" class="visually-hidden">Search inventory</label><input type="text" id="searchInput" onkeyup="searchInventory()" placeholder="Search by name or SKU…" class="form-control search-input">
     </div>
     
     <div class="table-container">
@@ -279,12 +279,12 @@
                     </div>
                     <div class="mb-3">
                         <label for="description" class="form-label">Description (Optional)</label>
-                        <textarea id="description" name="description" rows="2" placeholder="Brief description of the product..." class="form-control"></textarea>
+                        <textarea id="description" name="description" rows="2" placeholder="Brief description of the product…" class="form-control"></textarea>
                     </div>
                     <div class="row mb-3">
                         <div class="col">
                             <label for="default_selling_price" class="form-label">Default Selling Price (MWK)</label>
-                            <input type="number" id="default_selling_price" name="default_selling_price" step="0.01" min="0" required placeholder="e.g. 1500.00" class="form-control">
+                            <input type="number" id="default_selling_price" name="default_selling_price" step="0.01" min="0" required placeholder="e.g. 1500.00…" class="form-control">
                         </div>
                         <div class="col">
                             <label for="low_stock_threshold" class="form-label">Low Stock Alert Level</label>

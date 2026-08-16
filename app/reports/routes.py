@@ -12,6 +12,7 @@ from app.services.reports import (
     get_cash_flow,
     get_trial_balance,
     get_general_ledger,
+    get_audit_log,
     get_ar_aging,
     get_ap_aging,
 )
@@ -205,6 +206,40 @@ def ar_aging():
         report_type='ar_aging',
         ar=ar_data,
         as_of_date=as_of_date_str,
+    )
+
+
+@reports_bp.route('/reports/audit-log')
+@login_required
+def audit_log():
+    """Audit Trail report."""
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    action = request.args.get('action')
+
+    start_date = None
+    end_date = None
+
+    if start_date_str:
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+    if end_date_str:
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
+
+    from flask_login import current_user
+    business_id = getattr(current_user, 'business_id', None)
+
+    if business_id:
+        al_data = get_audit_log(business_id, start_date, end_date, action)
+    else:
+        al_data = {'entries': [], 'start_date': start_date, 'end_date': end_date, 'action': action}
+
+    return render_template(
+        'reports.html',
+        report_type='audit_log',
+        al=al_data,
+        start_date=start_date_str,
+        end_date=end_date_str,
+        action=action,
     )
 
 

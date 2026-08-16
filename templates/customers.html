@@ -20,7 +20,7 @@
 <div class="glass-card" style="max-width: 420px; margin-bottom: 20px;">
     <form method="GET" action="{{ url_for('sales.customers') }}" class="d-flex">
         <label for="search" class="visually-hidden">Search customers</label>
-        <input type="text" id="search" name="search" class="form-control" placeholder="Search customers..." value="{{ search_query }}">
+        <label for="search" class="visually-hidden">Search customers</label><input type="text" id="search" name="search" class="form-control" placeholder="Search customers…" value="{{ search_query }}">
         <button class="btn btn-outline-secondary ms-2" type="submit" aria-label="Search">
             Search
         </button>

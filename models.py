@@ -299,6 +299,7 @@ class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
+    name = db.Column(db.String(120), nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False, default='viewer')
     is_active = db.Column(db.Boolean, nullable=False, default=True)

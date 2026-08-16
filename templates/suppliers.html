@@ -20,7 +20,7 @@
 <div class="glass-card" style="max-width: 420px; margin-bottom: 20px;">
     <form method="GET" action="{{ url_for('purchases.suppliers') }}" class="d-flex">
         <label for="search" class="visually-hidden">Search suppliers</label>
-        <input type="text" id="search" name="search" class="form-control" placeholder="Search suppliers..." value="{{ search_query }}">
+        <label for="search" class="visually-hidden">Search suppliers</label><input type="text" id="search" name="search" class="form-control" placeholder="Search suppliers…" value="{{ search_query }}">
         <button class="btn btn-outline-secondary ms-2" type="submit" aria-label="Search">
             Search
         </button>
@@ -68,7 +68,7 @@
                     </div>
                     <div class="mb-3">
                         <label for="payment_terms" class="form-label">Payment Terms</label>
-                        <input type="text" id="payment_terms" name="payment_terms" class="form-control" placeholder="e.g. Net 30">
+                        <input type="text" id="payment_terms" name="payment_terms" class="form-control" placeholder="e.g. Net 30…">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -173,10 +173,10 @@
                         {% endif %}
                     </td>
                     <td>
-                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editSupplierModal{{ supplier.id }}">Edit</button>
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editSupplierModal{{ supplier.id }}" aria-label="Edit supplier">Edit</button>
                         <form method="POST" action="{{ url_for('purchases.delete_supplier', supplier_id=supplier.id) }}" style="display:inline" onsubmit="return confirm('Delete this supplier?');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                            <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Delete supplier">Delete</button>
                         </form>
                     </td>
                 </tr>

@@ -11,6 +11,7 @@ from app.services.reports import (
     get_cash_flow,
     get_trial_balance,
     get_general_ledger,
+    get_audit_log,
     get_ar_aging,
     get_ap_aging,
 )
@@ -34,7 +35,7 @@ class TestReportServices(unittest.TestCase):
         db.session.add(self.business)
         db.session.flush()
         
-        self.user = User(email='test@test.com', role='admin', business_id=self.business.id)
+        self.user = User(email='test@test.com', role='admin', business_id=self.business.id, name='Test User')
         self.user.set_password('password')
         db.session.add(self.user)
         db.session.flush()
@@ -196,6 +197,36 @@ class TestReportServices(unittest.TestCase):
         self.assertIn('entries', gl)
         self.assertIn('accounts', gl)
         self.assertGreater(len(gl['entries']), 0)
+        # Verify audit attribution is present
+        for entry in gl['entries']:
+            self.assertIn('created_by_name', entry)
+            self.assertIn('created_at', entry)
+        self.assertEqual(gl['entries'][0]['created_by_name'], 'Test User')
+    
+    def test_audit_log(self):
+        """Test audit trail report generation."""
+        # A purchase triggers a journal entry which writes an AuditLog row
+        record_purchase(
+            purchase_date=datetime(2026, 6, 1),
+            supplier='Supplier X',
+            notes='Test',
+            items_data=[{'product_id': self.product.id, 'quantity': 10, 'unit_cost': 100.0}],
+            business_id=self.business.id,
+            created_by=self.user.id,
+        )
+        
+        al = get_audit_log(self.business.id)
+        
+        self.assertIn('entries', al)
+        self.assertGreater(len(al['entries']), 0)
+        for log in al['entries']:
+            self.assertIn('timestamp', log)
+            self.assertIn('user_name', log)
+            self.assertIn('action', log)
+            self.assertIn('table_name', log)
+            self.assertEqual(log['user_name'], 'Test User')
+            self.assertEqual(log['action'], 'CREATE')
+            self.assertEqual(log['table_name'], 'journal_entries')
     
     def test_ar_aging(self):
         """Test AR aging generation."""
