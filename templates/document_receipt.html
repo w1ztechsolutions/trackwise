@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}{% if receipt_type == 'invoice' %}Invoice Receipt{% else %}Sales Receipt{% endif %}{% endblock %}
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>{% if receipt_type == 'invoice' %}Invoice Receipt{% else %}Sales Receipt{% endif %}</h1>
+    </div>
+    <div class="header-actions">
+        <button type="button" class="btn-secondary btn-sm" onclick="window.print()">Print</button>
+    </div>
+</div>
+
+<div class="glass-card receipt-document">
+    <div class="receipt-header">
+        <div>
+            <h2>TrackWise</h2>
+            <p>Business Receipt</p>
+        </div>
+        <div class="receipt-number-block">
+            <strong>{% if receipt_type == 'invoice' %}{{ invoice.invoice_number or ('INV-' ~ invoice.id) }}{% else %}SALE-{{ sale.id }}{% endif %}</strong>
+            <span>{% if receipt_type == 'invoice' %}Invoice{% else %}Sales{% endif %} Document</span>
+        </div>
+    </div>
+
+    <div class="receipt-meta-grid">
+        <div>
+            <label>Customer</label>
+            <p>{% if receipt_type == 'invoice' %}{{ invoice.customer.name if invoice.customer else 'Walk-in Customer' }}{% else %}{{ sale.customer_name or 'Walk-in Customer' }}{% endif %}</p>
+        </div>
+        <div>
+            <label>Date</label>
+            <p>{% if receipt_type == 'invoice' %}{{ invoice.invoice_date }}{% else %}{{ sale.sale_date }}{% endif %}</p>
+        </div>
+        <div>
+            <label>Reference</label>
+            <p>{% if receipt_type == 'invoice' %}{{ invoice.customer.customer_id if invoice.customer and invoice.customer.customer_id else '-' }}{% else %}{{ sale.invoice.invoice_number if sale.invoice else 'No invoice linked' }}{% endif %}</p>
+        </div>
+    </div>
+
+    <div class="table-container receipt-table">
+        <table>
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Qty</th>
+                    <th>Unit Price</th>
+                    <th>Line Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if receipt_type == 'invoice' %}
+                    {% for item in invoice.items %}
+                    <tr>
+                        <td>{{ item.product.name if item.product else item.description }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ item.unit_price }}</td>
+                        <td>{{ item.line_total }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4">No items on this invoice.</td></tr>
+                    {% endfor %}
+                {% else %}
+                    {% for item in sale.items %}
+                    <tr>
+                        <td>{{ item.product.name if item.product else 'Product' }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ item.unit_price }}</td>
+                        <td>{{ item.unit_price * item.quantity }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4">No items in this sale.</td></tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="receipt-summary">
+        <div class="summary-row">
+            <span>Subtotal</span>
+            <strong>{% if receipt_type == 'invoice' %}{{ invoice.subtotal }}{% else %}{{ sale.total_revenue }}{% endif %}</strong>
+        </div>
+        <div class="summary-row">
+            <span>Tax</span>
+            <strong>{% if receipt_type == 'invoice' %}{{ invoice.tax_amount }}{% else %}0.00{% endif %}</strong>
+        </div>
+        <div class="summary-row grand-total">
+            <span>Total</span>
+            <strong>{% if receipt_type == 'invoice' %}{{ invoice.total_amount }}{% else %}{{ sale.total_revenue }}{% endif %}</strong>
+        </div>
+    </div>
+
+    <div class="receipt-footer">
+        <p>Thank you for your business.</p>
+        <p>{% if receipt_type == 'invoice' %}Status: {{ invoice.status }}{% else %}Payment type: {% if sale.invoice_id %}Invoice-linked{% else %}Cash / Walk-in{% endif %}{% endif %}</p>
+    </div>
+</div>
+{% endblock %}

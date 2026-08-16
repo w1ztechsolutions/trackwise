@@ -105,6 +105,28 @@ def ensure_required_user_columns():
             db.session.rollback()
 
 
+def ensure_required_sales_columns():
+    """Repair legacy PostgreSQL schemas that are missing the optional sales invoice linkage."""
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        if not inspector.has_table("sales"):
+            return
+        columns = {column["name"] for column in inspector.get_columns("sales")}
+    except Exception:
+        return
+
+    if "invoice_id" in columns:
+        return
+
+    try:
+        with db.engine.begin() as connection:
+            connection.execute(text("ALTER TABLE sales ADD COLUMN IF NOT EXISTS invoice_id INTEGER"))
+            connection.execute(text("ALTER TABLE sales ADD CONSTRAINT IF NOT EXISTS fk_sales_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id)"))
+    except Exception:
+        db.session.rollback()
+
+
 def create_app(config_object=None):
     app = Flask(
         __name__,
@@ -151,6 +173,7 @@ def create_app(config_object=None):
 
     with app.app_context():
         ensure_required_user_columns()
+        ensure_required_sales_columns()
 
     register_template_filters(app)
 

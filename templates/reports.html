@@ -10,42 +10,20 @@
     </div>
 </div>
 
-<!-- Report Navigation Tabs -->
+<!-- Report Navigation Dropdown -->
 <div class="glass-card mb-4">
-    <div class="report-tabs">
-        <a href="{{ url_for('reports.income_statement') }}" 
-           class="btn-secondary report-tab {% if report_type == 'income_statement' %}active{% endif %}" >
-            Income Statement
-        </a>
-        <a href="{{ url_for('reports.balance_sheet') }}" 
-           class="btn-secondary report-tab {% if report_type == 'balance_sheet' %}active{% endif %}" >
-            Balance Sheet
-        </a>
-        <a href="{{ url_for('reports.cash_flow') }}" 
-           class="btn-secondary report-tab {% if report_type == 'cash_flow' %}active{% endif %}" >
-            Cash Flow
-        </a>
-        <a href="{{ url_for('reports.trial_balance') }}" 
-           class="btn-secondary report-tab {% if report_type == 'trial_balance' %}active{% endif %}" >
-            Trial Balance
-        </a>
-        <a href="{{ url_for('reports.general_ledger') }}" 
-           class="btn-secondary report-tab {% if report_type == 'general_ledger' %}active{% endif %}" >
-            General Ledger
-        </a>
-        <a href="{{ url_for('reports.ar_aging') }}" 
-           class="btn-secondary report-tab {% if report_type == 'ar_aging' %}active{% endif %}" >
-            AR Aging
-        </a>
-        <a href="{{ url_for('reports.ap_aging') }}" 
-           class="btn-secondary report-tab {% if report_type == 'ap_aging' %}active{% endif %}" >
-            AP Aging
-        </a>
-        <a href="{{ url_for('reports.audit_log') }}" 
-           class="btn-secondary {% if report_type == 'audit_log' %}active{% endif %}" 
-           >
-            Audit Trail
-        </a>
+    <div class="report-dropdown-wrap">
+        <label class="form-label" for="report_select">Select Report</label>
+        <select id="report_select" class="form-control report-select" onchange="window.location.href = this.value;">
+            <option value="{{ url_for('reports.income_statement') }}" {% if report_type == 'income_statement' %}selected{% endif %}>Income Statement</option>
+            <option value="{{ url_for('reports.balance_sheet') }}" {% if report_type == 'balance_sheet' %}selected{% endif %}>Balance Sheet</option>
+            <option value="{{ url_for('reports.cash_flow') }}" {% if report_type == 'cash_flow' %}selected{% endif %}>Cash Flow</option>
+            <option value="{{ url_for('reports.trial_balance') }}" {% if report_type == 'trial_balance' %}selected{% endif %}>Trial Balance</option>
+            <option value="{{ url_for('reports.general_ledger') }}" {% if report_type == 'general_ledger' %}selected{% endif %}>General Ledger</option>
+            <option value="{{ url_for('reports.ar_aging') }}" {% if report_type == 'ar_aging' %}selected{% endif %}>AR Aging</option>
+            <option value="{{ url_for('reports.ap_aging') }}" {% if report_type == 'ap_aging' %}selected{% endif %}>AP Aging</option>
+            <option value="{{ url_for('reports.audit_log') }}" {% if report_type == 'audit_log' %}selected{% endif %}>Audit Trail</option>
+        </select>
     </div>
 </div>
 
@@ -53,7 +31,7 @@
 {% if report_type in ['income_statement', 'cash_flow', 'general_ledger', 'audit_log'] %}
 <div class="glass-card mb-4">
     <h3 class="section-title">Filter Report Period</h3>
-    <form method="GET" action="{{ url_for('reports.' + report_type) }}" class="form-row flex-column items-end gap-4">
+    <form method="GET" action="{{ url_for('reports.' + report_type) }}" class="report-filter-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group report-filter-field">
             <label class="form-label" for="start_date">Start Date</label>
@@ -63,7 +41,7 @@
             <label class="form-label" for="end_date">End Date</label>
             <input type="date" id="end_date" name="end_date" value="{{ end_date }}" class="form-control">
         </div>
-        <div class="btn-group">
+        <div class="report-filter-actions">
             <button type="submit" class="btn-primary">Apply Filter</button>
             <a href="{{ url_for('reports.' + report_type) }}" class="btn-secondary d-inline-flex align-items-center justify-content-center h-46">
                 Reset
@@ -77,13 +55,13 @@
 {% if report_type in ['balance_sheet', 'trial_balance', 'ar_aging', 'ap_aging'] %}
 <div class="glass-card mb-4">
     <h3 class="section-title">As Of Date</h3>
-    <form method="GET" action="{{ url_for('reports.' + report_type) }}" class="form-row flex-column items-end gap-4">
+    <form method="GET" action="{{ url_for('reports.' + report_type) }}" class="report-filter-form single-field-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group report-filter-field">
             <label class="form-label" for="as_of_date">As Of Date</label>
             <input type="date" id="as_of_date" name="as_of_date" value="{{ as_of_date }}" class="form-control">
         </div>
-        <div class="btn-group">
+        <div class="report-filter-actions">
             <button type="submit" class="btn-primary">Apply Filter</button>
             <a href="{{ url_for('reports.' + report_type) }}" class="btn-secondary d-inline-flex align-items-center justify-content-center h-46">
                 Reset

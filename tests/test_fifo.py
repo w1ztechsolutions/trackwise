@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 from flask import Flask
-from models import db, Product, StockTransaction, Purchase, Sale, Expense, Setting
+from models import db, Product, StockTransaction, Purchase, Sale, Expense, Setting, Invoice
 from services.fifo_service import (
     record_purchase, record_sale, record_expense,
     get_profit_loss, get_inventory_valuation, set_tax_rate, get_tax_rate,
@@ -174,8 +174,55 @@ class TestFIFOService(unittest.TestCase):
         self.assertEqual(pl['tax_amount'], 300.0)
         self.assertEqual(pl['net_profit'], 700.0)
 
+    def test_sales_do_not_auto_create_invoices_and_support_invoice_link(self):
+        p = Product(sku='PROD002', name='Tablet', default_selling_price=150.0, business_id=self.business.id)
+        db.session.add(p)
+        db.session.commit()
+
+        record_purchase(
+            purchase_date=datetime(2026, 6, 1, 9, 0, 0),
+            supplier='Supplier A',
+            notes='Initial stock',
+            items_data=[{'product_id': p.id, 'quantity': 5, 'unit_cost': 60.0}],
+            business_id=self.business.id,
+        )
+
+        invoice = Invoice(
+            business_id=self.business.id,
+            invoice_number='INV-1001',
+            invoice_date=datetime(2026, 6, 3, 12, 0, 0),
+            due_date=datetime(2026, 6, 10, 12, 0, 0),
+            subtotal=750.0,
+            total_amount=750.0,
+            status='issued',
+            notes='Credit sale invoice',
+        )
+        db.session.add(invoice)
+        db.session.commit()
+
+        sale = record_sale(
+            sale_date=datetime(2026, 6, 3, 14, 0, 0),
+            customer_name='Credit Customer',
+            items_data=[{'product_id': p.id, 'quantity': 2, 'unit_price': 150.0}],
+            business_id=self.business.id,
+            invoice_id=invoice.id,
+        )
+
+        self.assertEqual(sale.invoice_id, invoice.id)
+        self.assertEqual(Invoice.query.count(), 1)
+
+        cash_sale = record_sale(
+            sale_date=datetime(2026, 6, 4, 9, 0, 0),
+            customer_name='',
+            items_data=[{'product_id': p.id, 'quantity': 1, 'unit_price': 150.0}],
+            business_id=self.business.id,
+        )
+
+        self.assertIsNone(cash_sale.invoice_id)
+        self.assertEqual(Invoice.query.count(), 1)
+
     def test_insufficient_inventory(self):
-        p = Product(sku='PROD002', name='Gadget', default_selling_price=100.0, business_id=self.business.id)
+        p = Product(sku='PROD003', name='Gadget', default_selling_price=100.0, business_id=self.business.id)
         db.session.add(p)
         db.session.commit()
         

@@ -150,14 +150,14 @@ def _post_payment_accounting(payment_date, amount, payment_id, business_id, crea
         )
 
 
-def _post_sale_accounting(sale_date, customer_name, total_revenue, total_cogs, sale_id, business_id, created_by):
+def _post_sale_accounting(sale_date, customer_name, total_revenue, total_cogs, sale_id, business_id, created_by, invoice_id=None):
     if business_id is None:
         return
 
     lines = []
     ar_acct = get_account_by_code(business_id, ACCOUNT_CODE_AR)
     cash_acct = get_account_by_code(business_id, ACCOUNT_CODE_CASH)
-    receiver = ar_acct or cash_acct
+    receiver = ar_acct if invoice_id else cash_acct
     if receiver:
         lines.append({'account_id': receiver.id, 'debit_amount': total_revenue, 'credit_amount': 0})
 
@@ -177,7 +177,7 @@ def _post_sale_accounting(sale_date, customer_name, total_revenue, total_cogs, s
         post_entry(
             business_id,
             sale_date,
-            f"Sale #{sale_id}: {customer_name}",
+            f"Sale #{sale_id}: {customer_name or 'Walk-in sale'}",
             lines,
             reference_type='Sale',
             reference_id=sale_id,
@@ -341,7 +341,7 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
     return purchase
 
 
-def record_sale(sale_date, customer_name, items_data, business_id=None, created_by=None):
+def record_sale(sale_date, customer_name, items_data, business_id=None, created_by=None, invoice_id=None):
     if not items_data:
         raise ValueError("Sale must contain at least one item.")
 
@@ -349,6 +349,11 @@ def record_sale(sale_date, customer_name, items_data, business_id=None, created_
     total_revenue = 0.0
     total_cogs = 0.0
     sale_items = []
+
+    if invoice_id is not None and business_id is not None:
+        invoice_record = db.session.get(Invoice, invoice_id)
+        if invoice_record is None or invoice_record.business_id != business_id:
+            raise ValueError(f"Invoice ID {invoice_id} not found for this business.")
 
     for item in items_data:
         product_id = item['product_id']
@@ -375,21 +380,13 @@ def record_sale(sale_date, customer_name, items_data, business_id=None, created_
     sale = Sale(
         business_id=business_id,
         sale_date=sale_date,
-        customer_name=customer_name,
+        customer_name=customer_name.strip() if customer_name else None,
+        invoice_id=invoice_id,
         total_revenue=total_revenue,
         total_cogs=0.0,
     )
     db.session.add(sale)
     db.session.flush()
-
-    customer_name_value = (customer_name or '').strip()
-    customer_record = None
-    if customer_name_value and business_id is not None:
-        customer_record = Customer.query.filter_by(business_id=business_id, name=customer_name_value).first()
-        if not customer_record:
-            customer_record = Customer(business_id=business_id, name=customer_name_value, is_active=True)
-            db.session.add(customer_record)
-            db.session.flush()
 
     sale_items = []
     for item in items_data:
@@ -470,61 +467,19 @@ def record_sale(sale_date, customer_name, items_data, business_id=None, created_
         sale_items.append(si)
         total_cogs += item_cogs
 
-    invoice = None
-    if customer_record or customer_name_value:
-        invoice = Invoice(
-            business_id=business_id,
-            customer_id=customer_record.id if customer_record else None,
-            invoice_number=f"INV-{sale_date.strftime('%Y%m%d')}-{sale.id}",
-            invoice_date=sale_date,
-            due_date=sale_date,
-            subtotal=total_revenue,
-            tax_amount=0.0,
-            total_amount=total_revenue,
-            status='issued',
-            notes=f"Auto-generated from sale #{sale.id}",
-        )
-        db.session.add(invoice)
-        db.session.flush()
-
-        for si in sale_items:
-            ii = InvoiceItem(
-                business_id=business_id,
-                invoice_id=invoice.id,
-                product_id=si.product_id,
-                description=si.product.name if si.product else None,
-                quantity=si.quantity,
-                unit_price=si.unit_price,
-                line_total=float(si.quantity) * float(si.unit_price),
-            )
-            db.session.add(ii)
-
-        receipt = Receipt(
-            business_id=business_id,
-            customer_id=customer_record.id if customer_record else None,
-            invoice_id=invoice.id,
-            receipt_date=sale_date,
-            amount=total_revenue,
-            payment_method='cash',
-            reference=f"Sale {sale.id}",
-            notes='Auto-generated receipt',
-        )
-        db.session.add(receipt)
-
     sale.total_cogs = total_cogs
     db.session.commit()
 
     _post_sale_accounting(
-        sale_date, customer_name, total_revenue, total_cogs, sale.id, business_id, created_by
+        sale_date,
+        customer_name,
+        total_revenue,
+        total_cogs,
+        sale.id,
+        business_id,
+        created_by,
+        invoice_id=invoice_id,
     )
-    if invoice is not None:
-        _post_receipt_accounting(
-            sale_date,
-            total_revenue,
-            invoice.id,
-            business_id,
-            created_by,
-        )
 
     return sale
 

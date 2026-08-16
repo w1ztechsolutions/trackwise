@@ -22,6 +22,15 @@
                     <input type="text" id="customer_name" name="customer_name" placeholder="e.g. Walk-in / Zomba Groceries…" class="form-control">
                 </div>
                 <div class="form-group">
+                    <label class="form-label" for="invoice_id">Invoice Reference (optional)</label>
+                    <select id="invoice_id" name="invoice_id" class="form-control">
+                        <option value="">-- Cash / Walk-in sale --</option>
+                        {% for invoice in invoices if invoice.status in ['issued', 'partially_paid', 'paid'] %}
+                        <option value="{{ invoice.id }}">{{ invoice.invoice_number or ('INV-' ~ invoice.id) }} - {{ invoice.customer.name if invoice.customer else 'Customer' }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
                     <label class="form-label" for="sale_date">Sale Date</label>
                     <input type="datetime-local" id="sale_date" name="sale_date" class="form-control">
                 </div>
@@ -78,6 +87,9 @@
                                 <span>@ {{ si.unit_price | currency }}</span>
                             </div>
                         {% endfor %}
+                    </div>
+                    <div class="mt-2">
+                        <a href="{{ url_for('sales.sale_receipt', sale_id=sale.id) }}" class="btn-secondary btn-sm">Receipt</a>
                     </div>
                 </div>
             {% else %}

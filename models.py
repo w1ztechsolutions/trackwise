@@ -68,9 +68,11 @@ class Sale(db.Model):
     business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
     sale_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     customer_name = db.Column(db.String(200))
+    invoice_id = db.Column(db.Integer, db.ForeignKey('invoices.id'), nullable=True)
     total_revenue = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     total_cogs = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     items = db.relationship('SaleItem', backref='sale', cascade='all, delete-orphan')
+    invoice = db.relationship('Invoice', backref='sales')
 
 
 class SaleItem(db.Model):

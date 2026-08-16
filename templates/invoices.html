@@ -55,7 +55,7 @@
     </div>
     <div class="table-container">
         <table>
-            <thead><tr><th>Invoice</th><th>Customer</th><th>Total</th><th>Status</th></tr></thead>
+            <thead><tr><th>Invoice</th><th>Customer</th><th>Total</th><th>Status</th><th>Action</th></tr></thead>
             <tbody>
                 {% for invoice in invoices.items %}
                 <tr>
@@ -63,9 +63,12 @@
                     <td>{{ invoice.customer.name if invoice.customer else '-' }}</td>
                     <td>{{ invoice.total_amount }}</td>
                     <td>{{ invoice.status }}</td>
+                    <td>
+                        <a href="{{ url_for('sales.invoice_receipt', invoice_id=invoice.id) }}" class="btn-secondary btn-sm">Receipt</a>
+                    </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="4">No invoices yet.</td></tr>
+                <tr><td colspan="5">No invoices yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

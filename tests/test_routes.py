@@ -182,6 +182,66 @@ class TestReportsRoutes:
         assert resp.status_code == 200
 
 
+class TestReceiptRoutes:
+    def test_invoice_receipt_page_loads(self, client, app, business):
+        with app.app_context():
+            from models import db, Customer, Product, Invoice, InvoiceItem
+            customer = Customer(name='Receipt Customer', business_id=business.id)
+            product = Product(sku='RCPT-INV', name='Receipt Product', default_selling_price=250.0, business_id=business.id)
+            db.session.add_all([customer, product])
+            db.session.flush()
+            invoice = Invoice(
+                business_id=business.id,
+                customer_id=customer.id,
+                invoice_number='INV-RECEIPT-001',
+                invoice_date=datetime.now(),
+                due_date=datetime.now(),
+                subtotal=500.0,
+                total_amount=500.0,
+                status='issued',
+                notes='receipt test',
+            )
+            db.session.add(invoice)
+            db.session.flush()
+            db.session.add(InvoiceItem(
+                business_id=business.id,
+                invoice_id=invoice.id,
+                product_id=product.id,
+                description=product.name,
+                quantity=2,
+                unit_price=250.0,
+                line_total=500.0,
+            ))
+            db.session.commit()
+            resp = client.get(f'/invoices/{invoice.id}/receipt')
+            assert resp.status_code == 200
+            assert b'Invoice Receipt' in resp.data or b'Invoice' in resp.data
+
+    def test_sale_receipt_page_loads(self, client, app, business):
+        with app.app_context():
+            from models import db, Product
+            product = Product(sku='RCPT-SALE', name='Receipt Sale Product', default_selling_price=180.0, business_id=business.id)
+            db.session.add(product)
+            db.session.commit()
+            record_purchase(
+                purchase_date=datetime.now(),
+                supplier='Receipt Supplier',
+                notes='stock',
+                items_data=[{'product_id': product.id, 'quantity': 10, 'unit_cost': 100.0}],
+                business_id=business.id,
+            )
+            sale = record_sale(
+                sale_date=datetime.now(),
+                customer_name='Walk-in Customer',
+                items_data=[{'product_id': product.id, 'quantity': 2, 'unit_price': 180.0}],
+                business_id=business.id,
+                created_by=1,
+            )
+            resp = client.get(f'/sales/{sale.id}/receipt')
+            assert resp.status_code == 200
+            assert b'Sales Receipt' in resp.data or b'Receipt' in resp.data
+
+
 class TestCustomerSupplierRoutes:
     def test_customers_page_loads(self, client):
         resp = client.get('/customers')

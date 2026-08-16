@@ -128,12 +128,15 @@ def invoices():
 @login_required
 def sales():
     if request.method == 'POST':
-        customer = request.form.get('customer_name').strip()
+        customer = request.form.get('customer_name', '').strip()
         sale_date_str = request.form.get('sale_date')
+        invoice_id_raw = request.form.get('invoice_id', '').strip()
 
         sale_date = None
         if sale_date_str:
             sale_date = datetime.fromisoformat(sale_date_str)
+
+        invoice_id = int(invoice_id_raw) if invoice_id_raw else None
 
         product_ids = request.form.getlist('product_id[]')
         quantities = request.form.getlist('quantity[]')
@@ -154,7 +157,14 @@ def sales():
             return redirect(url_for('sales.sales'))
 
         try:
-            record_sale(sale_date, customer, items_data, current_user.business_id, current_user.id)
+            record_sale(
+                sale_date,
+                customer,
+                items_data,
+                current_user.business_id,
+                current_user.id,
+                invoice_id=invoice_id,
+            )
             flash('Sale recorded successfully! Stock and COGS calculations updated.', 'success')
         except InventoryException as ie:
             db.session.rollback()
@@ -166,9 +176,28 @@ def sales():
         return redirect(url_for('sales.sales'))
 
     products = Product.query.filter(Product.quantity_in_stock > 0).order_by(Product.name.asc()).all()
+    invoices = Invoice.query.order_by(Invoice.invoice_date.desc()).all()
     page = request.args.get('page', 1, type=int)
     sale_records = Sale.query.order_by(Sale.sale_date.desc()).paginate(page=page, per_page=10)
-    return render_template('sales.html', products=products, sales=sale_records)
+    return render_template('sales.html', products=products, sales=sale_records, invoices=invoices)
+
+
+@sales_bp.route('/invoices/<int:invoice_id>/receipt')
+@login_required
+def invoice_receipt(invoice_id):
+    invoice = db.session.get(Invoice, invoice_id)
+    if invoice is None or invoice.business_id != getattr(current_user, 'business_id', None):
+        abort(404)
+    return render_template('document_receipt.html', receipt_type='invoice', invoice=invoice, sale=None)
+
+
+@sales_bp.route('/sales/<int:sale_id>/receipt')
+@login_required
+def sale_receipt(sale_id):
+    sale = db.session.get(Sale, sale_id)
+    if sale is None or sale.business_id != getattr(current_user, 'business_id', None):
+        abort(404)
+    return render_template('document_receipt.html', receipt_type='sale', sale=sale, invoice=sale.invoice)
 
 
 @sales_bp.route('/customers/<int:customer_id>/edit', methods=['POST'])
