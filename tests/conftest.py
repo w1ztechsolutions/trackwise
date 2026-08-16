@@ -41,7 +41,6 @@ def seed_test_business():
             is_active=True,
         ))
 
-    # Create a test user
     user = User(
         business_id=business.id,
         email='test@example.com',
@@ -54,12 +53,19 @@ def seed_test_business():
     return business, user
 
 
+def _login_client(client, user):
+    with client.session_transaction() as sess:
+        sess['_user_id'] = user.get_id()
+
+
 @pytest.fixture
 def app():
     app = create_app(TestingConfig)
     with app.app_context():
         db.create_all()
-        seed_test_business()
+        business, user = seed_test_business()
+        app.test_client_user = user
+        app.test_client_business = business
         yield app
         db.session.remove()
         db.drop_all()
@@ -67,7 +73,14 @@ def app():
 
 @pytest.fixture
 def client(app):
-    return app.test_client()
+    client = app.test_client()
+    _login_client(client, app.test_client_user)
+    return client
+
+
+@pytest.fixture
+def business(app):
+    return app.test_client_business
 
 
 @pytest.fixture

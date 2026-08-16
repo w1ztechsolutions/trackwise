@@ -47,15 +47,14 @@ _EXPENSE_ACCOUNT_MAP = {
 def get_tax_rate(business_id=None):
     if business_id is None:
         setting = Setting.query.filter_by(key='tax_rate').first()
+        if not setting:
+            return 30.0
     else:
         setting = Setting.query.filter_by(business_id=business_id, key='tax_rate').first()
-    if not setting:
-        if business_id is None:
-            setting = Setting(key='tax_rate', value='30.0')
-        else:
+        if not setting:
             setting = Setting(business_id=business_id, key='tax_rate', value='30.0')
-        db.session.add(setting)
-        db.session.commit()
+            db.session.add(setting)
+            db.session.commit()
     try:
         return float(setting.value)
     except ValueError:
@@ -64,14 +63,10 @@ def get_tax_rate(business_id=None):
 
 def set_tax_rate(rate, business_id=None):
     if business_id is None:
-        setting = Setting.query.filter_by(key='tax_rate').first()
-    else:
-        setting = Setting.query.filter_by(business_id=business_id, key='tax_rate').first()
+        return float(rate)
+    setting = Setting.query.filter_by(business_id=business_id, key='tax_rate').first()
     if not setting:
-        if business_id is None:
-            setting = Setting(key='tax_rate')
-        else:
-            setting = Setting(business_id=business_id, key='tax_rate')
+        setting = Setting(business_id=business_id, key='tax_rate')
         db.session.add(setting)
     setting.value = str(float(rate))
     db.session.commit()

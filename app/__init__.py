@@ -25,10 +25,10 @@ else:
 
 # Load .env files with later files overriding earlier ones
 for _env_path in [
-    os.path.join(os.getcwd(), ".env"),
     os.path.join(_PROJECT_ROOT, "..", ".env"),
-    os.path.join(os.getcwd(), ".env.local"),
     os.path.join(_PROJECT_ROOT, "..", ".env.local"),
+    os.path.join(os.getcwd(), ".env"),
+    os.path.join(os.getcwd(), ".env.local"),
 ]:
     if os.path.exists(_env_path):
         load_dotenv(_env_path, override=True)

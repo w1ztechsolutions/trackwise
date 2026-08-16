@@ -104,6 +104,7 @@ def invoices():
 
         for item in items_data:
             db.session.add(InvoiceItem(
+                business_id=getattr(current_user, 'business_id', None),
                 invoice_id=invoice.id,
                 product_id=item['product_id'],
                 description=db.session.get(Product, item['product_id']).name if db.session.get(Product, item['product_id']) else None,
