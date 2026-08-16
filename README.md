@@ -87,11 +87,11 @@ python app.py
 
 > **Note:** `python app.py` uses the legacy entrypoint. The recommended way is `flask run`, which uses the application factory in `app/__init__.py`.
 
-Open http://localhost:5000
+Open `http://localhost:5000`
 
 ### 5. Create an Account
 
-1. Navigate to http://localhost:5000/register
+1. Navigate to `http://localhost:5000/register`
 2. Enter your business name, email, and password
 3. This creates a new Business + Admin User + Chart of Accounts automatically
 
@@ -102,6 +102,7 @@ Open http://localhost:5000
 TrackWise is optimized for Vercel serverless deployment. See [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md) for the full guide.
 
 Key points:
+
 - The Vercel entrypoint is `api/index.py`
 - `vercel.json` routes all requests through the Flask WSGI app
 - Celery tasks run synchronously during requests in serverless mode
@@ -163,6 +164,7 @@ pytest -v
 ```
 
 Test configuration uses SQLite in-memory database. Tests cover:
+
 - FIFO inventory service
 - Accounting engine
 - Financial reports
@@ -172,7 +174,7 @@ Test configuration uses SQLite in-memory database. Tests cover:
 
 ## Project Structure
 
-```
+```folder
 trackwise/
 ├── app/
 │   ├── __init__.py              # Application factory
@@ -265,6 +267,7 @@ trackwise/
 ## API Endpoints
 
 ### Authentication
+
 - `GET /login` — Login page
 - `POST /login` — Authenticate user
 - `GET /logout` — Logout
@@ -272,13 +275,16 @@ trackwise/
 - `POST /register` — Create business + admin user
 
 ### Dashboard
+
 - `GET /dashboard` — Main dashboard with KPIs
 
 ### Inventory
+
 - `GET /inventory` — Product list
 - `POST /inventory` — Create product
 
 ### Sales & Purchases
+
 - `GET /sales` — Sales checkout
 - `GET /purchases` — Purchase entry
 - `GET /customers` — Customer list
@@ -287,10 +293,12 @@ trackwise/
 - `GET /payments` — Payment entry (unified payments hub)
 
 ### Production
+
 - `GET /production` — Production batches
 - `POST /production` — Create batch
 
 ### Reports
+
 - `GET /reports/income-statement`
 - `GET /reports/balance-sheet`
 - `GET /reports/cash-flow`
@@ -300,9 +308,11 @@ trackwise/
 - `GET /reports/ap-aging`
 
 ### Settings
+
 - `GET /settings` — Tax rate, seed data
 
 ### Health
+
 - `GET /health` — Health check (DB status, version)
 
 ### JSON API
@@ -310,7 +320,7 @@ trackwise/
 For programmatic access, see [docs/API.md](docs/API.md):
 
 | Method | Path | Description |
-|--------|------|-------------|
+| -------- | ------ | ------------- |
 | `GET` | `/api/products` | JSON product list |
 | `GET` | `/api/suppliers` | JSON supplier list |
 | `GET` | `/api/accounting/verify` | Verify accounting integrity |
@@ -322,7 +332,7 @@ Every model includes a `business_id` foreign key. All queries are automatically 
 ## Subscription Plans
 
 | Plan | Price | Max Users | Features |
-|------|-------|-----------|----------|
+| ------ | ------- | ----------- | ---------- |
 | Free | $0 | 1 | Reports |
 | Starter | $29 | 3 | Reports, Exports, Multi-user |
 | Business | $99 | 10 | + API Access |
@@ -331,7 +341,7 @@ Every model includes a `business_id` foreign key. All queries are automatically 
 ## RBAC Roles
 
 | Role | Permissions |
-|------|-------------|
+| ------ | ------------- |
 | admin | Full access to everything |
 | accountant | Financial reports, payments, settings |
 | cashier | Sales, receipts, basic inventory view |
@@ -386,4 +396,3 @@ Proprietary — W1zTech Solutions
 ## Support
 
 For issues and feature requests, contact W1zTech Solutions.
-
