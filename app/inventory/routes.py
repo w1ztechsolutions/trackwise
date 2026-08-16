@@ -126,6 +126,7 @@ def inventory():
             except (KeyError, ValueError) as e:
                 flash(f'Invalid stock count input: {e}', 'danger')
             except InventoryServiceException as e:
+                db.session.rollback()
                 flash(str(e), 'danger')
 
             return redirect(url_for('inventory.inventory'))
@@ -153,6 +154,7 @@ def inventory():
             except (KeyError, ValueError) as e:
                 flash(f'Invalid transfer input: {e}', 'danger')
             except InventoryServiceException as e:
+                db.session.rollback()
                 flash(str(e), 'danger')
 
             return redirect(url_for('inventory.inventory'))
@@ -183,6 +185,7 @@ def inventory():
             except (KeyError, ValueError) as e:
                 flash(f'Invalid adjustment input: {e}', 'danger')
             except InventoryServiceException as e:
+                db.session.rollback()
                 flash(str(e), 'danger')
 
             return redirect(url_for('inventory.inventory'))

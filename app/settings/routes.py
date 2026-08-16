@@ -147,6 +147,8 @@ def settings():
                 seed_demo_data()
                 flash('Demo business and transactions seeded successfully!', 'success')
             except Exception as e:
+                from app.models import db
+                db.session.rollback()
                 flash(f'Error seeding data: {str(e)}', 'danger')
 
         return redirect(url_for('settings.settings'))

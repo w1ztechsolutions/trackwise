@@ -157,8 +157,10 @@ def sales():
             record_sale(sale_date, customer, items_data, current_user.business_id, current_user.id)
             flash('Sale recorded successfully! Stock and COGS calculations updated.', 'success')
         except InventoryException as ie:
+            db.session.rollback()
             flash(f'Inventory Error: {str(ie)}', 'danger')
         except Exception as e:
+            db.session.rollback()
             flash(f'Error recording sale: {str(e)}', 'danger')
 
         return redirect(url_for('sales.sales'))

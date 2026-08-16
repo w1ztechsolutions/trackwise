@@ -56,6 +56,10 @@ from app.models import db as _db
 from config import DevelopmentConfig, ProductionConfig, TestingConfig
 from .template_filters import register_template_filters
 
+# Shared database handle so app-level startup checks can safely inspect and repair
+# legacy PostgreSQL schemas without depending on routes importing a different module.
+db = _db
+
 
 def _has_postgres_driver() -> bool:
     return importlib.util.find_spec("psycopg2") is not None or importlib.util.find_spec("psycopg") is not None
@@ -69,6 +73,36 @@ limiter = Limiter(
     default_limits=["200 per day", "50 per hour"],
     storage_uri=os.environ.get("REDIS_URL", "memory://"),
 )
+
+
+def ensure_required_user_columns():
+    """Repair legacy database schemas that are missing required `users` columns."""
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        columns = {column["name"] for column in inspector.get_columns("users")}
+    except Exception:
+        return
+
+    if not columns:
+        return
+
+    required_columns = {
+        "name": "VARCHAR(120)",
+        "must_change_password": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "custom_tasks": "TEXT",
+        "role": "VARCHAR(20) NOT NULL DEFAULT 'viewer'",
+        "is_active": "BOOLEAN NOT NULL DEFAULT TRUE",
+    }
+
+    for column_name, column_def in required_columns.items():
+        if column_name in columns:
+            continue
+        try:
+            with db.engine.begin() as connection:
+                connection.execute(text(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {column_name} {column_def}"))
+        except Exception:
+            db.session.rollback()
 
 
 def create_app(config_object=None):
@@ -115,6 +149,9 @@ def create_app(config_object=None):
     csrf.init_app(app)
     limiter.init_app(app)
 
+    with app.app_context():
+        ensure_required_user_columns()
+
     register_template_filters(app)
 
     from .dashboard import dashboard_bp as _dashboard_bp
@@ -160,6 +197,7 @@ def create_app(config_object=None):
             _db.session.execute(_db.text('SELECT 1'))
             health_status['database'] = 'connected'
         except Exception as e:
+            _db.session.rollback()
             health_status['database'] = 'disconnected'
             health_status['status'] = 'degraded'
             health_status['database_error'] = str(e)
@@ -186,6 +224,7 @@ def create_app(config_object=None):
             else:
                 g.business_id = None
         except Exception:
+            _db.session.rollback()
             g.business_id = None
 
     @app.before_request
@@ -235,5 +274,11 @@ def create_app(config_object=None):
         _db.session.add(sa)
         _db.session.commit()
         click.echo(f"SuperAdmin created: {email} ({name})")
+
+    @app.teardown_appcontext
+    def _teardown_db(error):
+        if error:
+            _db.session.rollback()
+        _db.session.remove()
 
     return app

@@ -302,6 +302,45 @@ class TestAuthRoutes:
         assert resp.status_code == 200
         assert b'Invalid credentials or inactive account.' in resp.data
 
+    def test_ensure_required_user_columns_adds_missing_name(self, monkeypatch, app):
+        import app as app_module
+
+        calls = []
+
+        class FakeInspector:
+            def get_columns(self, table_name):
+                if table_name == 'users':
+                    return [{'name': 'id'}, {'name': 'email'}]
+                return []
+
+        class FakeConnection:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def execute(self, statement):
+                calls.append(str(statement))
+
+        class FakeEngine:
+            def begin(self):
+                return FakeConnection()
+
+        with app.app_context():
+            monkeypatch.setattr('sqlalchemy.inspect', lambda engine: FakeInspector())
+            original_engine = app_module.db.engines.get(None)
+            app_module.db.engines[None] = FakeEngine()
+            try:
+                app_module.ensure_required_user_columns()
+            finally:
+                if original_engine is None:
+                    app_module.db.engines.pop(None, None)
+                else:
+                    app_module.db.engines[None] = original_engine
+
+        assert any('ADD COLUMN IF NOT EXISTS name' in call for call in calls)
+
 
 class TestAccountingAPI:
     def test_verify_endpoint(self, client):

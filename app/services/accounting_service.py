@@ -54,19 +54,23 @@ def post_entry(business_id, entry_date, description, lines, reference_type=None,
         db.session.add(line)
 
     db.session.commit()
-    _log_audit(
-        business_id, created_by, 'CREATE', 'journal_entries', entry.id,
-        None,
-        {
-            'entry_date': str(entry.entry_date),
-            'description': description,
-            'lines': [
-                {'account_id': l['account_id'], 'debit_amount': l.get('debit_amount', 0), 'credit_amount': l.get('credit_amount', 0)}
-                for l in lines
-            ],
-        },
-    )
-    db.session.commit()
+    try:
+        _log_audit(
+            business_id, created_by, 'CREATE', 'journal_entries', entry.id,
+            None,
+            {
+                'entry_date': str(entry.entry_date),
+                'description': description,
+                'lines': [
+                    {'account_id': l['account_id'], 'debit_amount': l.get('debit_amount', 0), 'credit_amount': l.get('credit_amount', 0)}
+                    for l in lines
+                ],
+            },
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
     return entry
 
 

@@ -32,4 +32,6 @@ def api_accounting_verify():
         result = verify_balances(user.business_id)
         return jsonify(result)
     except Exception as e:
+        from app.models import db
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500

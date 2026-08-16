@@ -33,6 +33,7 @@ def production():
             except (KeyError, ValueError) as exc:
                 flash(f'Invalid batch input: {exc}', 'danger')
             except ProductionServiceException as exc:
+                db.session.rollback()
                 flash(str(exc), 'danger')
             return redirect(url_for('production.production'))
 
@@ -54,6 +55,7 @@ def production():
             except (KeyError, ValueError) as exc:
                 flash(f'Invalid material input: {exc}', 'danger')
             except ProductionServiceException as exc:
+                db.session.rollback()
                 flash(str(exc), 'danger')
             return redirect(url_for('production.production'))
 
@@ -71,6 +73,7 @@ def production():
             except (KeyError, ValueError) as exc:
                 flash(f'Invalid completion input: {exc}', 'danger')
             except ProductionServiceException as exc:
+                db.session.rollback()
                 flash(str(exc), 'danger')
             return redirect(url_for('production.production'))
 

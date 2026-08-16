@@ -226,6 +226,7 @@ def purchases():
             record_purchase(purchase_date, supplier_name, notes, items_data, current_user.business_id, current_user.id)
             flash('Inventory purchase recorded successfully and stock updated!', 'success')
         except Exception as e:
+            db.session.rollback()
             flash(f'Error recording purchase: {str(e)}', 'danger')
 
         return redirect(url_for('purchases.purchases'))

@@ -89,6 +89,8 @@ def check_feature_access(feature_name):
             return True
         return check_access(biz_id, feature_name)
     except Exception:
+        from app.models import db
+        db.session.rollback()
         return True
 
 

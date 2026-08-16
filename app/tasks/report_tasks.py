@@ -121,4 +121,6 @@ def precompute_dashboard(business_id):
 
             return cache_data
     except Exception as e:
+        from app.models import db
+        db.session.rollback()
         return {'error': str(e)}

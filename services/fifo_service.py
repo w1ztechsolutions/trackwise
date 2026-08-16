@@ -54,7 +54,13 @@ def get_tax_rate(business_id=None):
         if not setting:
             setting = Setting(business_id=business_id, key='tax_rate', value='30.0')
             db.session.add(setting)
-            db.session.commit()
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                setting = Setting.query.filter_by(business_id=business_id, key='tax_rate').first()
+                if not setting:
+                    return 30.0
     try:
         return float(setting.value)
     except ValueError:
