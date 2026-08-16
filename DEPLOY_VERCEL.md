@@ -112,7 +112,8 @@ The application is configured to serve static files from the `/static` directory
 
 If you need full Celery support with persistent workers, consider:
 
-- **Railway**: Full Docker support, PostgreSQL, Redis
+- **Railway**: PostgreSQL, Redis, persistent worker support
 - **Render**: Similar to Heroku, proper background worker support
 
 Both platforms offer more flexibility for traditional Flask applications with background tasks.
+

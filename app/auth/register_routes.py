@@ -13,6 +13,7 @@ from werkzeug.security import generate_password_hash
 
 from app.models import db as _db
 from app.models import User
+from app.auth.validators import validate_email, validate_password_strength
 from app.auth.permissions import permission_required
 
 from . import auth_bp
@@ -24,7 +25,6 @@ db = _db
 @login_required
 @permission_required('manage_settings')
 def create_user():
-    """Admin-only: Create a new user for the current business."""
     from app.models import User
 
     if current_user.role != 'admin':
@@ -47,8 +47,17 @@ def create_user():
             flash('Email, name and password are required.', 'danger')
             return render_template('create_user.html')
 
+        if not validate_email(email):
+            flash('Please enter a valid email address.', 'danger')
+            return render_template('create_user.html')
+
         if password != confirm_password:
             flash('Passwords do not match.', 'danger')
+            return render_template('create_user.html')
+
+        valid, message = validate_password_strength(password)
+        if not valid:
+            flash(message, 'danger')
             return render_template('create_user.html')
 
         valid_roles = ['admin', 'manager', 'accountant', 'cashier', 'storekeeper', 'viewer']
@@ -81,7 +90,6 @@ def create_user():
 @auth_bp.route('/users')
 @login_required
 def user_management():
-    """Admin-only: User management dashboard with tabs."""
     if current_user.role != 'admin':
         flash('Only administrators can access user management.', 'danger')
         return redirect(url_for('dashboard.dashboard'))
@@ -98,7 +106,6 @@ def user_management():
 @auth_bp.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_user(user_id):
-    """Admin-only: Edit user details (email, active status, must_change_password)."""
     if current_user.role != 'admin':
         flash('Only administrators can edit users.', 'danger')
         return redirect(url_for('dashboard.dashboard'))
@@ -113,7 +120,6 @@ def edit_user(user_id):
         user.is_active = request.form.get('is_active') == 'on'
         user.must_change_password = request.form.get('must_change_password') == 'on'
 
-        # Check if email is taken by another user
         existing = User.query.filter(User.email == user.email, User.id != user_id).first()
         if existing:
             flash('Email is already in use by another user.', 'danger')
@@ -129,7 +135,6 @@ def edit_user(user_id):
 @auth_bp.route('/users/<int:user_id>/role', methods=['GET', 'POST'])
 @login_required
 def assign_role(user_id):
-    """Admin-only: Assign or modify user role."""
     if current_user.role != 'admin':
         flash('Only administrators can assign roles.', 'danger')
         return redirect(url_for('dashboard.dashboard'))
@@ -160,7 +165,6 @@ def assign_role(user_id):
 @auth_bp.route('/users/<int:user_id>/tasks', methods=['GET', 'POST'])
 @login_required
 def manage_user_tasks(user_id):
-    """Admin-only: Assign custom tasks to a user."""
     if current_user.role != 'admin':
         flash('Only administrators can assign tasks.', 'danger')
         return redirect(url_for('dashboard.dashboard'))

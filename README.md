@@ -14,16 +14,16 @@ TrackWise is a comprehensive business management platform with double-entry acco
 - **Multi-Tenant** — Business isolation via `business_id` scoping on all queries
 - **Subscription Management** — Free/Starter/Business/Enterprise plans
 - **RBAC** — Role-based access control (admin, accountant, cashier, storekeeper, viewer)
-- **Production Ready** — Docker, Nginx, Gunicorn, Celery, Redis, structured logging
+- **Production Ready** — Vercel serverless, Gunicorn, Celery, Redis, structured logging
 
 ## Tech Stack
 
 - **Backend:** Flask 3.x, Flask-SQLAlchemy, Flask-Login, Flask-WTF
 - **Database:** PostgreSQL (SQLite for development/testing)
 - **Migrations:** Flask-Migrate (Alembic)
-- **Task Queue:** Celery + Redis
+- **Task Queue:** Celery + Redis (disabled in serverless; runs synchronously on Vercel)
 - **Frontend:** Jinja2 templates, Chart.js, vanilla CSS/JS
-- **Deployment:** Docker, Docker Compose, Nginx, Gunicorn
+- **Deployment:** Vercel (serverless), local Flask dev server
 
 ## Quick Start (Development)
 
@@ -54,7 +54,6 @@ cp .env.example .env
 Edit `.env`:
 
 ```env
-FLASK_APP=app.py
 FLASK_ENV=development
 SECRET_KEY=your-secret-key-here
 DATABASE_URL=postgresql://user:password@localhost:5432/trackwise
@@ -62,6 +61,8 @@ DATABASE_URL=postgresql://user:password@localhost:5432/trackwise
 # DATABASE_URL=sqlite:///instance/trackwise.db
 REDIS_URL=redis://localhost:6379/0
 ```
+
+> **Note:** `FLASK_APP` is not required. TrackWise uses the Flask application factory pattern defined in `app/__init__.py`.
 
 ### 3. Initialize Database
 
@@ -84,6 +85,8 @@ flask run
 python app.py
 ```
 
+> **Note:** `python app.py` uses the legacy entrypoint. The recommended way is `flask run`, which uses the application factory in `app/__init__.py`.
+
 Open http://localhost:5000
 
 ### 5. Create an Account
@@ -92,48 +95,32 @@ Open http://localhost:5000
 2. Enter your business name, email, and password
 3. This creates a new Business + Admin User + Chart of Accounts automatically
 
-## Docker Deployment (Production)
+## Deployment
 
-### Prerequisites
+### Vercel (Serverless — Primary Target)
 
-- Docker
-- Docker Compose
+TrackWise is optimized for Vercel serverless deployment. See [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md) for the full guide.
 
-### 1. Configure Environment
+Key points:
+- The Vercel entrypoint is `api/index.py`
+- `vercel.json` routes all requests through the Flask WSGI app
+- Celery tasks run synchronously during requests in serverless mode
+- Use Neon PostgreSQL or another managed Postgres for the database
+- Redis is optional in serverless (used only for rate limiting if configured)
 
-```bash
-cp .env.example .env
-# Set production values:
-# SECRET_KEY=<strong-random-key>
-# DATABASE_URL=postgresql://trackwise:trackwise_secret@db:5432/trackwise
-# REDIS_URL=redis://redis:6379/0
-```
+### Local Development
 
-### 2. Start the Stack
+Run with the Flask development server:
 
 ```bash
-docker-compose up -d --build
+flask run
 ```
 
-This starts:
-- **web** — Flask app via Gunicorn (port 8000)
-- **db** — PostgreSQL 16
-- **redis** — Redis 7
-- **celery-worker** — Background task processor
-- **celery-beat** — Scheduled tasks
-- **nginx** — Reverse proxy (ports 80/443)
-
-### 3. Run Migrations
+For production-like local execution with Gunicorn:
 
 ```bash
-docker-compose exec web flask db upgrade
-docker-compose exec web flask shell
->>> from app.services.subscription_service import seed_default_plans
->>> seed_default_plans()
->>> exit()
+gunicorn "app:create_app()"
 ```
-
-Access the app at http://localhost
 
 ## Database Management
 
@@ -191,41 +178,88 @@ trackwise/
 │   ├── __init__.py              # Application factory
 │   ├── models/                  # Database models
 │   │   ├── accounting.py        # Business, ChartOfAccounts, JournalEntry, etc.
-│   │   ├── inventory.py         # Product, Warehouse, StockMovement
-│   │   └── mixins.py            # BusinessScopedMixin for multi-tenant queries
+│   │   ├── approval.py          # Approval workflow models
+│   │   ├── inventory.py         # Product, Warehouse, StockMovement, etc.
+│   │   ├── mixins.py            # BusinessScopedMixin for multi-tenant queries
+│   │   ├── superadmin.py        # SuperAdmin model
+│   │   ├── user.py              # User model wrapper
+│   │   └── __init__.py          # Model imports
 │   ├── services/
 │   │   ├── accounting_service.py
 │   │   ├── inventory_service.py
 │   │   ├── production_service.py
 │   │   ├── subscription_service.py
 │   │   └── reports/             # Financial report generators
+│   │       ├── __init__.py
+│   │       ├── ap_aging.py
+│   │       ├── ar_aging.py
+│   │       ├── balance_sheet.py
+│   │       ├── cash_flow.py
+│   │       ├── general_ledger.py
+│   │       ├── income_statement.py
+│   │       └── trial_balance.py
 │   ├── auth/                    # Authentication & RBAC
+│   │   ├── decorators.py
+│   │   ├── permissions.py
+│   │   ├── register_routes.py
+│   │   ├── routes.py
+│   │   └── validators.py
 │   ├── dashboard/               # Dashboard routes
+│   │   └── routes.py
+│   ├── expenses/                # Expense routes (deprecated, redirects to payments)
+│   │   └── routes.py
 │   ├── inventory/               # Inventory routes
-│   ├── purchases/               # Purchase/Bill routes
+│   │   └── routes.py
+│   ├── purchases/               # Purchase/Bill/Payment routes
+│   │   └── routes.py
 │   ├── sales/                   # Sales/Invoice routes
-│   ├── expenses/                # Expense routes
+│   │   └── routes.py
 │   ├── reports/                 # Report routes
+│   │   └── routes.py
 │   ├── settings/                # Settings routes
+│   │   └── routes.py
 │   ├── production/              # Production routes
+│   │   └── routes.py
 │   ├── api/                     # JSON API
+│   │   ├── __init__.py
+│   │   └── routes.py
+│   ├── superadmin/              # Super admin routes
+│   │   ├── routes.py
+│   │   └── templates/
+│   ├── approvals/               # Approval workflow routes
+│   │   ├── routes.py
+│   │   └── templates/
 │   ├── tasks/                   # Celery tasks
+│   │   ├── __init__.py
+│   │   └── report_tasks.py
 │   ├── celery_app.py            # Celery config
 │   ├── logging_config.py        # Structured logging
 │   └── template_filters.py      # Jinja2 filters
 ├── migrations/                  # Alembic migrations
-├── deploy/
-│   ├── nginx.conf               # Nginx configuration
-│   └── gunicorn_config.py       # Gunicorn configuration
 ├── static/                      # CSS, JS, images
 ├── templates/                   # Jinja2 templates
 ├── tests/                       # Test suite
 ├── models.py                    # Legacy model imports (backward compat)
 ├── services/                    # Legacy services (fifo_service.py)
 ├── config.py                    # Configuration classes
-├── Dockerfile
-├── docker-compose.yml
-└── requirements.txt
+├── docs/                        # Additional documentation
+│   ├── API.md                   # JSON API documentation
+│   ├── PAYMENTS_HUB.md          # Payments Hub system docs
+│   ├── bugs_and_fixes.md        # Known bugs and fixes log
+│   └── adr/                     # Architecture Decision Records
+│       └── README.md
+├── api/
+│   └── index.py                 # Vercel WSGI entry point
+├── app.py                       # Legacy entrypoint (use `flask run`)
+├── vercel.json                  # Vercel serverless config
+├── .vercelignore                # Vercel ignore rules
+├── requirements.txt
+├── CHANGELOG.md                 # Version history
+├── CONTRIBUTING.md              # Contribution guidelines
+├── ARCHITECTURE.md              # System architecture
+├── UPGRADE.md                   # Upgrade roadmap
+├── DEPLOY_VERCEL.md             # Vercel deployment guide
+└── README.md
 ```
 
 ## API Endpoints
@@ -243,7 +277,6 @@ trackwise/
 ### Inventory
 - `GET /inventory` — Product list
 - `POST /inventory` — Create product
-- `GET /api/products` — JSON product list
 
 ### Sales & Purchases
 - `GET /sales` — Sales checkout
@@ -251,7 +284,7 @@ trackwise/
 - `GET /customers` — Customer list
 - `GET /suppliers` — Supplier list
 - `GET /invoices` — Invoice list
-- `GET /payments` — Payment entry
+- `GET /payments` — Payment entry (unified payments hub)
 
 ### Production
 - `GET /production` — Production batches
@@ -272,6 +305,16 @@ trackwise/
 ### Health
 - `GET /health` — Health check (DB status, version)
 
+### JSON API
+
+For programmatic access, see [docs/API.md](docs/API.md):
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/products` | JSON product list |
+| `GET` | `/api/suppliers` | JSON supplier list |
+| `GET` | `/api/accounting/verify` | Verify accounting integrity |
+
 ## Multi-Tenancy
 
 Every model includes a `business_id` foreign key. All queries are automatically scoped by the current user's `business_id` via the `BusinessScopedMixin` and `g.business_id` set in `before_request`.
@@ -290,7 +333,7 @@ Every model includes a `business_id` foreign key. All queries are automatically 
 | Role | Permissions |
 |------|-------------|
 | admin | Full access to everything |
-| accountant | Financial reports, expenses, settings |
+| accountant | Financial reports, payments, settings |
 | cashier | Sales, receipts, basic inventory view |
 | storekeeper | Inventory, purchases, production |
 | viewer | Read-only dashboards and reports |
@@ -307,6 +350,8 @@ Start Celery worker:
 celery -A app.celery_app worker --loglevel=info
 ```
 
+> **Note:** Celery is disabled by default on Vercel (serverless). Tasks run synchronously during requests. For async processing in production, use an external worker service (e.g., Railway, Render).
+
 ## Logging
 
 In production, logs are formatted as JSON for aggregation:
@@ -322,6 +367,18 @@ In production, logs are formatted as JSON for aggregation:
 }
 ```
 
+## Documentation
+
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — System design, database architecture, and design principles
+- **[UPGRADE.md](UPGRADE.md)** — Phased upgrade roadmap and golden rules
+- **[DEPLOY_VERCEL.md](DEPLOY_VERCEL.md)** — Vercel deployment guide
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — Contribution guidelines and code style
+- **[CHANGELOG.md](CHANGELOG.md)** — Version history and release notes
+- **[docs/API.md](docs/API.md)** — JSON API documentation
+- **[docs/PAYMENTS_HUB.md](docs/PAYMENTS_HUB.md)** — Payments Hub system documentation
+- **[docs/bugs_and_fixes.md](docs/bugs_and_fixes.md)** — Known bugs and fixes log
+- **[docs/adr/README.md](docs/adr/README.md)** — Architecture Decision Records
+
 ## License
 
 Proprietary — W1zTech Solutions
@@ -329,3 +386,4 @@ Proprietary — W1zTech Solutions
 ## Support
 
 For issues and feature requests, contact W1zTech Solutions.
+

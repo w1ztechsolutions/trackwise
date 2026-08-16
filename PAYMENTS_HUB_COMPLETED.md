@@ -1,4 +1,7 @@
-﻿# Payments Hub Implementation - COMPLETED ✅
+# Payments Hub Implementation - COMPLETED ✅
+
+> **Archived:** This file documents the completed Payments Hub implementation (v1.1.0, 2026-08-16).
+> For ongoing work, use the project's issue tracker or CHANGELOG.md.
 
 All phases of the Payments Hub overhaul have been implemented and verified.
 
@@ -59,7 +62,7 @@ All phases of the Payments Hub overhaul have been implemented and verified.
 
 ## ✅ Phase 8: Documentation
 - [x] Create `docs/PAYMENTS_HUB.md` - comprehensive system documentation
-- [x] Update TODO.md with completion status
+- [x] Archive TODO.md as PAYMENTS_HUB_COMPLETED.md
 
 ## Architecture Overview
 

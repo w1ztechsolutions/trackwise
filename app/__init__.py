@@ -6,24 +6,22 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_wtf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 
 _PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
-# Determine templates and static directories for both local and Vercel environments
 _TEMPLATES_DIR = os.path.join(_PROJECT_ROOT, "..", "templates")
 _STATIC_DIR = os.path.join(_PROJECT_ROOT, "..", "static")
 
-# Ensure paths are absolute for Vercel compatibility
 if not os.path.exists(_TEMPLATES_DIR):
-    # Fallback to relative paths (local development)
     TEMPLATE_FOLDER = "templates"
     STATIC_FOLDER = "static"
 else:
     TEMPLATE_FOLDER = os.path.abspath(_TEMPLATES_DIR)
     STATIC_FOLDER = os.path.abspath(_STATIC_DIR)
 
-# Load .env files with later files overriding earlier ones
 for _env_path in [
     os.path.join(_PROJECT_ROOT, "..", ".env"),
     os.path.join(_PROJECT_ROOT, "..", ".env.local"),
@@ -45,6 +43,11 @@ migrate = Migrate()
 login_manager = LoginManager()
 login_manager.login_view = "auth.login"
 csrf = CSRFProtect()
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri=os.environ.get("REDIS_URL", "memory://"),
+)
 
 
 def create_app(config_object=None):
@@ -56,12 +59,9 @@ def create_app(config_object=None):
 
     app.config.setdefault("SQLALCHEMY_TRACK_MODIFICATIONS", False)
 
-    # Handle instance path early for serverless compatibility (must be before SQLite fallback)
-    # Use INSTANCE_PATH env var if set (for Vercel serverless /tmp storage)
     if os.environ.get("INSTANCE_PATH"):
         app.instance_path = os.environ.get("INSTANCE_PATH")
 
-    # Determine which config class to use
     env = os.environ.get("FLASK_ENV", "development")
     if env == "production":
         base = ProductionConfig
@@ -70,36 +70,29 @@ def create_app(config_object=None):
     else:
         base = DevelopmentConfig
 
-    # Apply config class (sets SQLALCHEMY_DATABASE_URI, ENGINE_OPTIONS, etc.)
     app.config.from_object(base)
 
-    # Allow explicit override (e.g. from tests)
     if config_object is not None:
         app.config.from_object(config_object)
 
-    # Fallback: if no DATABASE_URL in env and no config_object provided,
-    # ensure we have at least a SQLite URI
     if "SQLALCHEMY_DATABASE_URI" not in app.config or not app.config["SQLALCHEMY_DATABASE_URI"]:
         app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(app.instance_path, "trackwise.db")
 
-    # If Postgres driver is missing, fall back to SQLite
     uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
     if uri.startswith("postgresql") and not _has_postgres_driver():
         app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(app.instance_path, "trackwise.db")
         app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {}
 
-    # Handle instance path creation - skip if read-only filesystem (Vercel)
     try:
         os.makedirs(app.instance_path, exist_ok=True)
     except OSError:
-        # Read-only filesystem (Vercel serverless) - instance path may already exist or be unwritable
-        # This is fine for SQLite ephemeral storage in /tmp
         pass
 
     _db.init_app(app)
     migrate.init_app(app, _db)
     login_manager.init_app(app)
     csrf.init_app(app)
+    limiter.init_app(app)
 
     register_template_filters(app)
 
@@ -133,7 +126,6 @@ def create_app(config_object=None):
 
     @app.route('/health')
     def health_check():
-        """Health check endpoint for container orchestration."""
         from flask import jsonify
         import time
 
@@ -143,7 +135,6 @@ def create_app(config_object=None):
             'timestamp': time.time(),
         }
 
-        # Check database connectivity
         try:
             _db.session.execute(_db.text('SELECT 1'))
             health_status['database'] = 'connected'
@@ -167,7 +158,6 @@ def create_app(config_object=None):
 
     @app.before_request
     def _set_business_context():
-        """Set g.business_id from the current user for multi-tenant scoping."""
         try:
             from flask_login import current_user
             if current_user is not None and current_user.is_authenticated:
@@ -176,6 +166,18 @@ def create_app(config_object=None):
                 g.business_id = None
         except Exception:
             g.business_id = None
+
+    @app.before_request
+    def _enforce_https():
+        if app.testing:
+            return
+        if request.path.startswith('/static') or request.path == '/health':
+            return
+        if request.headers.get('X-Forwarded-Proto', 'http') == 'https':
+            return
+        if request.is_secure:
+            return
+        return redirect(request.url.replace('http://', 'https://', 1), code=301)
 
     @app.context_processor
     def _inject_nav():
@@ -200,11 +202,6 @@ def create_app(config_object=None):
     @click.argument("name")
     @click.argument("password")
     def create_superadmin_command(email, name, password):
-        """Create a superadmin user.
-
-        Example:
-            flask create-superadmin admin@trackwise.app "Super Admin" TrackWiseSA2026!
-        """
         from app.models import SuperAdmin
 
         existing = SuperAdmin.query.filter_by(email=email).first()

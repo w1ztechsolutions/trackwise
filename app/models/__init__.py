@@ -1,7 +1,7 @@
 from models import db
 
-# Import models from root models.py that need to be accessible via app.models
-from models import (
+# Import models from app/models submodules
+from .inventory import (
     Product,
     Purchase,
     PurchaseItem,
@@ -10,8 +10,8 @@ from models import (
     Expense,
     Setting,
     StockTransaction,
-    StockMovement,
     Warehouse,
+    StockMovement,
     Customer,
     Supplier,
     Invoice,
@@ -25,9 +25,10 @@ from models import (
     FinishedGoodOutput,
     Plan,
     Subscription,
+    FinancialCategory,
+    LineItem,
+    Staff,
 )
-
-# Import models from app/models submodules
 from .accounting import Business, ChartOfAccounts, JournalEntry, JournalLine, AuditLog
 from .user import User
 from .superadmin import SuperAdmin
