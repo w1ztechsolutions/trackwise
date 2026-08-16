@@ -275,6 +275,33 @@ class TestAuthRoutes:
         assert b'csrf_token' in resp.data.lower()
         assert b'<input type="hidden"' in resp.data.lower()
 
+    def test_login_handles_invalid_password_hash_without_500(self, app):
+        with app.app_context():
+            from models import db, User
+            from app.models.accounting import Business
+
+            business = Business(name='Broken Hash Business', currency='MWK')
+            db.session.add(business)
+            db.session.flush()
+            db.session.add(User(
+                business_id=business.id,
+                email='broken@example.com',
+                password_hash='not-a-valid-hash',
+                role='admin',
+                is_active=True,
+            ))
+            db.session.commit()
+
+        client = app.test_client()
+        resp = client.post('/login', data={
+            'business_name': 'Broken Hash Business',
+            'email': 'broken@example.com',
+            'password': 'wrongpassword',
+        }, follow_redirects=True)
+
+        assert resp.status_code == 200
+        assert b'Invalid credentials or inactive account.' in resp.data
+
 
 class TestAccountingAPI:
     def test_verify_endpoint(self, client):

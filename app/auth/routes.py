@@ -27,15 +27,21 @@ def login():
 
         user = User.query.filter_by(email=email).first()
 
-        if user and user.is_active and check_password_hash(user.password_hash, password):
-            from flask_login import login_user
-            login_user(user)
+        if user and user.is_active:
+            try:
+                valid_password = check_password_hash(user.password_hash, password)
+            except ValueError:
+                valid_password = False
 
-            if user.must_change_password:
-                flash('Please change your password before continuing.', 'warning')
-                return redirect(url_for('auth.change_password'))
+            if valid_password:
+                from flask_login import login_user
+                login_user(user)
 
-            return redirect(url_for('dashboard.dashboard'))
+                if user.must_change_password:
+                    flash('Please change your password before continuing.', 'warning')
+                    return redirect(url_for('auth.change_password'))
+
+                return redirect(url_for('dashboard.dashboard'))
 
         flash('Invalid credentials or inactive account.', 'danger')
 

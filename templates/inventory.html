@@ -62,7 +62,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for product in products %}
+            {%- for product in products -%}
                     <tr class="product-row">
                         <td class="text-primary">{{ product.sku }}</td>
                         <td>
@@ -80,38 +80,39 @@
                             {% endif %}
                         </td>
                         <td class="text-main">{{ product.default_selling_price | currency }}</td>
-<td class="text-info">
-                             {{ valuations.get(product.id, 0.0) | currency }}
-                         </td>
-                         <td>
-                             <button class="btn btn-sm btn-outline-primary btn-edit" data-bs-toggle="modal" data-bs-target="#editProductModal"
-                                     data-id="{{ product.id }}" data-name="{{ product.name }}" data-description="{{ product.description or '' }}"
-                                     data-price="{{ product.default_selling_price }}" data-threshold="{{ product.low_stock_threshold }}">
-                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                 </svg>
-                             </button>
-                             <form method="POST" action="{{ url_for('inventory.inventory') }}" style="display:inline" onsubmit="return confirm('Deactivate this product?');">
-                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                 <input type="hidden" name="action" value="delete_product">
-                                 <input type="hidden" name="product_id" value="{{ product.id }}">
-                                 <button type="submit" class="btn btn-sm btn-outline-danger">
-                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                         <polyline points="3 6 5 6 21 6"></polyline>
-                                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                     </svg>
-                                 </button>
-                             </form>
-                         </td>
-                     </tr>
-                {% else %}
+            <td class="text-info">
+                                 {{ valuations.get(product.id, 0.0) | currency }}
+                             </td>
+                             <td>
+                                  <button class="btn btn-sm btn-outline-primary btn-edit" data-bs-toggle="modal" data-bs-target="#editProductModal"
+                                          data-id="{{ product.id }}" data-name="{{ product.name }}" data-description="{{ product.description or '' }}"
+                                          data-price="{{ product.default_selling_price }}" data-threshold="{{ product.low_stock_threshold }}"
+                                          aria-label="Edit product">
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                      </svg>
+                                  </button>
+                                  <form method="POST" action="{{ url_for('inventory.inventory') }}" class="d-inline" onsubmit="return confirm('Deactivate this product?');">
+                                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                      <input type="hidden" name="action" value="delete_product">
+                                      <input type="hidden" name="product_id" value="{{ product.id }}">
+                                      <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Delete product">
+                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                             <polyline points="3 6 5 6 21 6"></polyline>
+                                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                         </svg>
+                                     </button>
+                                 </form>
+                             </td>
+                         </tr>
+            {%- else -%}
                     <tr>
                         <td colspan="7" class="empty-state">
                             No products found in the catalog. Add some items to get started!
                         </td>
                     </tr>
-                {% endfor %}
+            {%- endfor -%}
             </tbody>
         </table>
     </div>
@@ -140,11 +141,11 @@
                     {% if warehouses %}
                     <div class="mt-4">
                         <h6>Existing Warehouses</h6>
-                        <ul class="list-group list-group-flush">
-                            {% for warehouse in warehouses %}
-                            <li class="list-group-item">{{ warehouse.name }}{% if warehouse.location %} — {{ warehouse.location }}{% endif %}</li>
-                            {% endfor %}
-                        </ul>
+                        <div class="list-group list-group-flush">
+                        {%- for warehouse in warehouses -%}
+                            <div class="list-group-item">{{ warehouse.name }}{% if warehouse.location %} — {{ warehouse.location %}{% endif %}</div>
+                        {%- endfor -%}
+                        </div>
                     </div>
                     {% endif %}
                 </div>
@@ -172,19 +173,19 @@
                     <div class="mb-3">
                         <label for="count_product_id" class="form-label">Product</label>
                         <select id="count_product_id" name="product_id" class="form-select" required>
-                            {% for product in products %}
+                        {%- for product in products -%}
                             <option value="{{ product.id }}">{{ product.name }} ({{ product.sku }})</option>
-                            {% endfor %}
+                        {%- endfor -%}
                         </select>
                     </div>
                     <div class="mb-3">
                         <label for="count_warehouse_id" class="form-label">Warehouse</label>
-                        <select id="count_warehouse_id" name="warehouse_id" class="form-select">
-                            <option value="">No specific warehouse</option>
-                            {% for warehouse in warehouses %}
-                            <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
-                            {% endfor %}
-                        </select>
+                            <select id="count_warehouse_id" name="warehouse_id" class="form-select">
+                                <option value="">No specific warehouse</option>
+                                {%- for warehouse in warehouses -%}
+                                <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
+                                {%- endfor -%}
+                            </select>
                     </div>
                     <div class="mb-3">
                         <label for="counted_quantity" class="form-label">Counted Quantity</label>
@@ -219,26 +220,26 @@
                     <div class="mb-3">
                         <label for="transfer_product_id" class="form-label">Product</label>
                         <select id="transfer_product_id" name="product_id" class="form-select" required>
-                            {% for product in products %}
+                        {%- for product in products -%}
                             <option value="{{ product.id }}">{{ product.name }} ({{ product.sku }})</option>
-                            {% endfor %}
+                        {%- endfor -%}
                         </select>
                     </div>
                     <div class="row mb-3">
                         <div class="col">
                             <label for="from_warehouse_id" class="form-label">From Warehouse</label>
                             <select id="from_warehouse_id" name="from_warehouse_id" class="form-select" required>
-                                {% for warehouse in warehouses %}
+                            {%- for warehouse in warehouses -%}
                                 <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
-                                {% endfor %}
+                            {%- endfor -%}
                             </select>
                         </div>
                         <div class="col">
                             <label for="to_warehouse_id" class="form-label">To Warehouse</label>
                             <select id="to_warehouse_id" name="to_warehouse_id" class="form-select" required>
-                                {% for warehouse in warehouses %}
+                            {%- for warehouse in warehouses -%}
                                 <option value="{{ warehouse.id }}">{{ warehouse.name }}</option>
-                                {% endfor %}
+                            {%- endfor -%}
                             </select>
                         </div>
                     </div>

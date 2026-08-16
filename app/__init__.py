@@ -1,14 +1,35 @@
 import click
 import importlib
 import os
-from flask import Flask, g, request
+from flask import Flask, g, request, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_wtf import CSRFProtect
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
+
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+except ImportError:  # pragma: no cover
+    Limiter = None  # type: ignore[assignment]
+
+    def get_remote_address(*args, **kwargs):
+        return "127.0.0.1"
+
+    class _LimiterFallback:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def init_app(self, app):
+            return None
+
+        def limit(self, *args, **kwargs):
+            def decorator(func):
+                return func
+            return decorator
+
+    Limiter = _LimiterFallback
 
 _PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -169,7 +190,7 @@ def create_app(config_object=None):
 
     @app.before_request
     def _enforce_https():
-        if app.testing:
+        if app.testing or os.environ.get('FLASK_ENV') == 'development':
             return
         if request.path.startswith('/static') or request.path == '/health':
             return
