@@ -174,18 +174,20 @@ TrackWise uses a **3-tier classification system**:
 
 ## 7. Action Plan
 
-### P0 — Immediate (Next Sprint)
+### 7.0. P0 — Immediate (Next Sprint)
+
 | # | Action | Owner | Effort |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1 | **Add budget tables & variance engine** — Create `budgets` and `budget_line_items` models; add Budget vs. Actual report. | Backend | 3–5 days |
 | 2 | **Fix public API exposure** — Add `@login_required` to `GET /api/products` and `GET /api/suppliers`. | Backend | 1 day |
 | 3 | **Add manual journal entry UI** — Build `/accounting/journal-entries` route with multi-line balanced entry validation and approval. | Full-stack | 4–6 days |
 | 4 | **Implement accrual-basis toggle** — Allow businesses to switch between cash and accrual reporting; add deferred revenue/expense logic. | Backend | 3–4 days |
 | 5 | **Add AR payment application UI** — Support partial payments, overpayments, and unallocated cash against invoices. | Full-stack | 3–5 days |
 
-### P1 — High Priority (1–2 Sprints)
+### 7.1. P1 — High Priority (1–2 Sprints)
+
 | # | Action | Owner | Effort |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 6 | **Integrate bank feed API** — Add Plaid/Flutterwave or Open Banking connector for automated statement import and transaction matching. | Full-stack | 5–8 days |
 | 7 | **Replace hardcoded tax logic** — Add per-line-item tax codes, tax-inclusive/exclusive pricing, and proper Tax Payable posting. | Backend | 3–4 days |
 | 8 | **Add multi-currency support** — Exchange-rate table, auto-FX posting, multi-currency reports. | Backend | 4–6 days |
@@ -193,9 +195,10 @@ TrackWise uses a **3-tier classification system**:
 | 10 | **Add credit notes / refunds flow** — Reverse sales/purchases, update AR/AP, adjust inventory if applicable. | Full-stack | 3–5 days |
 | 11 | **Add recurring transaction templates** — Invoices, bills, expenses, and journal entries with auto-creation. | Full-stack | 3–4 days |
 
-### P2 — Medium Priority (Ongoing)
+### 7.2. P2 — Medium Priority (Ongoing)
+
 | # | Action | Owner | Effort |
-|---|---|---|
+| --- | --- | --- |
 | 12 | **Implement purchase order lifecycle** — PO → Goods Receipt → Bill → Payment. | Full-stack | 5–7 days |
 | 13 | **Add document attachments** — Upload invoices, receipts, bills to `Document` model with S3/local storage. | Full-stack | 3–4 days |
 | 14 | **Add mobile bottom navigation & responsive breakpoints** — Improve usability on `< 768px`. | Frontend | 2–3 days |
@@ -209,7 +212,7 @@ TrackWise uses a **3-tier classification system**:
 ## 8. Risk & Recommendation Summary
 
 | Risk | Severity | Mitigation |
-|---|---|---|
+| --- | --- | --- |
 | **Manual data entry errors** due to lack of bank sync | High | Prioritize P0 #3 (manual journal UI) and P1 #6 (bank API) to reduce manual touchpoints. |
 | **Misclassification of expenses** due to hardcoded fallback mappings | Medium | Refactor `_EXPENSE_ACCOUNT_MAP` to use `LineItem.account_code` exclusively; add validation rules. |
 | **Overstated AR/AP** due to missing credit notes | High | Prioritize P1 #10 (credit notes/refunds) to maintain financial statement integrity. |
