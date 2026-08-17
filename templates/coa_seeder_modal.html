@@ -1,0 +1,67 @@
+<div class="modal fade" id="coaSeederModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Need Headstart — Chart of Accounts</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-7">
+                        <div class="coa-tree">
+                            {% for major in taxonomy %}
+                            {% set major_idx = loop.index %}
+                            <div class="coa-major-category mb-3">
+                                <button class="btn btn-sm btn-outline-primary w-100 text-start d-flex justify-content-between align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#cat-{{ major_idx }}" aria-expanded="true">
+                                    <span><strong>{{ major.major_category }}</strong></span>
+                                    <span>▼</span>
+                                </button>
+                                <div class="collapse show" id="cat-{{ major_idx }}">
+                                    {% for sub in major.subcategories %}
+                                    {% set sub_idx = loop.index %}
+                                    <div class="coa-subcategory ms-3 mt-2">
+                                        <button class="btn btn-sm btn-outline-secondary w-100 text-start d-flex justify-content-between align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#sub-{{ major_idx }}-{{ sub_idx }}" aria-expanded="false">
+                                            <span>{{ sub.name }}</span>
+                                            <span>▶</span>
+                                        </button>
+                                        <div class="collapse" id="sub-{{ major_idx }}-{{ sub_idx }}">
+                                            {% for atype in sub.account_types %}
+                                            <div class="coa-account-type ms-3 mt-2">
+                                                <span class="fw-semibold">{{ atype.name }}</span>
+                                                {% for acct in atype.accounts %}
+                                                <label class="d-block ms-2 mt-1">
+                                                    <input type="checkbox" class="coa-leaf-check" value="{{ acct.code }}" data-name="{{ acct.name }}" data-type="{{ acct.type }}">
+                                                    {{ acct.name }} <span class="text-muted">({{ acct.code }})</span>
+                                                </label>
+                                                {% endfor %}
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="sticky-top" style="top: 1rem;">
+                            <h6>Selected Accounts</h6>
+                            <div id="coa-preview" class="border rounded p-2" style="max-height: 400px; overflow-y: auto;">
+                                <p class="text-muted mb-0">No accounts selected.</p>
+                            </div>
+                            <div class="mt-3 d-flex justify-content-between align-items-center">
+                                <span id="coa-count" class="fw-semibold">0 selected</span>
+                                <button type="button" class="btn btn-primary" id="btn-import-coa" disabled>Import Selected Accounts</button>
+                            </div>
+                            <div id="coa-feedback" class="mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>

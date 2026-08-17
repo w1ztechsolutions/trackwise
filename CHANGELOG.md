@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - `AGENT.md` — AI documentation enforcement rules for bug fixes, features, and architecture changes
 - `SECURITY.md` — Security policy and deployment best practices
 - `docs/OPERATIONS.md` — Operations runbook for utility scripts and common procedures
@@ -28,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `post_opening_balance()` service method for COA opening balances
 
 ### Changed
+
 - `.gitignore` — Removed `/docs/` entry so documentation is tracked by git
 - `README.md` — Corrected project structure to reflect actual `app/models/` submodule layout
 - `ARCHITECTURE.md` — Updated RBAC table: `accountant` role now references "accounting" instead of deprecated "expenses"
@@ -35,17 +37,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docs/bugs_and_fixes.md` — Marked Bug 10 (`/register` 404) as resolved/deprecated
 
 ### Fixed
+
 - `.gitignore` was ignoring the entire `docs/` directory, preventing documentation from being version-controlled
 - Multi-tenant data isolation: users can no longer see or manipulate records from another business; dashboard, inventory, sales, purchases, and valuation queries are now scoped by `business_id`
 
 ### Security
+
 - Added `SECURITY.md` with vulnerability reporting process and deployment security best practices
 
 ---
 
 ## [1.1.0] - 2026-08-16
 
-### Added
+### Added for [1.1.0]
+
 - Payments Hub: unified payment management system
   - FinancialCategory and LineItem models for structured expense categorization
   - Staff model for employee/salary payments
@@ -57,12 +62,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Database migration script (`scripts/migrate.py`) for Payments Hub schema changes
 - Comprehensive Payments Hub documentation (`docs/PAYMENTS_HUB.md`)
 
-### Changed
+### Changed for [1.1.0]
+
 - Payment model: renamed `payment_method` to `payment_mode`, added expanded payment modes (cash, bank_transfer, mobile_money, cheque, card)
 - Dashboard: replaced Expenses table with Payments table
 - Seed data: added financial categories and line items
 
-### Fixed
+### Fixed for [1.1.0]
+
 - Accounting integration for supplier payments (Debit AP, Credit Cash)
 - Accounting integration for staff/expense payments (Debit Expense, Credit Cash)
 
@@ -70,18 +77,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.1] - 2026-07-21
 
-### Added
+### Added for [1.0.1]
+
 - Superadmin CLI command: `flask create-superadmin` for bootstrapping platform administrators
 - Superadmin blueprint templates (`sa_login.html`, `sa_dashboard.html`, `sa_businesses.html`, `sa_business_form.html`, `sa_admins.html`, `sa_admin_form.html`, `sa_users.html`)
 - Superadmin mobile hamburger navigation with overlay and slide-in sidebar
 - CSP header updates to allow `cdn.jsdelivr.net` styles and `cdn.vercel-insights.com` scripts
 - Bootstrap Icons integration for superadmin dashboard KPI cards
 
-### Changed
+### Changed for [1.0.1]
+
 - `ProductionConfig` now exposes `SECRET_KEY` as a class attribute (fixes session initialization in production)
 - KPI card grid layout changed from fixed 5-column to `repeat(auto-fit, minmax(180px, 1fr))` for responsive behavior
 
-### Fixed
+### Fixed for [1.0.1]
+
 - RuntimeError: No secret key set in production (Bug 1)
 - BuildError: `auth.register` endpoint does not exist (Bug 2)
 - Missing superadmin templates causing 500 errors (Bug 3)
@@ -96,7 +106,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2026-07-09
 
-### Added
+### Added for [1.0.0]
+
 - Initial production release
 - Double-entry accounting engine with journal entries and ledger
 - FIFO inventory costing with multi-warehouse support
@@ -116,9 +127,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [Unreleased v2]
 
 ### Planned
+
 - Mobile app (React Native / Flutter)
 - Bank reconciliation
 - OCR receipt scanning

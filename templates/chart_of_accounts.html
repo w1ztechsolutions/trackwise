@@ -23,6 +23,9 @@
             </svg>
             Add Account
         </button>
+        <button class="btn btn-outline-info ms-2" data-bs-toggle="modal" data-bs-target="#coaSeederModal">
+            Need Headstart
+        </button>
     </div>
 </div>
 
@@ -200,4 +203,8 @@
     </div>
 </div>
 {% endfor %}
+{% include 'coa_seeder_modal.html' %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/coa-seeder.js') }}"></script>
+{% endblock %}
 {% endblock %}

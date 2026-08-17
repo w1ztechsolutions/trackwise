@@ -11,8 +11,11 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from flask import (
-    abort, flash, redirect, render_template, request, url_for,
+    abort, flash, jsonify, redirect, render_template, request, url_for,
 )
+from sqlalchemy.exc import IntegrityError
+
+from app.accounting.coa_taxonomy import build_coa_tree, COA_TAXONOMY
 from flask_login import current_user, login_required
 
 from models import db
@@ -703,3 +706,92 @@ def bank_unreconciled_report():
         accounts=report,
         total_unreconciled=total_unreconciled,
     )
+
+
+@accounting_bp.route('/accounting/chart-of-accounts/seed', methods=['GET'])
+@login_required
+@role_required('admin', 'accountant')
+def coa_seeder():
+    return render_template('coa_seeder_modal.html', taxonomy=COA_TAXONOMY)
+
+
+@accounting_bp.route('/accounting/chart-of-accounts/seed', methods=['POST'])
+@login_required
+@role_required('admin', 'accountant')
+def coa_seeder_import():
+    biz_id = _biz_id()
+    payload = request.get_json(silent=True) or {}
+    selected_codes = payload.get('selected_codes', [])
+    if not selected_codes:
+        return jsonify({'imported': 0, 'skipped': 0, 'skipped_codes': [], 'message': 'No accounts selected.'})
+
+    tree = build_coa_tree(selected_codes)
+    existing_codes = {
+        row[0] for row in
+        ChartOfAccounts.query.with_entities(ChartOfAccounts.code)
+        .filter_by(business_id=biz_id).all()
+    }
+    code_map = {row[0]: row[1] for row in
+        ChartOfAccounts.query.with_entities(ChartOfAccounts.code, ChartOfAccounts.id)
+        .filter_by(business_id=biz_id).all()
+    }
+
+    subtotals_to_insert = []
+    leaves_to_insert = []
+    skipped = []
+    imported = 0
+
+    for acct in tree:
+        if acct['code'] in existing_codes:
+            skipped.append(acct['code'])
+            continue
+        if acct.get('is_subtotal'):
+            subtotals_to_insert.append(acct)
+        else:
+            leaves_to_insert.append(acct)
+
+    inserted = {}
+    for acct in subtotals_to_insert:
+        parent_id = None
+        if acct.get('parent_code'):
+            parent_id = inserted.get(acct['parent_code']) or code_map.get(acct['parent_code'])
+        record = ChartOfAccounts(
+            business_id=biz_id,
+            code=acct['code'],
+            name=acct['name'],
+            type=acct['type'],
+            is_active=True,
+            parent_id=parent_id,
+        )
+        db.session.add(record)
+        inserted[acct['code']] = record.id
+
+    db.session.flush()
+
+    for acct in leaves_to_insert:
+        parent_id = None
+        if acct.get('parent_code'):
+            parent_id = inserted.get(acct['parent_code']) or code_map.get(acct['parent_code'])
+        record = ChartOfAccounts(
+            business_id=biz_id,
+            code=acct['code'],
+            name=acct['name'],
+            type=acct['type'],
+            is_active=True,
+            parent_id=parent_id,
+        )
+        db.session.add(record)
+        imported += 1
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'imported': 0, 'skipped': len(skipped) + imported, 'skipped_codes': skipped, 'message': 'A duplicate was detected during import. No accounts were added.'}), 409
+
+    total_skipped = len(skipped) + (len(leaves_to_insert) - imported)
+    if imported > 0:
+        message = f"Imported {imported} accounts. {total_skipped} skipped (already exist)."
+    else:
+        message = f"No new accounts imported. {total_skipped} skipped (already exist)."
+    return jsonify({'imported': imported, 'skipped': total_skipped, 'skipped_codes': skipped, 'message': message})
