@@ -14,6 +14,7 @@ from app.services.reports import (
     get_audit_log,
     get_ar_aging,
     get_ap_aging,
+    get_cashbook,
 )
 from app.models.accounting import Business, ChartOfAccounts, JournalEntry, JournalLine
 
@@ -43,6 +44,7 @@ class TestReportServices(unittest.TestCase):
         # Create chart of accounts
         self.accounts = {
             '1000': ChartOfAccounts(business_id=self.business.id, code='1000', name='Cash', type='asset'),
+            '1100': ChartOfAccounts(business_id=self.business.id, code='1100', name='Bank', type='asset'),
             '1200': ChartOfAccounts(business_id=self.business.id, code='1200', name='AR', type='asset'),
             '1400': ChartOfAccounts(business_id=self.business.id, code='1400', name='Inventory', type='asset'),
             '2100': ChartOfAccounts(business_id=self.business.id, code='2100', name='AP', type='liability'),
@@ -202,7 +204,92 @@ class TestReportServices(unittest.TestCase):
             self.assertIn('created_by_name', entry)
             self.assertIn('created_at', entry)
         self.assertEqual(gl['entries'][0]['created_by_name'], 'Test User')
-    
+
+    def test_cashbook(self):
+        """Test cashbook report generation."""
+        # Record a purchase (credit AP — does not touch cash/bank)
+        record_purchase(
+            purchase_date=datetime(2026, 6, 1),
+            supplier='Supplier X',
+            notes='Test',
+            items_data=[{'product_id': self.product.id, 'quantity': 10, 'unit_cost': 100.0}],
+            business_id=self.business.id,
+            created_by=self.user.id,
+        )
+
+        # Record a sale (debit Cash — cash inflow)
+        record_sale(
+            sale_date=datetime(2026, 6, 2),
+            customer_name='Customer Y',
+            items_data=[{'product_id': self.product.id, 'quantity': 5, 'unit_price': 200.0}],
+            business_id=self.business.id,
+            created_by=self.user.id,
+        )
+
+        # Record an expense (credit Cash — cash outflow)
+        record_expense(
+            expense_date=datetime(2026, 6, 3),
+            category='Rent',
+            description='Office rent',
+            amount=500.0,
+            business_id=self.business.id,
+            created_by=self.user.id,
+        )
+
+        # Get cashbook (no date filter → opening balance is 0)
+        cb = get_cashbook(self.business.id)
+
+        self.assertIn('entries', cb)
+        self.assertIn('total_debits', cb)
+        self.assertIn('total_credits', cb)
+        self.assertIn('opening_balance', cb)
+        self.assertIn('closing_balance', cb)
+        self.assertIn('net_cash_flow', cb)
+        self.assertIn('accounts', cb)
+        self.assertGreater(len(cb['entries']), 0)
+        # Cash (1000) and Bank (1100) accounts are both resolved
+        self.assertEqual(len(cb['accounts']), 2)
+
+        # Verify entry fields
+        for entry in cb['entries']:
+            self.assertIn('date', entry)
+            self.assertIn('entry_id', entry)
+            self.assertIn('description', entry)
+            self.assertIn('reference_type', entry)
+            self.assertIn('reference_id', entry)
+            self.assertIn('account_code', entry)
+            self.assertIn('account_name', entry)
+            self.assertIn('debit', entry)
+            self.assertIn('credit', entry)
+            self.assertIn('balance', entry)
+            self.assertIn('created_by_name', entry)
+            self.assertIn('created_at', entry)
+
+        # Sale posts a Cash debit of 1000; expense posts a Cash credit of 500
+        self.assertEqual(cb['total_debits'], 1000.0)
+        self.assertEqual(cb['total_credits'], 500.0)
+        self.assertEqual(cb['net_cash_flow'], 500.0)
+        self.assertEqual(cb['opening_balance'], 0.0)
+        self.assertEqual(cb['closing_balance'], 500.0)
+        # Last running balance equals the closing balance
+        self.assertEqual(cb['entries'][-1]['balance'], 500.0)
+        # Audit attribution
+        self.assertEqual(cb['entries'][0]['created_by_name'], 'Test User')
+
+        # Date-range filtering affects opening/closing balances correctly
+        cb_filtered = get_cashbook(
+            self.business.id,
+            start_date=datetime(2026, 6, 2),
+            end_date=datetime(2026, 6, 3),
+        )
+        # Opening balance = net before June 2 (nothing) = 0
+        self.assertEqual(cb_filtered['opening_balance'], 0.0)
+        # Only the sale (June 2) and expense (June 3) fall in range
+        self.assertEqual(len(cb_filtered['entries']), 2)
+        self.assertEqual(cb_filtered['total_debits'], 1000.0)
+        self.assertEqual(cb_filtered['total_credits'], 500.0)
+        self.assertEqual(cb_filtered['closing_balance'], 500.0)
+
     def test_audit_log(self):
         """Test audit trail report generation."""
         # A purchase triggers a journal entry which writes an AuditLog row

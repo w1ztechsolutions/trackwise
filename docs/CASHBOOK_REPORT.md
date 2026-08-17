@@ -162,7 +162,7 @@ The `get_cashbook()` function in `app/services/reports/cashbook.py` returns:
     ],
     'total_debits': float,             # Sum of all debits in the period
     'total_credits': float,            # Sum of all credits in the period
-    'net_cash_flow': float,            # total_debits - total_redits
+    'net_cash_flow': float,            # total_debits - total_credits
     'opening_balance': float,          # Balance before start_date
     'closing_balance': float,          # Balance after end_date
     'start_date': datetime | None,     # Applied filter start

@@ -203,6 +203,60 @@ def general_ledger():
     )
 
 
+@reports_bp.route('/reports/cashbook')
+@login_required
+def cashbook():
+    """Cashbook report showing all cash and bank transactions."""
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+
+    start_date = None
+    end_date = None
+
+    if start_date_str:
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+    if end_date_str:
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
+
+    from flask_login import current_user
+    business_id = getattr(current_user, 'business_id', None)
+
+    if business_id:
+        cb_data = get_cashbook(business_id, start_date, end_date)
+    else:
+        cb_data = {
+            'entries': [], 'accounts': [], 'total_debits': 0,
+            'total_credits': 0, 'net_cash_flow': 0,
+            'opening_balance': 0, 'closing_balance': 0,
+            'start_date': start_date, 'end_date': end_date,
+        }
+
+    # Paginate entries
+    per_page = min(max(per_page, 10), 100)
+    total = len(cb_data.get('entries', []))
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    cb_data['entries'] = cb_data.get('entries', [])[start_idx:end_idx]
+    cb_data['page'] = page
+    cb_data['per_page'] = per_page
+    cb_data['total'] = total
+    cb_data['pages'] = max(1, (total + per_page - 1) // per_page)
+
+    return render_template(
+        'reports.html',
+        report_type='cashbook',
+        cb=cb_data,
+        start_date=start_date_str,
+        end_date=end_date_str,
+        page=page,
+        per_page=per_page,
+        total=total,
+        pages=cb_data['pages'],
+    )
+
+
 @reports_bp.route('/reports/ar-aging')
 @login_required
 def ar_aging():

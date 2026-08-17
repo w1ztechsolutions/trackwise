@@ -20,6 +20,7 @@
             <option value="{{ url_for('reports.cash_flow') }}" {% if report_type == 'cash_flow' %}selected{% endif %}>Cash Flow</option>
             <option value="{{ url_for('reports.trial_balance') }}" {% if report_type == 'trial_balance' %}selected{% endif %}>Trial Balance</option>
             <option value="{{ url_for('reports.general_ledger') }}" {% if report_type == 'general_ledger' %}selected{% endif %}>General Ledger</option>
+            <option value="{{ url_for('reports.cashbook') }}" {% if report_type == 'cashbook' %}selected{% endif %}>Cashbook</option>
             <option value="{{ url_for('reports.ar_aging') }}" {% if report_type == 'ar_aging' %}selected{% endif %}>AR Aging</option>
             <option value="{{ url_for('reports.ap_aging') }}" {% if report_type == 'ap_aging' %}selected{% endif %}>AP Aging</option>
             <option value="{{ url_for('reports.audit_log') }}" {% if report_type == 'audit_log' %}selected{% endif %}>Audit Trail</option>
@@ -28,7 +29,7 @@
 </div>
 
 <!-- Date Range Filter (for applicable reports) -->
-{% if report_type in ['income_statement', 'cash_flow', 'general_ledger', 'audit_log'] %}
+{% if report_type in ['income_statement', 'cash_flow', 'general_ledger', 'audit_log', 'cashbook'] %}
 <div class="glass-card mb-4">
     <h3 class="section-title">Filter Report Period</h3>
     <form method="GET" action="{{ url_for('reports.' + report_type) }}" class="report-filter-form">
@@ -421,6 +422,107 @@
                 <li class="page-item active"><span class="page-link">{{ page }} of {{ pages }}</span></li>
                 {% if page < pages %}
                 <li class="page-item"><a class="page-link" href="{{ url_for('reports.general_ledger', account_id=account_id, start_date=start_date, end_date=end_date, page=page+1, per_page=per_page) }}">Next</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Cashbook -->
+{% if report_type == 'cashbook' %}
+<div class="glass-card">
+    <h3 class="section-title">Cashbook</h3>
+
+    <!-- Summary Cards -->
+    <div class="dashboard-grid mb-4">
+        <div class="glass-card">
+            <h4 class="section-title text-sm">Opening Balance</h4>
+            <span class="value text-primary">{{ cb.opening_balance | currency }}</span>
+        </div>
+        <div class="glass-card">
+            <h4 class="section-title text-sm">Total Receipts</h4>
+            <span class="value text-success">{{ cb.total_debits | currency }}</span>
+        </div>
+        <div class="glass-card">
+            <h4 class="section-title text-sm">Total Payments</h4>
+            <span class="value text-danger">{{ cb.total_credits | currency }}</span>
+        </div>
+        <div class="glass-card">
+            <h4 class="section-title text-sm">Closing Balance</h4>
+            <span class="value text-info">{{ cb.closing_balance | currency }}</span>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Account</th>
+                    <th scope="col">Description</th>
+                    <th scope="col">Reference</th>
+                    <th scope="col" class="text-end">Receipt (Dr)</th>
+                    <th scope="col" class="text-end">Payment (Cr)</th>
+                    <th scope="col" class="text-end">Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in cb.entries %}
+                    <tr>
+                        <td>{{ entry.date.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ entry.account_code }} - {{ entry.account_name }}</td>
+                        <td>{{ entry.description }}</td>
+                        <td>
+                            {% if entry.reference_type and entry.reference_id %}
+                                {{ entry.reference_type }} #{{ entry.reference_id }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="text-end">{{ entry.debit | currency }}</td>
+                        <td class="text-end">{{ entry.credit | currency }}</td>
+                        <td class="text-end fw-bold">{{ entry.balance | currency }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">No cash/bank transactions found</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold">
+                    <td colspan="4">Totals</td>
+                    <td class="text-end">{{ cb.total_debits | currency }}</td>
+                    <td class="text-end">{{ cb.total_credits | currency }}</td>
+                    <td class="text-end">{{ cb.net_cash_flow | currency }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    {% if cb.pages and cb.pages > 1 %}
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <form method="GET" action="{{ url_for('reports.cashbook') }}" class="d-flex align-items-center gap-2">
+            <input type="hidden" name="start_date" value="{{ start_date or '' }}">
+            <input type="hidden" name="end_date" value="{{ end_date or '' }}">
+            <label class="form-label mb-0" for="per_page">Rows per page:</label>
+            <select id="per_page" name="per_page" class="form-control form-control-sm w-auto" onchange="this.form.submit()">
+                <option value="10" {% if cb.per_page == 10 %}selected{% endif %}>10</option>
+                <option value="25" {% if cb.per_page == 25 %}selected{% endif %}>25</option>
+                <option value="50" {% if cb.per_page == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if cb.per_page == 100 %}selected{% endif %}>100</option>
+            </select>
+        </form>
+        <nav aria-label="Cashbook pagination">
+            <ul class="pagination mb-0">
+                {% if cb.page > 1 %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('reports.cashbook', start_date=start_date, end_date=end_date, page=cb.page-1, per_page=cb.per_page) }}">Previous</a></li>
+                {% endif %}
+                <li class="page-item active"><span class="page-link">{{ cb.page }} of {{ cb.pages }}</span></li>
+                {% if cb.page < cb.pages %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('reports.cashbook', start_date=start_date, end_date=end_date, page=cb.page+1, per_page=cb.per_page) }}">Next</a></li>
                 {% endif %}
             </ul>
         </nav>

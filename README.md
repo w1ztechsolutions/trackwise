@@ -10,7 +10,7 @@ TrackWise is a comprehensive business management platform with double-entry acco
 - **Inventory Management** — FIFO cost tracking, multi-warehouse support, stock movements
 - **Sales & Purchases** — Invoices, bills, receipts, payments with customer/supplier management
 - **Production System** — Raw material consumption to finished goods with cost calculation
-- **Financial Reports** — Income Statement, Balance Sheet, Cash Flow, Trial Balance, General Ledger, AR/AP Aging
+- **Financial Reports** — Income Statement, Balance Sheet, Cash Flow, Trial Balance, Cashbook, General Ledger, AR/AP Aging
 - **Multi-Tenant** — Business isolation via `business_id` scoping on all queries
 - **Subscription Management** — Free/Starter/Business/Enterprise plans
 - **RBAC** — Role-based access control (admin, accountant, cashier, storekeeper, viewer)
@@ -310,6 +310,7 @@ trackwise/
 - `GET /reports/cash-flow`
 - `GET /reports/trial-balance`
 - `GET /reports/general-ledger`
+- `GET /reports/cashbook`
 - `GET /reports/ar-aging`
 - `GET /reports/ap-aging`
 

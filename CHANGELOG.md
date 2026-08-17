@@ -27,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `fiscal_year_start` column migration for `businesses` table
 - Invoice-to-sales linkage via `invoice_id` column on `sales` table
 - `post_opening_balance()` service method for COA opening balances
+- **Cashbook report** (`/reports/cashbook`) — chronological register of all Cash (1000) and Bank (1100) transactions with running balances, summary cards (opening/total receipts/total payments/closing), and date-range filtering
+- `get_cashbook()` service in `app/services/reports/cashbook.py`
+- `cashbook()` route in `app/reports/routes.py`
+- Cashbook UI block in `templates/reports.html` with date-range filter and pagination
+- `test_cashbook` unit test in `tests/test_reports.py`
 
 ### Changed
 

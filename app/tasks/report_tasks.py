@@ -26,6 +26,7 @@ def generate_report_pdf(self, business_id, report_type, params=None):
             get_balance_sheet,
             get_cash_flow,
             get_trial_balance,
+            get_cashbook,
         )
 
         app = create_app()
@@ -46,6 +47,12 @@ def generate_report_pdf(self, business_id, report_type, params=None):
                 report_data = get_cash_flow(business_id)
             elif report_type == 'trial_balance':
                 report_data = get_trial_balance(business_id)
+            elif report_type == 'cashbook':
+                report_data = get_cashbook(
+                    business_id,
+                    start_date=params.get('start_date'),
+                    end_date=params.get('end_date'),
+                )
 
             # Generate PDF using WeasyPrint
             from weasyprint import HTML

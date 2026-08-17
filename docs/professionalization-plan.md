@@ -125,7 +125,7 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 ### 4.2 Accessibility (WCAG 2.1 AA)
 
 | Issue | Fix |
-| ---|  --- |
+| --- | --- |
 | No skip link | Add `<a href="#main-content" class="skip-link">Skip to content</a>` at the top of `base.html`. |
 | No focus trap / return focus in modals | Use Bootstrap's native `tabindex` handling, or add JS to trap focus and return to trigger on close. |
 | Color contrast unverified | Run axe/contrast checker. Replace `rgba(248,250,252,0.55)` muted text with `#94a3b8` (slate-400) for body text; keep `#f8fafc` for headings. Ensure all text meets 4.5:1. |
