@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Journal Entry #{{ entry.id }}{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="breadcrumb-nav">
+    <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{{ url_for('accounting.je_list') }}">Journal Entries</a>
+    <span class="breadcrumb-separator">/</span>
+    <span>#{{ entry.id }}</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Journal Entry #{{ entry.id }}</h1>
+        <p><span class="text-muted">{{ entry.entry_date.strftime('%Y-%m-%d %H:%M') if entry.entry_date else '-' }}</span> — {{ entry.description }}</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('accounting.je_list') }}" class="btn btn-outline-secondary">Back to Journal Entries</a>
+    </div>
+</div>
+
+<div class="glass-card">
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th scope="col">Account</th>
+                    <th scope="col">Debit</th>
+                    <th scope="col">Credit</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for line in entry.lines %}
+                <tr>
+                    <td>{{ account_map.get(line.account_id, 'Unknown') }}</td>
+                    <td>{{ '%.2f'|format(line.debit_amount) if line.debit_amount else '' }}</td>
+                    <td>{{ '%.2f'|format(line.credit_amount) if line.credit_amount else '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex justify-content-end mt-3">
+        <table class="text-end">
+            <tr><td class="px-3">Total Debit:</td><td><strong>{{ '%.2f'|format(sum(l.debit_amount or 0 for l in entry.lines)) }}</strong></td></tr>
+            <tr><td class="px-3">Total Credit:</td><td><strong>{{ '%.2f'|format(sum(l.credit_amount or 0 for l in entry.lines)) }}</strong></td></tr>
+        </table>
+    </div>
+    <p class="text-muted text-sm mt-3">Reference: Journal Entry &middot; Created by user #{{ entry.created_by }}</p>
+</div>
+{% endblock %}

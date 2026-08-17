@@ -26,6 +26,47 @@
     --warning-grad: rgba(245, 158, 11, 0.15);
 }
 
+/* Light theme overrides (kept in sync with inline CSS in base.html).
+   Higher specificity than the bare :root selector above. */
+html.theme-light {
+    --bg: #ffffff;
+    --text: #0f172a;
+    --muted: #94a3b8;
+    --card: #ffffff;
+    --card-border: #e2e8f0;
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --info: #3b82f6;
+    --text-muted: #94a3b8;
+    --border-glass: #e2e8f0;
+    --primary-glow: rgba(79, 70, 229, 0.12);
+    --success-grad: rgba(34, 197, 94, 0.10);
+    --text-dark: #33415a;
+    --text-main: #0f172a;
+    --sidebar-bg: #f8fafc;
+    --nav-hover: rgba(0, 0, 0, 0.04);
+    --nav-active: rgba(79, 70, 229, 0.08);
+    --danger-grad: rgba(239, 68, 68, 0.12);
+    --warning: #f59e0b;
+    --warning-grad: rgba(245, 158, 11, 0.12);
+    color-scheme: light;
+}
+
+:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* Container to stop ultra-wide line lengths on large screens (4K+) */
+.container-narrow {
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -653,6 +694,17 @@ body {
     color: var(--success);
 }
 
+/* Audit log inline styles */
+.audit-summary {
+    cursor: pointer;
+    color: var(--info);
+}
+.audit-pre {
+    font-size: 10px;
+    white-space: pre-wrap;
+    max-width: 400px;
+}
+
 /* Responsive */
 @media (max-width: 1200px) {
     .kpi-grid {
@@ -1115,6 +1167,7 @@ button[type="submit"]:disabled,
 /* Margin */
 .mt-1 { margin-top: 4px; }
 .mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 12px; }
 .mb-2 { margin-bottom: 8px; }
 .mb-3 { margin-bottom: 12px; }
 .mb-4 { margin-bottom: 16px; }
@@ -1815,4 +1868,440 @@ button[type="submit"]:disabled,
 
 .modal-content .text-muted {
     color: rgba(248, 250, 252, 0.55) !important;
+}
+
+/* Container max-width for large screens */
+.container-narrow {
+    padding: 0 8px;
+}
+
+/* Table headers: readable capitalization (was uppercase) */
+.custom-table thead th {
+    text-transform: capitalize;
+}
+
+/* ============================================================
+   Accessibility & UI Polish Additions
+   ============================================================ */
+
+/* Breadcrumbs */
+.breadcrumb-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+.breadcrumb-nav a {
+    color: var(--primary);
+    text-decoration: none;
+}
+.breadcrumb-nav a:hover {
+    text-decoration: underline;
+}
+.breadcrumb-separator {
+    opacity: 0.5;
+}
+
+/* KPI Trend Indicators */
+.kpi-trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 4px;
+}
+.kpi-trend.up {
+    color: var(--success);
+}
+.kpi-trend.down {
+    color: var(--danger);
+}
+.kpi-trend svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Improved empty states */
+.empty-state {
+    text-align: center;
+    padding: 40px 24px;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+.empty-state svg {
+    margin-bottom: 12px;
+    opacity: 0.7;
+}
+.empty-state-heading {
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 0 0 4px 0;
+    font-size: 15px;
+}
+.empty-state-text {
+    margin: 0 0 16px 0;
+    font-size: 13px;
+}
+.empty-state .btn-primary,
+.empty-state .btn-secondary {
+    width: auto;
+    display: inline-flex;
+}
+
+/* Form validation feedback */
+.form-control.input-error {
+    border-color: var(--danger) !important;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15) !important;
+}
+.form-control[aria-invalid="true"] {
+    border-color: var(--danger) !important;
+}
+.input-error-message {
+    display: block;
+    font-size: 12px;
+    color: #fca5a5;
+    margin-top: 6px;
+}
+html.theme-light .input-error-message {
+    color: #dc2626;
+}
+
+/* Confirmation dialog overlay */
+.confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1600;
+    padding: 24px;
+}
+.confirm-dialog {
+    background: #1e293b;
+    border: 1px solid var(--border-glass);
+    border-radius: 16px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    padding: 24px;
+    max-width: 420px;
+    width: 100%;
+}
+.confirm-dialog h3 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+.confirm-dialog p {
+    margin: 0 0 20px 0;
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+.confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+html.theme-light .confirm-dialog {
+    background: #ffffff;
+    border-color: var(--card-border);
+}
+html.theme-light .confirm-dialog h3 {
+    color: var(--text-main);
+}
+html.theme-light .confirm-dialog p {
+    color: var(--text-muted);
+}
+
+/* Focus trap sentinel */
+.trap-sentinel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Chart accessible fallback */
+.chart-fallback {
+    margin-top: 12px;
+}
+.chart-fallback table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.chart-fallback th,
+.chart-fallback td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-glass);
+}
+.chart-fallback th {
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+/* Light theme overrides for modals and tables */
+html.theme-light .modal-content {
+    background-color: #ffffff;
+    border-color: var(--card-border);
+}
+html.theme-light .modal-header {
+    border-bottom-color: var(--card-border);
+}
+html.theme-light .modal-title {
+    color: var(--text-main);
+}
+html.theme-light .modal-body {
+    color: var(--text);
+}
+html.theme-light .modal-footer {
+    border-top-color: var(--card-border);
+}
+html.theme-light .modal-content .form-label {
+    color: var(--text-main);
+}
+html.theme-light .modal-content .form-control,
+html.theme-light .modal-content .form-select {
+    background-color: #ffffff;
+    border-color: var(--card-border);
+    color: var(--text);
+}
+html.theme-light .modal-content .form-control:focus,
+html.theme-light .modal-content .form-select:focus {
+    background-color: #ffffff;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+html.theme-light .modal-content .form-control::placeholder {
+    color: var(--text-muted);
+}
+html.theme-light .modal-content .btn-close {
+    filter: invert(0) grayscale(100%) brightness(0);
+}
+html.theme-light .modal-content .text-muted {
+    color: var(--text-muted) !important;
+}
+html.theme-light .custom-table thead th {
+    color: var(--text-muted);
+}
+html.theme-light .custom-table tbody td {
+    border-bottom-color: var(--card-border);
+    color: var(--text-dark);
+}
+html.theme-light .custom-table tbody tr:hover {
+    background: rgba(0, 0, 0, 0.02);
+}
+html.theme-light .pagination a,
+html.theme-light .pagination span {
+    border-color: var(--card-border);
+    color: var(--text-dark);
+}
+html.theme-light .pagination .current {
+    background: rgba(0, 0, 0, 0.05);
+}
+html.theme-light .btn-secondary {
+    border-color: var(--card-border);
+    color: var(--text);
+}
+html.theme-light .btn-secondary:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+html.theme-light .flash-message {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: var(--card-border);
+    color: var(--text);
+}
+html.theme-light .flash-message.danger {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.08);
+}
+html.theme-light .modal-close {
+    color: var(--text-dark);
+}
+html.theme-light .history-card {
+    background: rgba(0, 0, 0, 0.01);
+    border-color: var(--card-border);
+}
+html.theme-light .history-card:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+html.theme-light .stock-alert-item {
+    background: rgba(239, 68, 68, 0.04);
+    border-color: rgba(239, 68, 68, 0.12);
+}
+html.theme-light .kpi-card:hover {
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.08);
+}
+html.theme-light .card {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.06);
+}
+html.theme-light .confirm-dialog {
+    background: #ffffff;
+    border-color: var(--card-border);
+}
+html.theme-light .confirm-overlay {
+    background: rgba(0, 0, 0, 0.3);
+}
+html.theme-light .form-control.input-error {
+    border-color: var(--danger) !important;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1) !important;
+}
+html.theme-light .input-error-message {
+    color: #dc2626;
+}
+html.theme-light .btn-outline-primary {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+html.theme-light .btn-outline-secondary {
+    border-color: var(--card-border);
+    color: var(--text-dark);
+}
+html.theme-light .btn-outline-danger {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+html.theme-light .btn-outline-success {
+    border-color: var(--success);
+    color: var(--success);
+}
+html.theme-light .btn-outline-warning {
+    border-color: var(--warning);
+    color: var(--warning);
+}
+html.theme-light .btn-outline-info {
+    border-color: var(--info);
+    color: var(--info);
+}
+html.theme-light .auth-footer a {
+    color: var(--primary);
+}
+
+/* Print styles */
+@media print {
+    .sidebar,
+    .sidebar-toggle,
+    .flash-container,
+    .header-actions,
+    .bottom-nav,
+    .no-print,
+    .breadcrumb-nav {
+        display: none !important;
+    }
+    .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+    }
+    body {
+        background: #fff;
+        color: #000;
+    }
+    .custom-table thead th {
+        color: #000;
+    }
+    .chart-fallback {
+        display: block !important;
+    }
+    canvas {
+        display: none !important;
+    }
+}
+
+/* Tablet breakpoint */
+@media (max-width: 1024px) {
+    .main-content {
+        padding: 16px;
+    }
+    .dashboard-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* Small phone breakpoint */
+@media (max-width: 480px) {
+    .main-content {
+        padding: 12px;
+    }
+    .kpi-grid,
+    .dashboard-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .bottom-nav-link span {
+        font-size: 9px;
+    }
+}
+
+/* Mobile bottom navigation */
+.bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: var(--card);
+    border-top: 1px solid var(--border-glass);
+    z-index: 1000;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+.bottom-nav-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    gap: 2px;
+    color: var(--text-dark);
+    text-decoration: none;
+    font-size: 10px;
+    padding: 4px 0;
+}
+.bottom-nav-link[aria-current="page"] {
+    color: var(--primary);
+}
+.bottom-nav-link svg {
+    width: 20px;
+    height: 20px;
+}
+@media (max-width: 768px) {
+    .bottom-nav {
+        display: flex;
+    }
+}
+
+/* Print styles */
+@media print {
+    .sidebar,
+    .sidebar-toggle,
+    .flash-container,
+    .header-actions,
+    .bottom-nav,
+    .no-print,
+    .breadcrumb-nav {
+        display: none !important;
+    }
+    .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+    }
+    body {
+        background: #fff;
+        color: #000;
+    }
+    .custom-table thead th {
+        color: #000;
+    }
 }

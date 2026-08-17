@@ -29,6 +29,7 @@ ACCOUNT_CODE_CASH = '1000'
 ACCOUNT_CODE_AR = '1200'
 ACCOUNT_CODE_INVENTORY = '1400'
 ACCOUNT_CODE_AP = '2100'
+ACCOUNT_CODE_TAX_PAYABLE = '2200'
 ACCOUNT_CODE_REVENUE = '4000'
 ACCOUNT_CODE_COGS = '5000'
 
@@ -150,20 +151,26 @@ def _post_payment_accounting(payment_date, amount, payment_id, business_id, crea
         )
 
 
-def _post_sale_accounting(sale_date, customer_name, total_revenue, total_cogs, sale_id, business_id, created_by, invoice_id=None):
+def _post_sale_accounting(sale_date, customer_name, total_revenue, total_cogs, sale_id, business_id, created_by, invoice_id=None, tax_amount=0.0):
     if business_id is None:
         return
 
+    total_with_tax = total_revenue + tax_amount
     lines = []
     ar_acct = get_account_by_code(business_id, ACCOUNT_CODE_AR)
     cash_acct = get_account_by_code(business_id, ACCOUNT_CODE_CASH)
     receiver = ar_acct if invoice_id else cash_acct
     if receiver:
-        lines.append({'account_id': receiver.id, 'debit_amount': total_revenue, 'credit_amount': 0})
+        lines.append({'account_id': receiver.id, 'debit_amount': total_with_tax, 'credit_amount': 0})
 
     revenue_acct = get_account_by_code(business_id, ACCOUNT_CODE_REVENUE)
     if revenue_acct:
         lines.append({'account_id': revenue_acct.id, 'debit_amount': 0, 'credit_amount': total_revenue})
+
+    if tax_amount > 0:
+        tax_acct = get_account_by_code(business_id, ACCOUNT_CODE_TAX_PAYABLE)
+        if tax_acct:
+            lines.append({'account_id': tax_acct.id, 'debit_amount': 0, 'credit_amount': tax_amount})
 
     cogs_acct = get_account_by_code(business_id, ACCOUNT_CODE_COGS)
     if cogs_acct:
@@ -341,7 +348,7 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
     return purchase
 
 
-def record_sale(sale_date, customer_name, items_data, business_id=None, created_by=None, invoice_id=None):
+def record_sale(sale_date, customer_name, items_data, business_id=None, created_by=None, invoice_id=None, tax_amount=0.0):
     if not items_data:
         raise ValueError("Sale must contain at least one item.")
 
@@ -479,6 +486,7 @@ def record_sale(sale_date, customer_name, items_data, business_id=None, created_
         business_id,
         created_by,
         invoice_id=invoice_id,
+        tax_amount=tax_amount,
     )
 
     return sale

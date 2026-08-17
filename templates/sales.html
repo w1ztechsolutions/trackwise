@@ -147,10 +147,12 @@
                 <div class="form-group">
                     <label class="form-label">Qty</label>
                     <input type="number" name="quantity[]" min="1" required class="form-control quantity-input" oninput="validateQuantity('${rowId}'); calculateTotal();" placeholder="0…">
+                    <span class="field-error" id="qty-error-${rowId}" role="alert"></span>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Unit Price (MWK)</label>
                     <input type="number" name="unit_price[]" step="0.01" min="0" required class="form-control price-input" oninput="calculateTotal()" placeholder="0.00…">
+                    <span class="field-error" id="price-error-${rowId}" role="alert"></span>
                 </div>
                 <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')" aria-label="Remove item">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -207,6 +209,7 @@
         const selectElem = row.querySelector('.product-select');
         const qtyInput = row.querySelector('.quantity-input');
         const stockInfo = document.getElementById(`stock-info-${rowId}`);
+        const qtyError = document.getElementById(`qty-error-${rowId}`);
 
         if (!selectElem.value) return;
 
@@ -219,11 +222,15 @@
             stockInfo.classList.add('text-danger');
             stockInfo.classList.remove('text-success');
             qtyInput.classList.add('input-error');
+            qtyInput.setAttribute('aria-invalid', 'true');
+            if (qtyError) qtyError.textContent = `Only ${stock} units available`;
         } else {
             stockInfo.textContent = `${stock} units in stock`;
             stockInfo.classList.add('text-success');
             stockInfo.classList.remove('text-danger');
             qtyInput.classList.remove('input-error');
+            qtyInput.removeAttribute('aria-invalid');
+            if (qtyError) qtyError.textContent = '';
         }
     }
 
@@ -258,10 +265,12 @@
         rows.forEach(row => {
             const selectElem = row.querySelector('.product-select');
             const qtyInput = row.querySelector('.quantity-input');
+            const qtyError = row.querySelector('.field-error');
 
             if (selectElem.value === "") {
                 isValid = false;
                 selectElem.classList.add('input-error');
+                selectElem.setAttribute('aria-invalid', 'true');
             }
 
             const selectedOption = selectElem.options[selectElem.selectedIndex];
@@ -272,11 +281,17 @@
                 if (qty <= 0) {
                     isValid = false;
                     qtyInput.classList.add('input-error');
-                }
-
-                if (qty > stock) {
+                    qtyInput.setAttribute('aria-invalid', 'true');
+                    if (qtyError) qtyError.textContent = 'Quantity must be greater than 0';
+                } else if (qty > stock) {
                     isValid = false;
                     qtyInput.classList.add('input-error');
+                    qtyInput.setAttribute('aria-invalid', 'true');
+                    if (qtyError) qtyError.textContent = `Only ${stock} units available`;
+                } else {
+                    qtyInput.classList.remove('input-error');
+                    qtyInput.removeAttribute('aria-invalid');
+                    if (qtyError) qtyError.textContent = '';
                 }
             }
         });

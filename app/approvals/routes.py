@@ -359,5 +359,32 @@ def _execute_approval(req):
             )
             db.session.commit()
 
+    elif transaction_type == 'journal_entry':
+        # When a manual journal entry is fully approved, post the balanced
+        # double-entry record.
+        proposal = json.loads(req.data) if req.data else {}
+        lines = proposal.get('lines', [])
+        description = proposal.get('description', 'Journal entry')
+        entry_date_str = proposal.get('entry_date')
+        entry_date = datetime.fromisoformat(entry_date_str) if entry_date_str else datetime.now(timezone.utc)
+        accounting_lines = [
+            {
+                'account_id': l['account_id'],
+                'debit_amount': l['debit_amount'],
+                'credit_amount': l['credit_amount'],
+            }
+            for l in lines
+        ]
+        from app.services.accounting_service import post_entry as _post_entry
+        _post_entry(
+            req.business_id,
+            entry_date,
+            description,
+            accounting_lines,
+            reference_type='JournalEntry',
+            created_by=req.created_by,
+        )
+        db.session.commit()
+
 
 from . import approvals_bp  # noqa: E402, F811

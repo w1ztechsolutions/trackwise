@@ -220,6 +220,9 @@ class InvoiceItem(db.Model):
     quantity = db.Column(db.Integer, nullable=False, default=1)
     unit_price = db.Column(db.Numeric(12, 2), nullable=False, default=0.0)
     line_total = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
+    tax_rate = db.Column(db.Numeric(5, 2), nullable=False, default=0.0)
+    tax_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
+    tax_inclusive = db.Column(db.Boolean, nullable=False, default=False)
 
     invoice = db.relationship('Invoice', backref='items')
     product = db.relationship('Product', backref='invoice_items')
@@ -268,6 +271,9 @@ class BillItem(db.Model):
     quantity = db.Column(db.Integer, nullable=False, default=1)
     unit_cost = db.Column(db.Numeric(12, 2), nullable=False, default=0.0)
     line_total = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
+    tax_rate = db.Column(db.Numeric(5, 2), nullable=False, default=0.0)
+    tax_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
+    tax_inclusive = db.Column(db.Boolean, nullable=False, default=False)
 
     bill = db.relationship('Bill', backref='items')
     product = db.relationship('Product', backref='bill_items')

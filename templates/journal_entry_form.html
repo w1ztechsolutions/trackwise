@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}New Journal Entry{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="breadcrumb-nav">
+    <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{{ url_for('accounting.coa_list') }}">Chart of Accounts</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{{ url_for('accounting.je_list') }}">Journal Entries</a>
+    <span class="breadcrumb-separator">/</span>
+    <span>New Entry</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>New Journal Entry</h1>
+        <p>Create a balanced double-entry journal entry.</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('accounting.je_list') }}" class="btn btn-outline-secondary">Back</a>
+    </div>
+</div>
+
+<div class="glass-card">
+    <form method="POST" action="{{ url_for('accounting.je_create') }}" id="jeForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+            <label for="description" class="form-label">Description *</label>
+            <input type="text" id="description" name="description" class="form-control" required aria-describedby="description-hint">
+            <span id="description-hint" class="field-hint">What this entry is for (e.g. depreciation adjustment).</span>
+        </div>
+        <div class="mb-3">
+            <label for="entry_date" class="form-label">Date *</label>
+            <input type="date" id="entry_date" name="entry_date" class="form-control" value="{{ today }}" required aria-describedby="entry-date-hint">
+            <span id="entry-date-hint" class="field-hint">Defaults to today. Use the calendar to change.</span>
+        </div>
+
+        <h3 class="section-title">Lines</h3>
+        <p class="text-muted text-sm mb-2">Every entry must balance (total debits = total credits).</p>
+
+        <div class="table-container">
+            <table class="custom-table" id="linesTable">
+                <thead>
+                    <tr>
+                        <th scope="col">Account</th>
+                        <th scope="col">Debit</th>
+                        <th scope="col">Credit</th>
+                        <th scope="col">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="linesBody">
+                    <tr class="line-row">
+                        <td>
+                            <select name="account_id" class="form-control account-select" required></select>
+                        </td>
+                        <td><input type="number" name="debit_amount" class="form-control debit" step="0.01" min="0" value="0"></td>
+                        <td><input type="number" name="credit_amount" class="form-control credit" step="0.01" min="0" value="0"></td>
+                        <td><button type="button" class="btn btn-sm btn-outline-danger remove-line" aria-label="Remove line">Remove</button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <button type="button" id="addLine" class="btn btn-outline-primary">Add Line</button>
+            <div>
+                <span class="text-muted">Total Debit: <strong id="totalDebit">0.00</strong></span>
+                <span class="text-muted ms-3">Total Credit: <strong id="totalCredit">0.00</strong></span>
+                <span id="balanceBadge" class="badge badge-success ms-3">Balanced</span>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="btn-primary">Post Journal Entry</button>
+        </div>
+    </form>
+</div>
+
+{# Account options shared in a data attribute for JS row cloning #}
+<select id="accountTemplate" class="d-none">
+    {% for a in accounts %}
+    <option value="{{ a.id }}" {% if a.type == 'asset' or a.type == 'expense' %}data-side="debit"{% elif a.type == 'liability' or a.type == 'income' or a.type == 'equity' %}data-side="credit"{% endif %} data-type="{{ a.type }}">{{ a.code }} — {{ a.name }}</option>
+    {% endfor %}
+</select>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const tbody = document.getElementById('linesBody');
+    const templateSelect = document.getElementById('accountTemplate');
+    const optionsHtml = templateSelect.innerHTML.trim();
+
+    function cloneSelect() {
+        const sel = document.createElement('select');
+        sel.name = 'account_id';
+        sel.className = 'form-control account-select';
+        sel.innerHTML = '<option value="">-- Select account --</option>' + optionsHtml;
+        return sel;
+    }
+
+    function refreshSelects() {
+        document.querySelectorAll('select.account-select').forEach(function (sel) {
+            if (!sel.options.length || sel.options[0].value !== '') {
+                sel.innerHTML = '<option value="">-- Select account --</option>' + optionsHtml;
+            }
+        });
+    }
+
+    function sumField(cls) {
+        let total = 0;
+        document.querySelectorAll('input.' + cls).forEach(function (i) {
+            const v = parseFloat(i.value) || 0;
+            total += v >= 0 ? v : 0;
+        });
+        return total;
+    }
+
+    function updateTotals() {
+        const d = sumField('debit');
+        const c = sumField('credit');
+        document.getElementById('totalDebit').textContent = d.toFixed(2);
+        document.getElementById('totalCredit').textContent = c.toFixed(2);
+        const badge = document.getElementById('balanceBadge');
+        if (Math.abs(d - c) <= 0.01) {
+            badge.textContent = 'Balanced';
+            badge.className = 'badge badge-success ms-3';
+        } else {
+            badge.textContent = 'Unbalanced';
+            badge.className = 'badge badge-danger ms-3';
+        }
+    }
+
+    function addRow() {
+        const tr = document.createElement('tr');
+        tr.className = 'line-row';
+        tr.innerHTML =
+            '<td><select name="account_id" class="form-control account-select" required></select></td>' +
+            '<td><input type="number" name="debit_amount" class="form-control debit" step="0.01" min="0" value="0"></td>' +
+            '<td><input type="number" name="credit_amount" class="form-control credit" step="0.01" min="0" value="0"></td>' +
+            '<td><button type="button" class="btn btn-sm btn-outline-danger remove-line" aria-label="Remove line">Remove</button></td>';
+        tbody.appendChild(tr);
+        refreshSelects();
+    }
+
+    tbody.addEventListener('input', updateTotals);
+    document.getElementById('addLine').addEventListener('click', addRow);
+    tbody.addEventListener('click', function (e) {
+        const btn = e.target.closest('.remove-line');
+        if (!btn) return;
+        const tr = btn.closest('tr');
+        if (tr && tbody.children.length > 1) {
+            tr.remove();
+            updateTotals();
+        }
+    });
+
+    refreshSelects();
+    updateTotals();
+})();
+</script>
+{% endblock %}

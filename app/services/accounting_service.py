@@ -128,6 +128,61 @@ def get_account_by_code(business_id, code):
     ).first()
 
 
+def post_opening_balance(business_id, account_id, amount, created_by=None):
+    """Post a balanced opening-balance entry for a single account.
+
+    The target account is debited (asset/expense) or credited (liability/income/equity)
+    on its normal side. The offsetting leg posts to an equity account
+    (Capital '3000', falling back to Retained Earnings '3100'), keeping the
+    entry in balance per double-entry rules.
+    """
+    if business_id is None:
+        raise AccountingException("business_id is required")
+    try:
+        amount = float(amount)
+    except (TypeError, ValueError):
+        raise AccountingException("Opening balance amount must be numeric")
+    if amount <= 0:
+        raise AccountingException("Opening balance amount must be greater than zero")
+
+    account = db.session.get(ChartOfAccounts, account_id)
+    if not account or account.business_id != business_id or not account.is_active:
+        raise AccountingException("Account not found or inactive")
+
+    equity = (
+        ChartOfAccounts.query.filter(
+            ChartOfAccounts.business_id == business_id,
+            ChartOfAccounts.is_active == True,
+            ChartOfAccounts.code.in_(("3000", "3100")),
+        )
+        .order_by(ChartOfAccounts.code)
+        .first()
+    )
+    if not equity:
+        raise AccountingException(
+            "No equity account (Capital 3000 / Retained Earnings 3100) found to balance the entry"
+        )
+
+    if account.type in ("asset", "expense"):
+        debit_account, credit_account = account, equity
+    else:
+        debit_account, credit_account = equity, account
+
+    lines = [
+        {"account_id": debit_account.id, "debit_amount": amount, "credit_amount": 0},
+        {"account_id": credit_account.id, "debit_amount": 0, "credit_amount": amount},
+    ]
+    return post_entry(
+        business_id,
+        datetime.now(timezone.utc),
+        f"Opening balance for {account.name} ({account.code})",
+        lines,
+        reference_type="OpeningBalance",
+        reference_id=account.id,
+        created_by=created_by,
+    )
+
+
 def verify_balances(business_id):
     line_sums = db.session.query(
         JournalLine.journal_entry_id,

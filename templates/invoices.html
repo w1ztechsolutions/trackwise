@@ -30,21 +30,23 @@
         </div>
         <div class="table-container">
             <table class="custom-table">
-                <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th></tr></thead>
+                <thead><tr><th scope="col">Product</th><th scope="col">Qty</th><th scope="col">Unit Price</th><th scope="col">Tax Rate %</th></tr></thead>
                 <tbody id="invoiceItemsBody">
                     <tr>
                         <td>
-                            <select name="product_id[]" class="form-control">
+                            <select name="product_id[]" class="form-control" aria-label="Product">
                                 {% for product in products %}
                                 <option value="{{ product.id }}">{{ product.name }}</option>
                                 {% endfor %}
                             </select>
                         </td>
-                        <td><input type="number" name="quantity[]" value="1" min="1" class="form-control"></td>
-                        <td><input type="number" step="0.01" name="unit_price[]" value="0" class="form-control"></td>
+                        <td><input type="number" name="quantity[]" value="1" min="1" class="form-control" aria-label="Quantity"></td>
+                        <td><input type="number" step="0.01" name="unit_price[]" value="0" class="form-control" aria-label="Unit Price"></td>
+                        <td><input type="number" step="0.01" name="tax_rate[]" value="30" min="0" max="100" class="form-control" aria-label="Tax Rate" aria-describedby="tax-rate-hint"></td>
                     </tr>
                 </tbody>
             </table>
+            <span id="tax-rate-hint" class="field-hint">Tax rate (default from Settings). Tax is posted to the Tax Payable liability account (2200).</span>
         </div>
         <button type="submit" class="btn-primary btn-sm">Create Invoice</button>
     </form>
@@ -55,23 +57,58 @@
     </div>
     <div class="table-container">
         <table>
-            <thead><tr><th>Invoice</th><th>Customer</th><th>Total</th><th>Status</th><th>Action</th></tr></thead>
+                <thead><tr><th scope="col">Invoice</th><th scope="col">Customer</th><th scope="col">Subtotal</th><th scope="col">Tax</th><th scope="col">Total</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead>
             <tbody>
                 {% for invoice in invoices.items %}
                 <tr>
                     <td>{{ invoice.invoice_number or invoice.id }}</td>
                     <td>{{ invoice.customer.name if invoice.customer else '-' }}</td>
+                    <td>{{ invoice.subtotal }}</td>
+                    <td>{{ invoice.tax_amount }}</td>
                     <td>{{ invoice.total_amount }}</td>
-                    <td>{{ invoice.status }}</td>
                     <td>
-                        <a href="{{ url_for('sales.invoice_receipt', invoice_id=invoice.id) }}" class="btn-secondary btn-sm">Receipt</a>
+                        <span class="badge badge-{{ 'success' if invoice.status == 'paid' else ('warning' if invoice.status in ('sent', 'partially_paid') else ('danger' if invoice.status == 'void' else 'info')) }}">
+                            {{ invoice.status|replace('_', ' ')|capitalize }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{{ url_for('sales.invoice_receipt', invoice_id=invoice.id) }}" class="btn btn-outline-secondary">Receipt</a>
+                            {% if invoice.status in ('draft', 'issued') %}
+                            <form method="POST" action="{{ url_for('sales.invoice_send', invoice_id=invoice.id) }}" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-outline-primary">Send</button>
+                            </form>
+                            {% endif %}
+                            {% if invoice.status not in ('paid', 'void', 'credit_note_issued') %}
+                            <form method="POST" action="{{ url_for('sales.invoice_mark_paid', invoice_id=invoice.id) }}" class="d-inline" onsubmit="return confirm('Mark this invoice as paid?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="amount" value="{{ invoice.total_amount }}">
+                                <button type="submit" class="btn btn-outline-success">Mark Paid</button>
+                            </form>
+                            {% endif %}
+                            {% if invoice.status not in ('paid', 'void') %}
+                            <form method="POST" action="{{ url_for('sales.invoice_void', invoice_id=invoice.id) }}" class="d-inline" data-confirm="Void this invoice? This cannot be undone.">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-outline-danger">Void</button>
+                            </form>
+                            {% endif %}
+                            {% if invoice.status in ('sent', 'partially_paid', 'paid') %}
+                            <a href="{{ url_for('sales.apply_payment_to_invoice', invoice_id=invoice.id) }}" class="btn btn-outline-info">Apply Payment</a>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% else %}
-                <tr><td colspan="5">No invoices yet.</td></tr>
+                <tr><td colspan="7">No invoices yet.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
+        {% if invoices.pages > 1 %}
+        <nav aria-label="Invoice pagination">
+            <ul class="pagination">{% if invoices.has_prev %}<li class="page-item"><a class="page-link" href="{{ url_for('sales.invoices', page=invoices.prev_num) }}">Previous</a></li>{% endif %}<li class="page-item active"><span class="page-link">{{ invoices.page }} of {{ invoices.pages }}</span></li>{% if invoices.has_next %}<li class="page-item"><a class="page-link" href="{{ url_for('sales.invoices', page=invoices.next_num) }}">Next</a></li>{% endif %}</ul>
+        </nav>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

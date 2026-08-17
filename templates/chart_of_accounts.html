@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Chart of Accounts{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="breadcrumb-nav">
+    <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
+    <span class="breadcrumb-separator">/</span>
+    <span>Chart of Accounts</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Chart of Accounts</h1>
+        <p>Define and manage your business's general ledger accounts (double-entry).</p>
+    </div>
+    <div class="header-actions">
+        <button class="btn-primary" data-bs-toggle="modal" data-bs-target="#addAccountModal">
+            <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add Account
+        </button>
+    </div>
+</div>
+
+<div class="glass-card">
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th scope="col">Code</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Parent</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for account in accounts %}
+                <tr>
+                    <td><strong>{{ account.code }}</strong></td>
+                    <td>{{ account.name }}</td>
+                    <td>{{ account.type|title }}</td>
+                    <td>{{ parent_map.get(account.parent_id, '-') if account.parent_id else '-' }}</td>
+                    <td>
+                        {% if account.is_active %}
+                            <span class="badge badge-success">Active</span>
+                        {% else %}
+                            <span class="badge badge-danger">Archived</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if account.is_active %}
+                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editAccountModal{{ account.id }}" aria-label="Edit account {{ account.code }}">Edit</button>
+                        <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#obAccountModal{{ account.id }}" aria-label="Set opening balance for {{ account.code }}">Opening Balance</button>
+                        <form method="POST" action="{{ url_for('accounting.coa_archive', account_id=account.id) }}" style="display:inline" onsubmit="return confirm('Archive this account? It can be restored later.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Archive account {{ account.code }}">Archive</button>
+                        </form>
+                        {% else %}
+                        <form method="POST" action="{{ url_for('accounting.coa_restore', account_id=account.id) }}" style="display:inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-success" aria-label="Restore account {{ account.code }}">Restore</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty-state">No accounts found. Add your first account to get started.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Account Modal -->
+<div class="modal fade" id="addAccountModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('accounting.coa_create') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Account</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="code" class="form-label">Account Code *</label>
+                        <input type="text" id="code" name="code" class="form-control" required aria-describedby="code-hint">
+                        <span id="code-hint" class="field-hint">e.g. 1000, 2100, 4000. Must be unique.</span>
+                    </div>
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Account Name *</label>
+                        <input type="text" id="name" name="name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="type" class="form-label">Account Type *</label>
+                        <select id="type" name="type" class="form-control" required>
+                            {% for value, label in ACCOUNT_TYPES %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <span id="type-hint" class="field-hint">Asset, Liability, Equity, Income, or Expense.</span>
+                    </div>
+                    <div class="mb-3">
+                        <label for="parent_id">Parent Account (optional)</label>
+                        <select id="parent_id" name="parent_id" class="form-control">
+                            <option value="">None</option>
+                            {% for p in parents %}
+                            <option value="{{ p.id }}">{{ p.code }} — {{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% for account in accounts if account.is_active %}
+<!-- Edit Account Modal -->
+<div class="modal fade" id="editAccountModal{{ account.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('accounting.coa_edit', account_id=account.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Account {{ account.code }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="edit_name{{ account.id }}" class="form-label">Account Name *</label>
+                        <input type="text" id="edit_name{{ account.id }}" name="name" class="form-control" value="{{ account.name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_type{{ account.id }}" class="form-label">Type *</label>
+                        <select id="edit_type{{ account.id }}" name="type" class="form-control">
+                            {% for value, label in ACCOUNT_TYPES %}
+                            <option value="{{ value }}" {% if account.type == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" id="edit_active{{ account.id }}" name="is_active" class="form-check-input" {% if account.is_active %}checked{% endif %}>
+                        <label for="edit_active{{ account.id }}" class="form-check-label">Active</label>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_parent{{ account.id }}" class="form-label">Parent Account</label>
+                        <select id="edit_parent{{ account.id }}" name="parent_id" class="form-control">
+                            <option value="">None</option>
+                            {% for p in parents %}
+                            <option value="{{ p.id }}" {% if account.parent_id == p.id %}selected{% endif %}>{{ p.code }} — {{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Opening Balance Modal -->
+<div class="modal fade" id="obAccountModal{{ account.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('accounting.coa_opening_balance', account_id=account.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Opening Balance — {{ account.code }} {{ account.name }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <p class="text-muted text-sm mb-3">Posts a balanced double-entry: this account on its normal side, offset to Capital/Retained Earnings.</p>
+                    <div class="mb-3">
+                        <label for="ob_amount{{ account.id }}" class="form-label">Amount *</label>
+                        <input type="number" id="ob_amount{{ account.id }}" name="amount" class="form-control" step="0.01" min="0" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" onclick="return confirm('Post this opening balance? It creates a journal entry.')">Post</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

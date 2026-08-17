@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Bank Register — {{ account.code }} {{ account.name }}{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Bank Register — {{ account.code }} {{ account.name }}</h1>
+        <p>All journal entries affecting this bank account.</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('accounting.bank_recon') }}" class="btn btn-outline-secondary">Back</a>
+        <a href="{{ url_for('accounting.bank_reconcile', account_id=account.id) }}" class="btn btn-outline-primary">Reconcile</a>
+    </div>
+</div>
+
+<div class="glass-card">
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Description</th>
+                    <th scope="col">Reference</th>
+                    <th scope="col" style="text-align: right;">Debit</th>
+                    <th scope="col" style="text-align: right;">Credit</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for line in lines %}
+                <tr>
+                    <td>{{ line.date.strftime('%d %b %Y') if line.date else '-' }}</td>
+                    <td>{{ line.description }}</td>
+                    <td>{{ line.reference_type or '-' }}</td>
+                    <td style="text-align: right;">{{ '%.2f'|format(line.debit) if line.debit else '' }}</td>
+                    <td style="text-align: right;">{{ '%.2f'|format(line.credit) if line.credit else '' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="empty-state">No journal entries found for this account.</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3"><strong>Total</strong></td>
+                    <td style="text-align: right;"><strong>{{ '%.2f'|format(total_debits) }}</strong></td>
+                    <td style="text-align: right;"><strong>{{ '%.2f'|format(total_credits) }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% if pages > 1 %}
+    <nav aria-label="Pagination">
+        <ul class="pagination">
+            {% if page > 1 %}
+            <li class="page-item"><a class="page-link" href="{{ url_for('accounting.bank_register', account_id=account.id, page=page-1, per_page=per_page) }}">Previous</a></li>
+            {% endif %}
+            <li class="page-item active"><span class="page-link">Page {{ page }} of {{ pages }}</span></li>
+            {% if page < pages %}
+            <li class="page-item"><a class="page-link" href="{{ url_for('accounting.bank_register', account_id=account.id, page=page+1, per_page=per_page) }}">Next</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

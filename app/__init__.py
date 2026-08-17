@@ -127,6 +127,33 @@ def ensure_required_sales_columns():
         db.session.rollback()
 
 
+def ensure_accounting_columns():
+    """Repair legacy schemas missing accounting soft-delete and fiscal-year columns."""
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+    except Exception:
+        return
+
+    try:
+        biz_cols = {c["name"] for c in inspector.get_columns("businesses")}
+        if "fiscal_year_start" not in biz_cols:
+            with db.engine.begin() as connection:
+                connection.execute(text("ALTER TABLE businesses ADD COLUMN IF NOT EXISTS fiscal_year_start VARCHAR(5) DEFAULT '01-01'"))
+    except Exception:
+        db.session.rollback()
+
+    try:
+        je_cols = {c["name"] for c in inspector.get_columns("journal_entries")}
+        if "is_deleted" not in je_cols:
+            with db.engine.begin() as connection:
+                connection.execute(text("ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE"))
+                connection.execute(text("ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS deleted_by INTEGER"))
+                connection.execute(text("ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP"))
+    except Exception:
+        db.session.rollback()
+
+
 def create_app(config_object=None):
     app = Flask(
         __name__,
@@ -174,6 +201,7 @@ def create_app(config_object=None):
     with app.app_context():
         ensure_required_user_columns()
         ensure_required_sales_columns()
+        ensure_accounting_columns()
 
     register_template_filters(app)
 
@@ -189,6 +217,7 @@ def create_app(config_object=None):
     from .production import production_bp as _production_bp
     from .superadmin import superadmin_bp as _superadmin_bp
     from .approvals import approvals_bp as _approvals_bp
+    from .accounting import accounting_bp as _accounting_bp
 
     app.register_blueprint(_auth_bp)
     app.register_blueprint(_dashboard_bp)
@@ -202,6 +231,7 @@ def create_app(config_object=None):
     app.register_blueprint(_production_bp)
     app.register_blueprint(_superadmin_bp)
     app.register_blueprint(_approvals_bp)
+    app.register_blueprint(_accounting_bp)
 
     app.url_map.strict_slashes = False
 

@@ -10,6 +10,7 @@ class Business(db.Model):
     name = db.Column(db.String(200), nullable=False)
     tax_id = db.Column(db.String(100), nullable=True)
     currency = db.Column(db.String(10), nullable=False, default='MWK')
+    fiscal_year_start = db.Column(db.String(5), nullable=True, default='01-01')
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     created_by_superadmin_id = db.Column(db.Integer, db.ForeignKey('super_admins.id'), nullable=True)
 
@@ -41,6 +42,9 @@ class JournalEntry(db.Model):
     description = db.Column(db.Text, nullable=False)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    is_deleted = db.Column(db.Boolean, nullable=False, default=False)
+    deleted_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    deleted_at = db.Column(db.DateTime, nullable=True)
 
     lines = db.relationship('JournalLine', backref='journal_entry', cascade='all, delete-orphan')
 
@@ -69,3 +73,21 @@ class AuditLog(db.Model):
     old_values = db.Column(db.Text, nullable=True)
     new_values = db.Column(db.Text, nullable=True)
     timestamp = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
+class BankStatement(db.Model):
+    __tablename__ = 'bank_statements'
+
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'), nullable=False, index=True)
+    account_id = db.Column(db.Integer, db.ForeignKey('chart_of_accounts.id'), nullable=False)
+    statement_date = db.Column(db.DateTime, nullable=False)
+    description = db.Column(db.String(255), nullable=False)
+    amount = db.Column(db.Numeric(14, 2), nullable=False)
+    reference = db.Column(db.String(100), nullable=True)
+    is_reconciled = db.Column(db.Boolean, nullable=False, default=False)
+    journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entries.id'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    account = db.relationship('ChartOfAccounts', backref='bank_statements')
+    journal_entry = db.relationship('JournalEntry', backref='bank_statement_matches')

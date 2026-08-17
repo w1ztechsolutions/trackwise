@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Bank Reconciliation{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="breadcrumb-nav">
+    <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{{ url_for('accounting.coa_list') }}">Chart of Accounts</a>
+    <span class="breadcrumb-separator">/</span>
+    <span>Bank Reconciliation</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Bank Reconciliation</h1>
+        <p>Reconcile your bank statements against journal entries.</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('accounting.bank_statement_import') }}" class="btn btn-outline-primary">Import Statement</a>
+    </div>
+</div>
+
+<div class="glass-card">
+    <h3 class="section-title">Bank Accounts</h3>
+    {% if accounts %}
+    <div class="grid-asym">
+        {% for account in accounts %}
+        <div>
+            <div class="config-row">
+                <span class="config-label">{{ account.code }} — {{ account.name }}</span>
+                <span class="config-value">{{ account.type|title }}</span>
+            </div>
+            <div class="config-row">
+                <span class="config-label">Unreconciled Statements</span>
+                <span class="config-value">{{ account.unreconciled_count|default(0) }}</span>
+            </div>
+            <div class="config-row">
+                <span class="config-label">Actions</span>
+                <span class="config-value">
+                    <a href="{{ url_for('accounting.bank_register', account_id=account.id) }}" class="btn btn-sm btn-outline-secondary">Register</a>
+                    <a href="{{ url_for('accounting.bank_statements', account_id=account.id) }}" class="btn btn-sm btn-outline-secondary">Statements</a>
+                    <a href="{{ url_for('accounting.bank_reconcile', account_id=account.id) }}" class="btn btn-sm btn-outline-primary">Reconcile</a>
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" stroke-width="1.5" fill="none">
+            <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+            <line x1="2" y1="10" x2="22" y2="10"></line>
+        </svg>
+        <p>No bank accounts found. Add a Chart of Accounts entry with code 1100 (Bank) to get started.</p>
+    </div>
+    {% endif %}
+</div>
+
+{% if accounts %}
+<div class="glass-card">
+    <h3 class="section-title">Quick Links</h3>
+    <ul class="list-plain">
+        <li><a href="{{ url_for('accounting.bank_unreconciled_report') }}" class="text-primary">View Unreconciled Report</a></li>
+    </ul>
+</div>
+{% endif %}
+{% endblock %}

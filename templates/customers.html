@@ -19,7 +19,6 @@
 
 <div class="glass-card" style="max-width: 420px; margin-bottom: 20px;">
     <form method="GET" action="{{ url_for('sales.customers') }}" class="d-flex">
-        <label for="search" class="visually-hidden">Search customers</label>
         <label for="search" class="visually-hidden">Search customers</label><input type="text" id="search" name="search" class="form-control" placeholder="Search customers…" value="{{ search_query }}">
         <button class="btn btn-outline-secondary ms-2" type="submit" aria-label="Search">
             Search
@@ -131,18 +130,18 @@
     <div class="table-container">
         <table class="custom-table">
             <thead>
-                <tr>
-                    <th>Customer ID</th>
-                    <th>Name</th>
-                    <th>Phone</th>
-                    <th>Email</th>
-                    <th>Address</th>
-                    <th>Bank Name</th>
-                    <th>Bank Branch</th>
-                    <th>Account Number</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
+                    <tr>
+                        <th scope="col">Customer ID</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Phone</th>
+                        <th scope="col">Email</th>
+                        <th scope="col">Address</th>
+                        <th scope="col">Bank Name</th>
+                        <th scope="col">Bank Branch</th>
+                        <th scope="col">Account Number</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Actions</th>
+                    </tr>
             </thead>
             <tbody>
                 {% for customer in customers %}

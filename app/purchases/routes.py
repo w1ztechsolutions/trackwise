@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from flask import flash, redirect, render_template, request, url_for, abort
 from flask_login import login_required, current_user
 
-from models import Product, Purchase, PurchaseItem, Supplier, Payment, Staff, FinancialCategory, LineItem, db
+from models import Product, Purchase, PurchaseItem, Supplier, Payment, Staff, FinancialCategory, LineItem, Bill, db
 from app.models.approval import ApprovalConfig, ApprovalRequest, ApprovalAction
 from services.fifo_service import record_purchase
 from app.auth.permissions import can_approve_at_level
@@ -84,6 +84,7 @@ def payments():
     if request.method == 'POST':
         payee_type = request.form.get('payee_type', 'supplier').strip()
         supplier_id = request.form.get('supplier_id', '').strip()
+        bill_id = request.form.get('bill_id', '').strip()
         staff_id = request.form.get('staff_id', '').strip()
         category_id = request.form.get('category_id', '').strip()
         line_item_id = request.form.get('line_item_id', '').strip()
@@ -113,6 +114,7 @@ def payments():
         payment = Payment(
             business_id=biz_id,
             supplier_id=int(supplier_id) if supplier_id else None,
+            bill_id=int(bill_id) if bill_id else None,
             staff_id=int(staff_id) if staff_id else None,
             category_id=int(category_id) if category_id else None,
             line_item_id=int(line_item_id) if line_item_id else None,
@@ -127,7 +129,6 @@ def payments():
         db.session.add(payment)
         db.session.flush()
 
-        # Check if approval workflow is configured for payments
         from app.approvals.routes import create_approval_request
         approval_req = create_approval_request(
             business_id=biz_id,
@@ -137,11 +138,9 @@ def payments():
         )
 
         if approval_req:
-            # Payment is pending approval - no accounting entries yet
             db.session.commit()
             flash('Payment submitted for approval. It will be processed once approved.', 'info')
         else:
-            # No approval needed - post accounting directly
             from services.fifo_service import _post_payment_accounting
             _post_payment_accounting(
                 payment_date=payment.payment_date,
@@ -164,23 +163,24 @@ def payments():
     staff_members = Staff.query.order_by(Staff.name.asc()).all()
     categories = FinancialCategory.query.order_by(FinancialCategory.sort_order.asc()).all()
     line_items = LineItem.query.order_by(LineItem.sort_order.asc()).all()
+    bills = Bill.query.filter(Bill.business_id == getattr(current_user, 'business_id', None)).order_by(Bill.bill_date.desc()).all()
     payments = Payment.query.order_by(Payment.payment_date.desc()).paginate(page=page, per_page=10)
-    
-    # Convert line items to JSON for JavaScript filtering
+
     import json
     line_items_json = json.dumps([{
         'id': item.id,
         'name': item.name,
         'category_id': item.category_id
     } for item in line_items])
-    
-    return render_template('payments.html', 
-                         suppliers=suppliers, 
+
+    return render_template('payments.html',
+                         suppliers=suppliers,
                          staff_members=staff_members,
-                         categories=categories, 
+                         categories=categories,
                          line_items=line_items,
                          line_items_json=line_items_json,
-                         payments=payments)
+                         payments=payments,
+                         bills=bills)
 
 
 @purchases_bp.route('/purchases', methods=['GET', 'POST'])

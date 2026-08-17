@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Unreconciled Report{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Unreconciled Bank Items Report</h1>
+        <p>Bank statement lines that have not been matched to journal entries.</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('accounting.bank_recon') }}" class="btn btn-outline-secondary">Back</a>
+    </div>
+</div>
+
+<div class="glass-card">
+    <div class="config-row">
+        <span class="config-label">Total Unreconciled</span>
+        <span class="config-value">{{ '%.2f'|format(total_unreconciled) }}</span>
+    </div>
+</div>
+
+{% for item in accounts %}
+<div class="glass-card">
+    <h3 class="section-title">{{ item.account.code }} — {{ item.account.name }}</h3>
+    <p class="text-sm text-muted">{{ item.unreconciled_count }} unreconciled item(s)</p>
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Description</th>
+                    <th scope="col" style="text-align: right;">Amount</th>
+                    <th scope="col">Reference</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stmt in item.statements %}
+                <tr>
+                    <td>{{ stmt.statement_date.strftime('%d %b %Y') if stmt.statement_date else '-' }}</td>
+                    <td>{{ stmt.description }}</td>
+                    <td style="text-align: right;">{{ '%.2f'|format(stmt.amount) }}</td>
+                    <td>{{ stmt.reference or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="glass-card">
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" stroke-width="1.5" fill="none">
+            <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+            <line x1="2" y1="10" x2="22" y2="10"></line>
+        </svg>
+        <p>All bank statements are reconciled. No unreconciled items found.</p>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

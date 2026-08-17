@@ -211,10 +211,4 @@ def inventory():
     )
 
 
-@inventory_bp.route('/api/products')
-def api_products():
-    products = Product.query.order_by(Product.name.asc()).all()
-    return [p.to_dict() for p in products], 200
-
-
 

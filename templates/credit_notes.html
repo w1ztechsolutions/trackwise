@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block title %}Credit Notes{% endblock %}
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Credit Notes</h1>
+        <p>Issue credit notes for returned goods, billing errors, or refunds.</p>
+    </div>
+</div>
+<div class="glass-card">
+    <form method="POST" action="{{ url_for('sales.credit_notes') }}" class="stack-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label class="form-label" for="invoice_id">Invoice</label>
+            <select id="invoice_id" name="invoice_id" required class="form-control">
+                <option value="">-- Select Invoice --</option>
+                {% for invoice in invoices.items %}
+                <option value="{{ invoice.id }}">
+                    {{ invoice.invoice_number or invoice.id }} — {{ invoice.customer.name if invoice.customer else 'Unknown' }} ({{ invoice.total_amount }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="amount">Credit Amount</label>
+            <input type="number" id="amount" name="amount" step="0.01" min="0.01" required class="form-control" placeholder="e.g. 5000.00">
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="reason">Reason</label>
+            <textarea id="reason" name="reason" rows="2" class="form-control" placeholder="e.g., returned goods, billing error" aria-describedby="reason-hint"></textarea>
+            <span id="reason-hint" class="field-hint">Explain why this credit note is being issued.</span>
+        </div>
+        <div class="form-group">
+            <label class="form-label">
+                <input type="checkbox" name="apply_to_ar" checked> Apply to Accounts Receivable
+            </label>
+            <span class="field-hint">When checked, reduces AR balance. When unchecked, creates a credit for future use.</span>
+        </div>
+        <button type="submit" class="btn-primary">Issue Credit Note</button>
+    </form>
+</div>
+<div class="glass-card">
+    <h3>Eligible Invoices</h3>
+    <div class="table-container">
+        <table>
+            <thead><tr><th scope="col">Invoice</th><th scope="col">Customer</th><th scope="col">Date</th><th scope="col">Total</th><th scope="col">Status</th></tr></thead>
+            <tbody>
+                {% for invoice in invoices.items %}
+                <tr>
+                    <td>{{ invoice.invoice_number or invoice.id }}</td>
+                    <td>{{ invoice.customer.name if invoice.customer else '-' }}</td>
+                    <td>{{ invoice.invoice_date.strftime('%Y-%m-%d') if invoice.invoice_date else '-' }}</td>
+                    <td>{{ invoice.total_amount }}</td>
+                    <td>{{ invoice.status|replace('_', ' ')|capitalize }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5">No eligible invoices found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if invoices.pages > 1 %}
+        <nav aria-label="Credit note invoice pagination">
+            <ul class="pagination">
+                {% if invoices.has_prev %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('sales.credit_notes', page=invoices.prev_num) }}">Previous</a></li>
+                {% endif %}
+                <li class="page-item active"><span class="page-link">{{ invoices.page }} of {{ invoices.pages }}</span></li>
+                {% if invoices.has_next %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('sales.credit_notes', page=invoices.next_num) }}">Next</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

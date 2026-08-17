@@ -171,7 +171,7 @@
                 <div class="pl-row text-muted-italic">No liability balances</div>
             {% endfor %}
             
-            <h4 class="report-subtitle" style="margin-top: 12px;">Equity</h4>
+            <h4 class="report-subtitle mt-3">Equity</h4>
             {% for item in bs.equity %}
                 <div class="pl-row">
                     <span>{{ item.account.name }}</span>
@@ -194,8 +194,18 @@
 <div class="glass-card mt-4">
     <h3 class="section-title">Balance Sheet Breakdown</h3>
     <div class="chart-wrapper chart-wrapper-lg">
-        <canvas id="balanceSheetChart"></canvas>
+        <canvas id="balanceSheetChart" aria-label="Balance Sheet Breakdown chart showing Assets, Liabilities, and Equity values" data-chart-type="doughnut" data-labels='["Assets","Liabilities","Equity"]' data-values='[{{ bs.total_assets }}, {{ bs.total_liabilities }}, {{ bs.total_equity }}]' data-colors='["#3b82f6","#ef4444","#22c55e"]'></canvas>
     </div>
+    <table class="visually-hidden" aria-label="Balance Sheet Breakdown data">
+        <thead>
+            <tr><th>Category</th><th>Amount (MWK)</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Assets</td><td>{{ bs.total_assets | currency }}</td></tr>
+            <tr><td>Liabilities</td><td>{{ bs.total_liabilities | currency }}</td></tr>
+            <tr><td>Equity</td><td>{{ bs.total_equity | currency }}</td></tr>
+        </tbody>
+    </table>
 </div>
 {% endif %}
 {% endif %}
@@ -221,7 +231,7 @@
             <span>{{ cf.operating.total | currency }}</span>
         </div>
         
-        <h4 class="report-subtitle report-subtitle-warning" style="margin-top: 12px;">Investing Activities</h4>
+        <h4 class="report-subtitle report-subtitle-warning mt-3">Investing Activities</h4>
         {% for item in cf.investing.items %}
             <div class="pl-row">
                 <span>{{ item.name }}</span>
@@ -235,7 +245,7 @@
             <span>{{ cf.investing.total | currency }}</span>
         </div>
         
-        <h4 class="report-subtitle report-subtitle-success" style="margin-top: 12px;">Financing Activities</h4>
+        <h4 class="report-subtitle report-subtitle-success mt-3">Financing Activities</h4>
         {% for item in cf.financing.items %}
             <div class="pl-row">
                 <span>{{ item.name }}</span>
@@ -261,8 +271,18 @@
 <div class="glass-card mt-4">
     <h3 class="section-title">Cash Flow by Activity</h3>
     <div class="chart-wrapper chart-wrapper-lg">
-        <canvas id="cashFlowChart"></canvas>
+        <canvas id="cashFlowChart" aria-label="Cash Flow by Activity chart showing Operating, Investing, and Financing totals" data-chart-type="doughnut" data-labels='["Operating","Investing","Financing"]' data-values='[{{ cf.operating.total }}, {{ cf.investing.total }}, {{ cf.financing.total }}]' data-colors='["#3b82f6","#f59e0b","#22c55e"]'></canvas>
     </div>
+    <table class="visually-hidden" aria-label="Cash Flow by Activity data">
+        <thead>
+            <tr><th>Activity</th><th>Amount (MWK)</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Operating</td><td>{{ cf.operating.total | currency }}</td></tr>
+            <tr><td>Investing</td><td>{{ cf.investing.total | currency }}</td></tr>
+            <tr><td>Financing</td><td>{{ cf.financing.total | currency }}</td></tr>
+        </tbody>
+    </table>
 </div>
 {% endif %}
 {% endif %}
@@ -275,12 +295,12 @@
         <table class="custom-table">
             <thead>
                 <tr>
-                    <th>Account Code</th>
-                    <th>Account Name</th>
-                    <th>Type</th>
-                    <th class="text-end">Debit</th>
-                    <th class="text-end">Credit</th>
-                    <th class="text-end">Balance</th>
+                    <th scope="col">Account Code</th>
+                    <th scope="col">Account Name</th>
+                    <th scope="col">Type</th>
+                    <th scope="col" class="text-end">Debit</th>
+                    <th scope="col" class="text-end">Credit</th>
+                    <th scope="col" class="text-end">Balance</th>
                 </tr>
             </thead>
             <tbody>
@@ -341,15 +361,15 @@
         <table class="custom-table">
             <thead>
                 <tr>
-                    <th>Date</th>
-                    <th>Account</th>
-                    <th>Description</th>
-                    <th>Reference</th>
-                    <th class="text-end">Debit</th>
-                    <th class="text-end">Credit</th>
-                    <th class="text-end">Balance</th>
-                    <th>Created By</th>
-                    <th>Created At</th>
+                    <th scope="col">Date</th>
+                    <th scope="col">Account</th>
+                    <th scope="col">Description</th>
+                    <th scope="col">Reference</th>
+                    <th scope="col" class="text-end">Debit</th>
+                    <th scope="col" class="text-end">Credit</th>
+                    <th scope="col" class="text-end">Balance</th>
+                    <th scope="col">Created By</th>
+                    <th scope="col">Created At</th>
                 </tr>
             </thead>
             <tbody>
@@ -379,6 +399,33 @@
             </tbody>
         </table>
     </div>
+    {% if pages and pages > 1 %}
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <form method="GET" action="{{ url_for('reports.general_ledger') }}" class="d-flex align-items-center gap-2">
+            <input type="hidden" name="account_id" value="{{ account_id or '' }}">
+            <input type="hidden" name="start_date" value="{{ start_date or '' }}">
+            <input type="hidden" name="end_date" value="{{ end_date or '' }}">
+            <label class="form-label mb-0" for="per_page">Rows per page:</label>
+            <select id="per_page" name="per_page" class="form-control form-control-sm w-auto" onchange="this.form.submit()">
+                <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+            </select>
+        </form>
+        <nav aria-label="General Ledger pagination">
+            <ul class="pagination mb-0">
+                {% if page > 1 %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('reports.general_ledger', account_id=account_id, start_date=start_date, end_date=end_date, page=page-1, per_page=per_page) }}">Previous</a></li>
+                {% endif %}
+                <li class="page-item active"><span class="page-link">{{ page }} of {{ pages }}</span></li>
+                {% if page < pages %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('reports.general_ledger', account_id=account_id, start_date=start_date, end_date=end_date, page=page+1, per_page=per_page) }}">Next</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -390,12 +437,12 @@
         <table class="custom-table">
             <thead>
                 <tr>
-                    <th>Customer</th>
-                    <th class="text-end">Current (0-30)</th>
-                    <th class="text-end">31-60 Days</th>
-                    <th class="text-end">61-90 Days</th>
-                    <th class="text-end">90+ Days</th>
-                    <th class="text-end">Total</th>
+                    <th scope="col">Customer</th>
+                    <th scope="col" class="text-end">Current (0-30)</th>
+                    <th scope="col" class="text-end">31-60 Days</th>
+                    <th scope="col" class="text-end">61-90 Days</th>
+                    <th scope="col" class="text-end">90+ Days</th>
+                    <th scope="col" class="text-end">Total</th>
                 </tr>
             </thead>
             <tbody>
@@ -426,6 +473,31 @@
             </tfoot>
         </table>
     </div>
+    {% if ar.pages and ar.pages > 1 %}
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <form method="GET" action="{{ url_for('reports.ar_aging') }}" class="d-flex align-items-center gap-2">
+            <input type="hidden" name="as_of_date" value="{{ as_of_date or '' }}">
+            <label class="form-label mb-0" for="per_page">Rows per page:</label>
+            <select id="per_page" name="per_page" class="form-control form-control-sm w-auto" onchange="this.form.submit()">
+                <option value="10" {% if ar.per_page == 10 %}selected{% endif %}>10</option>
+                <option value="25" {% if ar.per_page == 25 %}selected{% endif %}>25</option>
+                <option value="50" {% if ar.per_page == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if ar.per_page == 100 %}selected{% endif %}>100</option>
+            </select>
+        </form>
+        <nav aria-label="AR Aging pagination">
+            <ul class="pagination mb-0">
+                {% if ar.page > 1 %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('reports.ar_aging', as_of_date=as_of_date, page=ar.page-1, per_page=ar.per_page) }}">Previous</a></li>
+                {% endif %}
+                <li class="page-item active"><span class="page-link">{{ ar.page }} of {{ ar.pages }}</span></li>
+                {% if ar.page < ar.pages %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('reports.ar_aging', as_of_date=as_of_date, page=ar.page+1, per_page=ar.per_page) }}">Next</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -437,12 +509,12 @@
         <table class="custom-table">
             <thead>
                 <tr>
-                    <th>Supplier</th>
-                    <th class="text-end">Current (0-30)</th>
-                    <th class="text-end">31-60 Days</th>
-                    <th class="text-end">61-90 Days</th>
-                    <th class="text-end">90+ Days</th>
-                    <th class="text-end">Total</th>
+                    <th scope="col">Supplier</th>
+                    <th scope="col" class="text-end">Current (0-30)</th>
+                    <th scope="col" class="text-end">31-60 Days</th>
+                    <th scope="col" class="text-end">61-90 Days</th>
+                    <th scope="col" class="text-end">90+ Days</th>
+                    <th scope="col" class="text-end">Total</th>
                 </tr>
             </thead>
             <tbody>
@@ -473,6 +545,31 @@
             </tfoot>
         </table>
     </div>
+    {% if ap.pages and ap.pages > 1 %}
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <form method="GET" action="{{ url_for('reports.ap_aging') }}" class="d-flex align-items-center gap-2">
+            <input type="hidden" name="as_of_date" value="{{ as_of_date or '' }}">
+            <label class="form-label mb-0" for="per_page">Rows per page:</label>
+            <select id="per_page" name="per_page" class="form-control form-control-sm w-auto" onchange="this.form.submit()">
+                <option value="10" {% if ap.per_page == 10 %}selected{% endif %}>10</option>
+                <option value="25" {% if ap.per_page == 25 %}selected{% endif %}>25</option>
+                <option value="50" {% if ap.per_page == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if ap.per_page == 100 %}selected{% endif %}>100</option>
+            </select>
+        </form>
+        <nav aria-label="AP Aging pagination">
+            <ul class="pagination mb-0">
+                {% if ap.page > 1 %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('reports.ap_aging', as_of_date=as_of_date, page=ap.page-1, per_page=ap.per_page) }}">Previous</a></li>
+                {% endif %}
+                <li class="page-item active"><span class="page-link">{{ ap.page }} of {{ ap.pages }}</span></li>
+                {% if ap.page < ap.pages %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('reports.ap_aging', as_of_date=as_of_date, page=ap.page+1, per_page=ap.per_page) }}">Next</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -484,12 +581,12 @@
         <table class="custom-table">
             <thead>
                 <tr>
-                    <th>Date / Time</th>
-                    <th>User</th>
-                    <th>Action</th>
-                    <th>Table</th>
-                    <th>Record ID</th>
-                    <th>Details</th>
+                    <th scope="col">Date / Time</th>
+                    <th scope="col">User</th>
+                    <th scope="col">Action</th>
+                    <th scope="col">Table</th>
+                    <th scope="col">Record ID</th>
+                    <th scope="col">Details</th>
                 </tr>
             </thead>
             <tbody>
@@ -502,17 +599,17 @@
                         <td>{{ log.record_id or '-' }}</td>
                         <td>
                             <details>
-                                <summary style="cursor: pointer; color: var(--info);">View details</summary>
+                                <summary class="audit-summary">View details</summary>
                                 {% if log.new_values %}
-                                <div style="margin-top: 4px;">
+                                <div class="mt-1">
                                     <small><strong>New values:</strong></small>
-                                    <pre style="font-size: 10px; white-space: pre-wrap; max-width: 400px;">{{ log.new_values | tojson(2) }}</pre>
+                                    <pre class="audit-pre">{{ log.new_values | tojson(2) }}</pre>
                                 </div>
                                 {% endif %}
                                 {% if log.old_values %}
-                                <div style="margin-top: 4px;">
+                                <div class="mt-1">
                                     <small><strong>Old values:</strong></small>
-                                    <pre style="font-size: 10px; white-space: pre-wrap; max-width: 400px;">{{ log.old_values | tojson(2) }}</pre>
+                                    <pre class="audit-pre">{{ log.old_values | tojson(2) }}</pre>
                                 </div>
                                 {% endif %}
                             </details>
@@ -526,87 +623,34 @@
             </tbody>
         </table>
     </div>
+    {% if al.pages and al.pages > 1 %}
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <form method="GET" action="{{ url_for('reports.audit_log') }}" class="d-flex align-items-center gap-2">
+            <input type="hidden" name="start_date" value="{{ start_date or '' }}">
+            <input type="hidden" name="end_date" value="{{ end_date or '' }}">
+            <input type="hidden" name="action" value="{{ action or '' }}">
+            <label class="form-label mb-0" for="per_page">Rows per page:</label>
+            <select id="per_page" name="per_page" class="form-control form-control-sm w-auto" onchange="this.form.submit()">
+                <option value="10" {% if al.per_page == 10 %}selected{% endif %}>10</option>
+                <option value="25" {% if al.per_page == 25 %}selected{% endif %}>25</option>
+                <option value="50" {% if al.per_page == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if al.per_page == 100 %}selected{% endif %}>100</option>
+            </select>
+        </form>
+        <nav aria-label="Audit Trail pagination">
+            <ul class="pagination mb-0">
+                {% if al.page > 1 %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('reports.audit_log', start_date=start_date, end_date=end_date, action=action, page=al.page-1, per_page=al.per_page) }}">Previous</a></li>
+                {% endif %}
+                <li class="page-item active"><span class="page-link">{{ al.page }} of {{ al.pages }}</span></li>
+                {% if al.page < al.pages %}
+                <li class="page-item"><a class="page-link" href="{{ url_for('reports.audit_log', start_date=start_date, end_date=end_date, action=action, page=al.page+1, per_page=al.per_page) }}">Next</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
 </div>
 {% endif %}
 
-{% endblock %}
-
-{% block scripts %}
-<script>
-    // Balance Sheet Chart
-    {% if report_type == 'balance_sheet' and (bs.assets or bs.liabilities or bs.equity) %}
-    document.addEventListener("DOMContentLoaded", function () {
-        const ctx = document.getElementById('balanceSheetChart').getContext('2d');
-        
-        const data = {
-            labels: ['Assets', 'Liabilities', 'Equity'],
-            datasets: [{
-                data: [
-                    {{ bs.total_assets }},
-                    {{ bs.total_liabilities }},
-                    {{ bs.total_equity }}
-                ],
-                backgroundColor: ['#3b82f6', '#ef4444', '#22c55e'],
-                borderWidth: 0,
-            }]
-        };
-        
-        new Chart(ctx, {
-            type: 'doughnut',
-            data: data,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            color: '#9ca3af',
-                            font: { family: 'Outfit', size: 12 },
-                        }
-                    }
-                }
-            }
-        });
-    });
-    {% endif %}
-    
-    // Cash Flow Chart
-    {% if report_type == 'cash_flow' and (cf.operating.total or cf.investing.total or cf.financing.total) %}
-    document.addEventListener("DOMContentLoaded", function () {
-        const ctx = document.getElementById('cashFlowChart').getContext('2d');
-        
-        const data = {
-            labels: ['Operating', 'Investing', 'Financing'],
-            datasets: [{
-                data: [
-                    {{ cf.operating.total }},
-                    {{ cf.investing.total }},
-                    {{ cf.financing.total }}
-                ],
-                backgroundColor: ['#3b82f6', '#f59e0b', '#22c55e'],
-                borderWidth: 0,
-            }]
-        };
-        
-        new Chart(ctx, {
-            type: 'doughnut',
-            data: data,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            color: '#9ca3af',
-                            font: { family: 'Outfit', size: 12 },
-                        }
-                    }
-                }
-            }
-        });
-    });
-    {% endif %}
-</script>
 {% endblock %}

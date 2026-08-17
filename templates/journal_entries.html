@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Journal Entries{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="breadcrumb-nav">
+    <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{{ url_for('accounting.coa_list') }}">Chart of Accounts</a>
+    <span class="breadcrumb-separator">/</span>
+    <span>Journal Entries</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Journal Entries</h1>
+        <p>Recorded manual double-entry transactions (balanced &amp; auditable).</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('accounting.je_create') }}" class="btn-primary">
+            <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            New Journal Entry
+        </a>
+    </div>
+</div>
+
+<div class="glass-card">
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Description</th>
+                    <th scope="col">Lines</th>
+                    <th scope="col">Created By</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in entries %}
+                <tr>
+                    <td>{{ entry.entry_date.strftime('%Y-%m-%d') if entry.entry_date else '-' }}</td>
+                    <td>{{ entry.description }}</td>
+                    <td>{{ entry.lines|length }}</td>
+                    <td>{{ entry.created_by or 'system' }}</td>
+                    <td><span class="badge badge-success">Posted</span></td>
+                    <td>
+                        <a href="{{ url_for('accounting.je_view', entry_id=entry.id) }}" class="btn btn-sm btn-outline-primary" aria-label="View journal entry {{ entry.id }}">View</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="empty-state">No journal entries yet. Click "New Journal Entry" to get started.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('click', function (e) {
+    var t = e.target.closest('button[data-bs-toggle="modal"]');
+    if (!t) return;
+    var target = t.getAttribute('data-bs-target');
+    if (!target) return;
+    var modalEl = document.querySelector(target);
+    if (modalEl) {
+        var modal = new bootstrap.Modal(modalEl);
+        modal.show();
+        e.preventDefault();
+    }
+});
+</script>
+{% endblock %}

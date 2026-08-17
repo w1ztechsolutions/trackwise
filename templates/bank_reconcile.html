@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Reconcile — {{ account.code }} {{ account.name }}{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Reconcile Statements — {{ account.code }} {{ account.name }}</h1>
+        <p>Match bank statement lines to journal entries.</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('accounting.bank_register', account_id=account.id) }}" class="btn btn-outline-secondary">Register</a>
+        <a href="{{ url_for('accounting.bank_statements', account_id=account.id) }}" class="btn btn-outline-secondary">Statements</a>
+    </div>
+</div>
+
+<div class="glass-card">
+    <div class="form-group">
+        <form method="GET" style="display: flex; gap: 8px; align-items: center;">
+            <label class="form-label" style="margin-bottom: 0;">Show:</label>
+            <select name="show" class="form-control" onchange="this.form.submit()" style="max-width: 200px;">
+                <option value="unreconciled" {% if show == 'unreconciled' %}selected{% endif %}>Unreconciled</option>
+                <option value="reconciled" {% if show == 'reconciled' %}selected{% endif %}>Reconciled</option>
+                <option value="all" {% if show == 'all' %}selected{% endif %}>All</option>
+            </select>
+        </form>
+    </div>
+
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Description</th>
+                    <th scope="col" style="text-align: right;">Amount</th>
+                    <th scope="col">Reference</th>
+                    <th scope="col">Matched To</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for stmt in statements.items %}
+                <tr>
+                    <td>{{ stmt.statement_date.strftime('%d %b %Y') if stmt.statement_date else '-' }}</td>
+                    <td>{{ stmt.description }}</td>
+                    <td style="text-align: right;">{{ '%.2f'|format(stmt.amount) }}</td>
+                    <td>{{ stmt.reference or '-' }}</td>
+                    <td>
+                        {% if stmt.journal_entry %}
+                        JE #{{ stmt.journal_entry.id }}
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stmt.is_reconciled %}
+                        <span class="badge badge-success">Reconciled</span>
+                        {% else %}
+                        <span class="badge badge-warning">Unreconciled</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if stmt.is_reconciled %}
+                        <form method="POST" action="{{ url_for('accounting.bank_unmatch') }}" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="statement_id" value="{{ stmt.id }}">
+                            <button type="submit" class="btn btn-sm btn-outline-warning" aria-label="Unmatch">Unmatch</button>
+                        </form>
+                        {% else %}
+                        {% set sug = suggestions.get(stmt.id, []) %}
+                        {% if sug %}
+                        <form method="POST" action="{{ url_for('accounting.bank_match') }}" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="statement_id" value="{{ stmt.id }}">
+                            <select name="entry_id" class="form-control" style="max-width: 150px; display: inline-block; font-size: 12px;">
+                                <option value="">-- Select JE --</option>
+                                {% for s in sug %}
+                                <option value="{{ s.entry_id }}">JE #{{ s.entry_id }} ({{ '%.2f'|format(s.amount) }})</option>
+                                {% endfor %}
+                            </select>
+                        </form>
+                        {% else %}
+                        <span class="text-muted text-sm">No nearby matches</span>
+                        {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="empty-state">{% if show == 'unreconciled' %}No unreconciled statements found.{% elif show == 'reconciled' %}No reconciled statements found.{% else %}No statements found.{% endif %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if statements.pages > 1 %}
+    <nav aria-label="Pagination">
+        <ul class="pagination">
+            {% if statements.has_prev %}
+            <li class="page-item"><a class="page-link" href="{{ url_for('accounting.bank_reconcile', account_id=account.id, show=show, page=statements.prev_num) }}">Previous</a></li>
+            {% endif %}
+            <li class="page-item active"><span class="page-link">Page {{ statements.page }} of {{ statements.pages }}</span></li>
+            {% if statements.has_next %}
+            <li class="page-item"><a class="page-link" href="{{ url_for('accounting.bank_reconcile', account_id=account.id, show=show, page=statements.next_num) }}">Next</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

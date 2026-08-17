@@ -26,30 +26,55 @@
         <span class="kpi-label">Total Revenue</span>
         <span class="kpi-value">{{ pl.total_sales | currency }}</span>
         <span class="kpi-meta">This Month: {{ month_pl.total_sales | currency }}</span>
+        {% set rev_trend = ((month_pl.total_sales - prev_month_pl.total_sales) / prev_month_pl.total_sales * 100) if prev_month_pl.total_sales else 0 %}
+        <span class="kpi-trend {{ 'up' if rev_trend >= 0 else 'down' }}">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+            {{ '+%.1f%%' % rev_trend if rev_trend >= 0 else '%.1f%%' % rev_trend }}
+        </span>
     </div>
     <!-- Cost of Sales (COGS) -->
     <div class="glass-card kpi-card cogs">
         <span class="kpi-label">Cost of Sales</span>
         <span class="kpi-value">{{ pl.total_cogs | currency }}</span>
         <span class="kpi-meta">This Month: {{ month_pl.total_cogs | currency }}</span>
+        {% set cogs_trend = ((month_pl.total_cogs - prev_month_pl.total_cogs) / prev_month_pl.total_cogs * 100) if prev_month_pl.total_cogs else 0 %}
+        <span class="kpi-trend {{ 'up' if cogs_trend >= 0 else 'down' }}">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+            {{ '+%.1f%%' % cogs_trend if cogs_trend >= 0 else '%.1f%%' % cogs_trend }}
+        </span>
     </div>
     <!-- Gross Profit -->
     <div class="glass-card kpi-card gross">
         <span class="kpi-label">Gross Profit</span>
         <span class="kpi-value">{{ pl.gross_profit | currency }}</span>
         <span class="kpi-meta">This Month: {{ month_pl.gross_profit | currency }}</span>
+        {% set gp_trend = ((month_pl.gross_profit - prev_month_pl.gross_profit) / prev_month_pl.gross_profit * 100) if prev_month_pl.gross_profit else 0 %}
+        <span class="kpi-trend {{ 'up' if gp_trend >= 0 else 'down' }}">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+            {{ '+%.1f%%' % gp_trend if gp_trend >= 0 else '%.1f%%' % gp_trend }}
+        </span>
     </div>
     <!-- Expenses -->
     <div class="glass-card kpi-card expenses">
         <span class="kpi-label">Operating Expenses</span>
         <span class="kpi-value">{{ pl.total_expenses | currency }}</span>
         <span class="kpi-meta">This Month: {{ month_pl.total_expenses | currency }}</span>
+        {% set exp_trend = ((month_pl.total_expenses - prev_month_pl.total_expenses) / prev_month_pl.total_expenses * 100) if prev_month_pl.total_expenses else 0 %}
+        <span class="kpi-trend {{ 'up' if exp_trend >= 0 else 'down' }}">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+            {{ '+%.1f%%' % exp_trend if exp_trend >= 0 else '%.1f%%' % exp_trend }}
+        </span>
     </div>
     <!-- Net Profit -->
     <div class="glass-card kpi-card net">
         <span class="kpi-label">Net Profit (Post-Tax)</span>
         <span class="kpi-value text-success">{{ pl.net_profit | currency }}</span>
         <span class="kpi-meta">Tax Rate: {{ pl.tax_rate }}% (MWK {{ pl.tax_amount | currency }})</span>
+        {% set np_trend = ((month_pl.net_profit - prev_month_pl.net_profit) / prev_month_pl.net_profit * 100) if prev_month_pl.net_profit else 0 %}
+        <span class="kpi-trend {{ 'up' if np_trend >= 0 else 'down' }}">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+            {{ '+%.1f%%' % np_trend if np_trend >= 0 else '%.1f%%' % np_trend }}
+        </span>
     </div>
 </div>
 
@@ -119,10 +144,10 @@
             <table class="custom-table">
                 <thead>
                     <tr>
-                        <th>Date</th>
-                        <th>Customer</th>
-                        <th>Revenue</th>
-                        <th>COGS</th>
+                        <th scope="col">Date</th>
+                        <th scope="col">Customer</th>
+                        <th scope="col">Revenue</th>
+                        <th scope="col">COGS</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -153,11 +178,11 @@
             <table class="custom-table">
                 <thead>
                     <tr>
-                        <th>Date</th>
-                        <th>Payee</th>
-                        <th>Category</th>
-                        <th>Amount</th>
-                        <th>Mode</th>
+                        <th scope="col">Date</th>
+                        <th scope="col">Payee</th>
+                        <th scope="col">Category</th>
+                        <th scope="col">Amount</th>
+                        <th scope="col">Mode</th>
                     </tr>
                 </thead>
                 <tbody>

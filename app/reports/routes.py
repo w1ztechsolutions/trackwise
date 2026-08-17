@@ -156,23 +156,38 @@ def general_ledger():
     account_id = request.args.get('account_id', type=int)
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
-    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+
     start_date = None
     end_date = None
-    
+
     if start_date_str:
         start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
     if end_date_str:
         end_date = datetime.strptime(end_date_str, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
-    
+
     from flask_login import current_user
     business_id = getattr(current_user, 'business_id', None)
-    
+
     if business_id:
         gl_data = get_general_ledger(business_id, account_id, start_date, end_date)
     else:
         gl_data = {'entries': [], 'accounts': [], 'selected_account': None}
-    
+
+    # Paginate entries
+    from flask import request as flask_request
+    per_page = min(max(per_page, 10), 100)
+    total = len(gl_data.get('entries', []))
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paginated_entries = gl_data.get('entries', [])[start_idx:end_idx]
+    gl_data['entries'] = paginated_entries
+    gl_data['page'] = page
+    gl_data['per_page'] = per_page
+    gl_data['total'] = total
+    gl_data['pages'] = max(1, (total + per_page - 1) // per_page)
+
     return render_template(
         'reports.html',
         report_type='general_ledger',
@@ -180,6 +195,10 @@ def general_ledger():
         account_id=account_id,
         start_date=start_date_str,
         end_date=end_date_str,
+        page=page,
+        per_page=per_page,
+        total=total,
+        pages=gl_data['pages'],
     )
 
 
@@ -188,24 +207,40 @@ def general_ledger():
 def ar_aging():
     """AR Aging report."""
     as_of_date_str = request.args.get('as_of_date')
-    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+
     as_of_date = None
     if as_of_date_str:
         as_of_date = datetime.strptime(as_of_date_str, "%Y-%m-%d")
-    
+
     from flask_login import current_user
     business_id = getattr(current_user, 'business_id', None)
-    
+
     if business_id:
         ar_data = get_ar_aging(business_id, as_of_date)
     else:
         ar_data = {'aging_data': [], 'totals': {'total_balance': 0, 'current': 0, 'days_30': 0, 'days_60': 0, 'days_90': 0}}
-    
+
+    per_page = min(max(per_page, 10), 100)
+    total = len(ar_data.get('aging_data', []))
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    ar_data['aging_data'] = ar_data.get('aging_data', [])[start_idx:end_idx]
+    ar_data['page'] = page
+    ar_data['per_page'] = per_page
+    ar_data['total'] = total
+    ar_data['pages'] = max(1, (total + per_page - 1) // per_page)
+
     return render_template(
         'reports.html',
         report_type='ar_aging',
         ar=ar_data,
         as_of_date=as_of_date_str,
+        page=page,
+        per_page=per_page,
+        total=total,
+        pages=ar_data['pages'],
     )
 
 
@@ -216,6 +251,8 @@ def audit_log():
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     action = request.args.get('action')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
 
     start_date = None
     end_date = None
@@ -233,6 +270,16 @@ def audit_log():
     else:
         al_data = {'entries': [], 'start_date': start_date, 'end_date': end_date, 'action': action}
 
+    per_page = min(max(per_page, 10), 100)
+    total = len(al_data.get('entries', []))
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    al_data['entries'] = al_data.get('entries', [])[start_idx:end_idx]
+    al_data['page'] = page
+    al_data['per_page'] = per_page
+    al_data['total'] = total
+    al_data['pages'] = max(1, (total + per_page - 1) // per_page)
+
     return render_template(
         'reports.html',
         report_type='audit_log',
@@ -240,6 +287,10 @@ def audit_log():
         start_date=start_date_str,
         end_date=end_date_str,
         action=action,
+        page=page,
+        per_page=per_page,
+        total=total,
+        pages=al_data['pages'],
     )
 
 
@@ -248,22 +299,38 @@ def audit_log():
 def ap_aging():
     """AP Aging report."""
     as_of_date_str = request.args.get('as_of_date')
-    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+
     as_of_date = None
     if as_of_date_str:
         as_of_date = datetime.strptime(as_of_date_str, "%Y-%m-%d")
-    
+
     from flask_login import current_user
     business_id = getattr(current_user, 'business_id', None)
-    
+
     if business_id:
         ap_data = get_ap_aging(business_id, as_of_date)
     else:
         ap_data = {'aging_data': [], 'totals': {'total_balance': 0, 'current': 0, 'days_30': 0, 'days_60': 0, 'days_90': 0}}
-    
+
+    per_page = min(max(per_page, 10), 100)
+    total = len(ap_data.get('aging_data', []))
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    ap_data['aging_data'] = ap_data.get('aging_data', [])[start_idx:end_idx]
+    ap_data['page'] = page
+    ap_data['per_page'] = per_page
+    ap_data['total'] = total
+    ap_data['pages'] = max(1, (total + per_page - 1) // per_page)
+
     return render_template(
         'reports.html',
         report_type='ap_aging',
         ap=ap_data,
         as_of_date=as_of_date_str,
+        page=page,
+        per_page=per_page,
+        total=total,
+        pages=ap_data['pages'],
     )

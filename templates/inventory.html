@@ -45,22 +45,23 @@
 <div class="glass-card">
     <div class="section-header">
         <h3 class="section-title">Product Catalogue</h3>
-        <label for="searchInput" class="visually-hidden">Search inventory</label><input type="text" id="searchInput" onkeyup="searchInventory()" placeholder="Search by name or SKU…" class="form-control search-input">
+        <label for="searchInput" class="visually-hidden">Search inventory</label><input type="text" id="searchInput" onkeyup="searchInventory()" placeholder="Search by name or SKU…" class="form-control search-input" aria-describedby="search-hint">
+        <span id="search-hint" class="field-hint">Type to filter products by name or SKU.</span>
     </div>
     
     <div class="table-container">
         <table class="custom-table" id="inventoryTable">
-            <thead>
-                <tr>
-                    <th>SKU</th>
-                    <th>Product Name</th>
-                    <th>Stock Qty</th>
-                    <th>Status</th>
-                    <th>Default Price</th>
-                    <th>Current Value (FIFO)</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
+                <thead>
+                    <tr>
+                        <th scope="col">SKU</th>
+                        <th scope="col">Product Name</th>
+                        <th scope="col">Stock Qty</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Default Price</th>
+                        <th scope="col">Current Value (FIFO)</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                </thead>
             <tbody>
             {%- for product in products -%}
                     <tr class="product-row">

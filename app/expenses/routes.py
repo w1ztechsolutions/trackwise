@@ -8,11 +8,11 @@ from . import expenses_bp
 @login_required
 def expenses():
     """DEPRECATED: Expenses have been merged into the Payments Hub.
-    
-    All outgoing disbursements (supplier payments, staff salaries, 
-    operational costs) are now recorded through the Payments tab 
+
+    All outgoing disbursements (supplier payments, staff salaries,
+    operational costs) are now recorded through the Payments tab
     with proper financial statement category and line item classification.
     """
     flash('Expenses have been consolidated into the Payments Hub. Please use Payments to record all outgoing disbursements.', 'info')
-    return redirect(url_for('purchases.payments'))
+    return redirect(url_for('purchases.payments'), 301)
 

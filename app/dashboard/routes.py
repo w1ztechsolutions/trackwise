@@ -8,6 +8,17 @@ from services.fifo_service import get_profit_loss, get_inventory_valuation
 from . import dashboard_bp
 
 
+def month_bounds(base_dt, offset_months):
+    year = base_dt.year + (base_dt.month - 1 + offset_months) // 12
+    month = (base_dt.month - 1 + offset_months) % 12 + 1
+    start = datetime(year, month, 1)
+    if month == 12:
+        end = datetime(year + 1, 1, 1)
+    else:
+        end = datetime(year, month + 1, 1)
+    return start, end
+
+
 @dashboard_bp.route('/')
 def index():
     return redirect(url_for('dashboard.dashboard'))
@@ -29,6 +40,8 @@ def dashboard():
 
     pl_stats = get_profit_loss(business_id=biz_id)  # All-time stats for the dashboard overview
     month_stats = get_profit_loss(start_date=start_of_month, end_date=end_of_month, business_id=biz_id)
+    prev_start, prev_end = month_bounds(today, -1)
+    prev_month_pl = get_profit_loss(start_date=prev_start, end_date=prev_end, business_id=biz_id)
     val_stats = get_inventory_valuation()
 
     low_stock_products = Product.query.filter(
@@ -44,16 +57,6 @@ def dashboard():
     chart_sales = []
     chart_expenses = []
 
-    def month_bounds(base_dt, offset_months):
-        year = base_dt.year + (base_dt.month - 1 + offset_months) // 12
-        month = (base_dt.month - 1 + offset_months) % 12 + 1
-        start = datetime(year, month, 1)
-        if month == 12:
-            end = datetime(year + 1, 1, 1)
-        else:
-            end = datetime(year, month + 1, 1)
-        return start, end
-
     for offset in range(-5, 1):
         m_start, m_end = month_bounds(today, offset)
         m_pl = get_profit_loss(start_date=m_start, end_date=m_end, business_id=biz_id)
@@ -65,6 +68,7 @@ def dashboard():
         'dashboard.html',
         pl=pl_stats,
         month_pl=month_stats,
+        prev_month_pl=prev_month_pl,
         valuation=val_stats['total_valuation'],
         low_stock=low_stock_products,
         recent_sales=recent_sales,

@@ -22,11 +22,11 @@
             <div class="form-group">
                 <label class="form-label" for="tax_rate">Flat Corporate Tax Rate (%)</label>
                 <div class="form-row align-items-center">
-                    <input type="number" id="tax_rate" name="tax_rate" step="0.1" min="0" max="100" required value="{{ tax_rate }}" class="form-control input-sm" style="max-width: 150px;">
+                    <input type="number" id="tax_rate" name="tax_rate" step="0.1" min="0" max="100" required value="{{ tax_rate }}" class="form-control input-sm" style="max-width: 150px;" aria-describedby="tax-rate-hint">
                     <span class="fw-bold text-lg">%</span>
                     <button type="submit" class="btn-primary ms-auto">Update Tax Rate</button>
                 </div>
-                <span class="field-hint">
+                <span class="field-hint" id="tax-rate-hint">
                     This rate is used to calculate the income tax provision on positive net operational income.
                 </span>
             </div>
