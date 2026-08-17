@@ -11,6 +11,7 @@ TrackWise is a comprehensive business management platform with double-entry acco
 - **Sales & Purchases** — Invoices, bills, receipts, payments with customer/supplier management
 - **Production System** — Raw material consumption to finished goods with cost calculation
 - **Financial Reports** — Income Statement, Balance Sheet, Cash Flow, Trial Balance, Cashbook, General Ledger, AR/AP Aging
+- **Bank Reconciliation** — Match bank statement lines to journal entries, import statements, and review unreconciled items
 - **Multi-Tenant** — Business isolation via `business_id` scoping on all queries
 - **Subscription Management** — Free/Starter/Business/Enterprise plans
 - **RBAC** — Role-based access control (admin, accountant, cashier, storekeeper, viewer)
@@ -313,6 +314,14 @@ trackwise/
 - `GET /reports/cashbook`
 - `GET /reports/ar-aging`
 - `GET /reports/ap-aging`
+
+### Bank Reconciliation
+
+- `GET /accounting/bank-reconciliation` — Reconciliation dashboard with unreconciled counts per bank account
+- `GET /accounting/bank-reconciliation/register/<account_id>` — Bank register (journal entries) for an account
+- `GET /accounting/bank-reconciliation/statements/<account_id>` — Imported bank statement lines
+- `GET /accounting/bank-reconciliation/import` — Import bank statements (CSV/statement upload)
+- `GET /accounting/bank-reconciliation/reconcile/<account_id>` — Match/unmatch statement lines to journal entries
 
 ### Settings
 

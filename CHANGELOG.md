@@ -39,12 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `README.md` — Corrected project structure to reflect actual `app/models/` submodule layout
 - `ARCHITECTURE.md` — Updated RBAC table: `accountant` role now references "accounting" instead of deprecated "expenses"
 - `docs/API.md` — Expanded with authentication details, CORS notes, and improved endpoint documentation
-- `docs/bugs_and_fixes.md` — Marked Bug 10 (`/register` 404) as resolved/deprecated
+- `docs/bugs_and_fixes.md` — Marked Bug 11 (`/register` 404) as resolved/deprecated
 
 ### Fixed
 
 - `.gitignore` was ignoring the entire `docs/` directory, preventing documentation from being version-controlled
 - Multi-tenant data isolation: users can no longer see or manipulate records from another business; dashboard, inventory, sales, purchases, and valuation queries are now scoped by `business_id`
+- Bank reconciliation page: `bank_statements` table missing from database (Bug 12)
 
 ### Security
 
@@ -106,6 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Main dashboard KPI cards overflowing with large numbers (Bug 7)
 - Superadmin mobile navigation has no hamburger menu (Bug 8)
 - Content Security Policy blocking Bootstrap Icons and Vercel Analytics (Bug 9)
+- `/register` route returns 404 (Bug 10)
 
 ---
 

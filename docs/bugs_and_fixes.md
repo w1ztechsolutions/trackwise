@@ -297,7 +297,7 @@ psycopg.errors.UndefinedColumn: column businesses.created_by_superadmin_id does 
 
 ---
 
-## Bug 10: `/register` Route Returns 404
+## Bug 11: `/register` Route Returns 404
 
 **Date:** 2026-07-21  
 **Severity:** Low (broken link)  
@@ -315,3 +315,73 @@ psycopg.errors.UndefinedColumn: column businesses.created_by_superadmin_id does 
 **Status:** Known limitation. Users must be created by an admin via Settings → Users.
 
 **Files changed:** None
+
+---
+
+## Bug 12: Bank Reconciliation Page Returns 500 — `bank_statements` Table Does Not Exist
+
+**Date:** 2026-08-17  
+**Severity:** High (feature completely unavailable)  
+**Environment:** Production / Development (Neon PostgreSQL)
+
+**Symptom:**
+
+```bash
+psycopg.errors.UndefinedTable: relation "bank_statements" does not exist
+LINE 3: FROM bank_statements 
+             ^
+
+File "/var/task/app/accounting/routes.py", line 414, in bank_recon
+    ).count()
+```
+
+Navigating to `/accounting/bank-reconciliation` returns HTTP 500.
+
+**Root cause:**
+
+- The `BankStatement` model and migration `20260817_add_bank_statements` were present in the codebase.
+- The database had not received this migration. `alembic_version` only contained `7f8a9b0c1d2e` and `20260816_add_invoice_id_to_sales`.
+- Additionally, the migration tree had **multiple heads** (`7f8a9b0c1d2e` and `20260816_add_invoice_id_to_sales`), which caused `flask db upgrade` to fail with: `Multiple head revisions are present`.
+- Because the migration could not run, the `bank_statements` table and its indexes were never created.
+
+**Fix:**
+
+- Created the `bank_statements` table directly via SQL with the schema matching `app/models/accounting.py`:
+
+  ```sql
+  CREATE TABLE bank_statements (
+      id SERIAL PRIMARY KEY,
+      business_id INTEGER NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+      account_id INTEGER NOT NULL REFERENCES chart_of_accounts(id),
+      statement_date TIMESTAMP NOT NULL,
+      description VARCHAR(255) NOT NULL,
+      amount NUMERIC(14, 2) NOT NULL,
+      reference VARCHAR(100),
+      is_reconciled BOOLEAN NOT NULL DEFAULT FALSE,
+      journal_entry_id INTEGER REFERENCES journal_entries(id),
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+  ```
+
+- Created required indexes:
+
+  ```sql
+  CREATE INDEX ix_bank_statements_business_id ON bank_statements (business_id);
+  CREATE INDEX ix_bank_statements_account_id ON bank_statements (account_id);
+  CREATE INDEX ix_bank_statements_is_reconciled ON bank_statements (is_reconciled);
+  ```
+
+- Inserted migration version `20260817_add_bank_statements` into `alembic_version` so future upgrades remain consistent.
+- Resolved the multiple-head migration tree by creating merge migration `20260817_merge_heads` with `down_revision` pointing to `7f8a9b0c1d2e`, `0015`, and `20260817_add_bank_statements`. This allows `flask db upgrade` to run cleanly.
+
+- Verified the exact failing query now succeeds:
+
+  ```python
+  BankStatement.query.filter_by(business_id=2, account_id=3, is_reconciled=False).count()
+  ```
+
+**Files changed:**
+
+- `migrations/versions/20260817_merge_heads.py` — new merge migration
+- Database schema updated (not code files)
+- `migrations/versions/20260817_add_bank_statements.py` — existing migration now tracked in `alembic_version`
