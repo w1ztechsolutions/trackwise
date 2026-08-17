@@ -15,6 +15,7 @@ from app.services.reports import (
     get_audit_log,
     get_ar_aging,
     get_ap_aging,
+    get_cashbook,
 )
 
 from . import reports_bp

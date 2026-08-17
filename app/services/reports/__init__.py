@@ -11,6 +11,7 @@ from .general_ledger import get_general_ledger
 from .audit_trail import get_audit_log
 from .ar_aging import get_ar_aging
 from .ap_aging import get_ap_aging
+from .cashbook import get_cashbook
 
 __all__ = [
     'get_income_statement',
@@ -21,4 +22,5 @@ __all__ = [
     'get_audit_log',
     'get_ar_aging',
     'get_ap_aging',
+    'get_cashbook',
 ]

@@ -77,6 +77,7 @@ def coa_list():
         ACCOUNT_TYPES=ACCOUNT_TYPES,
         parents=parents,
         parent_map=parent_map,
+        taxonomy=COA_TAXONOMY,
     )
 
 

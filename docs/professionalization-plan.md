@@ -9,6 +9,7 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 ## 1. Accounting Principles Audit
 
 ### ✅ Compliant
+
 - **Double-entry bookkeeping** — `AccountingService.post_entry()` enforces `debits == credits` (`abs(total_debit - total_credit) > 0.01` raises `AccountingException`).
 - **Chart of Accounts** — Hierarchical `ChartOfAccounts` with codes, names, and types (asset/liability/equity/income/expense).
 - **Immutable Audit Trail** — `AuditLog` records `old_values`/`new_values` JSON for every journal entry creation.
@@ -16,8 +17,9 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 - **Report derivation** — All 8 reports (P&L, BS, CF, TB, GL, AR/AP Aging, Audit Trail) are **read-only views** of `JournalEntry`/`JournalLine` data. No manual report edits exist.
 
 ### ⚠️ Gaps vs. GAAP / Professional Practice
+
 | Principle / Feature | Status | Gap |
-|---|---|---|
+| --- | --- | --- |
 | **Accrual vs. Cash basis** | Cash-basis implied | No toggle; all revenue/expense recognized at transaction date. Need accrual support (e.g., invoiced but unpaid revenue). |
 | **Tax per line item** | Flat corporate tax only | `invoice.tax_amount` and `bill.tax_amount` are hardcoded to `0.0`. No VAT/GST, no tax-inclusive pricing, no tax codes. |
 | **Multi-currency** | Single currency (`MWK`) | No exchange-rate tables, no FX gain/loss posting, no multi-currency accounts. |
@@ -41,8 +43,9 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 ## 2. Flow & Route Review
 
 ### Current Route Map (Main App)
+
 | Blueprint | Prefix | Pages |
-|---|---|---|
+| --- | --- | --- |
 | `auth_bp` | `/` | Login, logout, change-password, user CRUD, role/task assignment |
 | `dashboard_bp` | `/dashboard` | Dashboard |
 | `inventory_bp` | `/inventory` | Products, warehouses, stock count/transfer/adjustment |
@@ -57,6 +60,7 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 | `api_bp` | `/api` | Products, suppliers, accounting verify |
 
 ### Critical Route / Flow Issues
+
 1. **`/api/products` is public** — `GET /api/products` returns JSON without `@login_required`. This leaks inventory data to unauthenticated users.
 2. **No manual journal-entry UI** — Accountants cannot create adjusting entries, recurring entries, or bank-reconciliation entries.
 3. **No AR payment recording** — A receipt posts `Dr Cash / Cr AR`, but there is no UI to apply partial payments or track overpayments/underpayments.
@@ -73,8 +77,9 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 ## 3. Missing Core Accounting Modules (Prioritized)
 
 ### P0 — Blocker for Professional Use
+
 | # | Module | Why Critical |
-|---|---|---|
+| --- | --- | --- |
 | 1 | **Chart of Accounts Manager** | COA is currently seed-only. Accountants must be able to add/edit/archive accounts, set opening balances, and reorder codes. |
 | 2 | **Manual Journal Entries** | Essential for adjustments, accruals, depreciation, opening balances, and corrections. Must support multi-line, balanced entry validation, and approval. |
 | 3 | **Bank Reconciliation** | Every business must reconcile bank statements. Needs: bank-account register, statement import (CSV/OFX), match/unmatch, unreconciled report. |
@@ -82,8 +87,9 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 | 5 | **AR Payment Application** | Support partial payments, overpayments, and unallocated cash. Update AR aging accordingly. |
 
 ### P1 — High Value
+
 | # | Module | Why Important |
-|---|---|---|
+| --- | --- | --- |
 | 6 | **Multi-Currency** | Each `Business` already has `currency`; add exchange-rate table, auto-FX posting, and multi-currency reports. |
 | 7 | **Fixed Assets & Depreciation** | Asset register, depreciation methods (straight-line, reducing-balance), auto-journal entries, disposal. |
 | 8 | **Credit Notes / Refunds** | Reverse sales/purchases, update AR/AP, and inventory if applicable. |
@@ -91,8 +97,9 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 | 10 | **Purchase Orders** | PO → Goods Receipt → Bill → Payment lifecycle. |
 
 ### P2 — Nice-to-Have
+
 | # | Module | Why Nice-to-Have |
-|---|---|---|
+| --- | --- | --- |
 | 11 | **Payroll** | Staff payments → payroll journal + statutory deductions. |
 | 12 | **Budgeting & Forecasting** | Budget tables, actual-vs-budget variance. |
 | 13 | **Estimates / Quotes** | Convert quote → invoice. |
@@ -106,7 +113,7 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 ### 4.1 Responsive Design (Tab / Mobile / Desktop)
 
 | Issue | Fix |
-|---|---|
+| --- | --- |
 | No max-width container for large screens | Wrap `.main-content` in a `.container-narrow` (max-width: 1400px, centered) to prevent ultra-wide line lengths on 4K monitors. |
 | Breakpoints only at 768/900/1200 | Add `1024px` tablet breakpoint for sidebar + grid tweaks. Add `480px` for small phones. |
 | No mobile bottom nav | Add a bottom tab bar on `< 768px` for 4–5 top actions (Dashboard, Sales, Purchases, Payments, More). |
@@ -118,7 +125,7 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 ### 4.2 Accessibility (WCAG 2.1 AA)
 
 | Issue | Fix |
-|---|---|
+| ---|  --- |
 | No skip link | Add `<a href="#main-content" class="skip-link">Skip to content</a>` at the top of `base.html`. |
 | No focus trap / return focus in modals | Use Bootstrap's native `tabindex` handling, or add JS to trap focus and return to trigger on close. |
 | Color contrast unverified | Run axe/contrast checker. Replace `rgba(248,250,252,0.55)` muted text with `#94a3b8` (slate-400) for body text; keep `#f8fafc` for headings. Ensure all text meets 4.5:1. |
@@ -133,7 +140,7 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 ### 4.3 Readability & Professional Polish
 
 | Issue | Fix |
-|---|---|
+| --- | --- |
 | Dark-only theme | Add a theme toggle (light/dark) stored in `localStorage` + per-business `setting`. Light theme: white cards, slate text, subtle borders. |
 | All-caps table headers | Reduce to `text-transform: capitalize` or small-caps for readability. |
 | KPI cards lack trend indicators | Add month-over-month % change with up/down arrows. |
@@ -150,7 +157,7 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 ## 5. Data Model & Security Fixes
 
 | Issue | Fix |
-|---|---|
+| --- | --- |
 | `GET /api/products` is public | Move behind `@login_required` or add business-scoped API key auth. |
 | `JournalEntry` hard-delete cascade | Add `is_deleted` soft-delete flag + `deleted_by` + `deleted_at`. Block delete if any downstream report is published. |
 | `Invoice` / `Bill` status limited | Add `sent`, `paid`, `overdue`, `void` statuses. |
@@ -166,6 +173,7 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 ## 6. Prioritized Implementation Plan
 
 ### Phase 1 — Foundation (Weeks 1–2)
+
 1. **Security**: Lock `/api/products` and other JSON endpoints. Add API auth.
 2. **COA Manager**: CRUD UI for Chart of Accounts with opening-balance support.
 3. **Manual Journal Entries**: Multi-line form with auto-balance validation, approval workflow, and reference linking.
@@ -173,6 +181,7 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 5. **Skip link + focus management**: Accessibility quick wins.
 
 ### Phase 2 — Accounting Hardening (Weeks 3–4)
+
 6. **Tax per Line Item**: Update `Invoice`/`Bill`/`InvoiceItem`/`BillItem` to support tax codes, tax-inclusive pricing, and auto-post to `Tax Payable (2200)`.
 7. **AR Payment Application**: Partial/overpayment handling, unallocated cash ledger, AR aging updates.
 8. **Bank Reconciliation Module**: Bank-account register, CSV statement import, match/unmatch, reconciliation report.
@@ -180,6 +189,7 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 10. **Responsive Breakpoints**: Add 480px / 1024px breakpoints, bottom mobile nav, print styles.
 
 ### Phase 3 — Advanced Modules (Weeks 5–6)
+
 11. **Multi-Currency**: Exchange-rate table, FX gain/loss, multi-currency COA accounts.
 12. **Fixed Assets & Depreciation**: Asset CRUD, depreciation schedules, auto-journal entries.
 13. **Recurring Transactions**: Templates + scheduler (Celery beat) for auto-creation.
@@ -187,6 +197,7 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 15. **Accessibility Polish**: Contrast audit, `aria-describedby`, chart fallbacks, error-state ARIA.
 
 ### Phase 4 — Polish & Scale (Weeks 7–8)
+
 16. **Budgeting & Forecasting**: Budget tables + variance reports.
 17. **Document Attachments**: File upload for invoices, bills, receipts.
 18. **Email & PDF Delivery**: WeasyPrint PDFs emailed via Celery.
@@ -216,7 +227,7 @@ TrackWise is a **Flask-based SaaS ERP-lite** with a **strict double-entry accoun
 ## 8. Risks & Mitigations
 
 | Risk | Mitigation |
-|---|---|
+| --- | --- |
 | Schema changes break existing data | Use Alembic migrations; backfill `is_deleted`, `status` columns with defaults. |
 | Approval gating slows daily ops | Make approval optional per config; default to "no approval" for small transactions. |
 | Tax logic complexity | Start with VAT-style per-line tax; avoid nested tax-inclusive math until core flow is stable. |
