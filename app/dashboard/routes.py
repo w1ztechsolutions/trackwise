@@ -42,16 +42,17 @@ def dashboard():
     month_stats = get_profit_loss(start_date=start_of_month, end_date=end_of_month, business_id=biz_id)
     prev_start, prev_end = month_bounds(today, -1)
     prev_month_pl = get_profit_loss(start_date=prev_start, end_date=prev_end, business_id=biz_id)
-    val_stats = get_inventory_valuation()
+    val_stats = get_inventory_valuation(business_id=biz_id)
 
     low_stock_products = Product.query.filter(
-        Product.quantity_in_stock <= Product.low_stock_threshold
+        Product.business_id == biz_id,
+        Product.quantity_in_stock <= Product.low_stock_threshold,
     ).all()
 
-    recent_sales = Sale.query.order_by(Sale.sale_date.desc()).limit(5).all()
-    recent_purchases = Purchase.query.order_by(Purchase.purchase_date.desc()).limit(5).all()
-    recent_expenses = Expense.query.order_by(Expense.expense_date.desc()).limit(5).all()
-    recent_payments = Payment.query.order_by(Payment.payment_date.desc()).limit(5).all()
+    recent_sales = Sale.query.filter_by(business_id=biz_id).order_by(Sale.sale_date.desc()).limit(5).all()
+    recent_purchases = Purchase.query.filter_by(business_id=biz_id).order_by(Purchase.purchase_date.desc()).limit(5).all()
+    recent_expenses = Expense.query.filter_by(business_id=biz_id).order_by(Expense.expense_date.desc()).limit(5).all()
+    recent_payments = Payment.query.filter_by(business_id=biz_id).order_by(Payment.payment_date.desc()).limit(5).all()
 
     chart_labels = []
     chart_sales = []

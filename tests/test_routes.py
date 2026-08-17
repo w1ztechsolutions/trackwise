@@ -97,6 +97,39 @@ class TestInventoryRoutes:
         assert resp.status_code == 200
         assert b'API-001' in resp.data
 
+    def test_users_only_see_their_own_business_products(self, app, business):
+        with app.app_context():
+            from app.models.accounting import Business
+            from models import User
+
+            second_business = Business(name='Second Business', currency='MWK')
+            db.session.add(second_business)
+            db.session.flush()
+
+            second_user = User(
+                business_id=second_business.id,
+                email='second-business@example.com',
+                password_hash='pbkdf2:sha256:600000$dummy',
+                role='admin',
+                is_active=True,
+            )
+            db.session.add(second_user)
+            db.session.add_all([
+                Product(sku='BIZ-A-001', name='Business A Product', default_selling_price=100.0, business_id=business.id),
+                Product(sku='BIZ-B-001', name='Business B Product', default_selling_price=200.0, business_id=second_business.id),
+            ])
+            db.session.commit()
+            second_user_id = second_user.id
+
+        with app.test_client() as second_client:
+            with second_client.session_transaction() as sess:
+                sess['_user_id'] = str(second_user_id)
+
+            resp = second_client.get('/inventory')
+            assert resp.status_code == 200
+            assert b'Business B Product' in resp.data
+            assert b'Business A Product' not in resp.data
+
 
 class TestPurchasesRoutes:
     def test_purchases_page_loads(self, client):

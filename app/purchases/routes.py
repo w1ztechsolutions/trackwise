@@ -67,9 +67,10 @@ def suppliers():
             flash(f'Supplier "{name}" already exists.', 'info')
         return redirect(url_for('purchases.suppliers'))
 
+    biz_id = getattr(current_user, 'business_id', None)
     search_query = request.args.get('search', '').strip()
-    suppliers = Supplier.query.order_by(Supplier.name.asc()).all()
-    
+    suppliers = Supplier.query.filter_by(business_id=biz_id).order_by(Supplier.name.asc()).all()
+
     if search_query:
         suppliers = [s for s in suppliers if search_query.lower() in s.name.lower() or 
                      (s.email and search_query.lower() in s.email.lower()) or
@@ -159,12 +160,13 @@ def payments():
         return redirect(url_for('purchases.payments'))
 
     page = request.args.get('page', 1, type=int)
-    suppliers = Supplier.query.order_by(Supplier.name.asc()).all()
-    staff_members = Staff.query.order_by(Staff.name.asc()).all()
-    categories = FinancialCategory.query.order_by(FinancialCategory.sort_order.asc()).all()
-    line_items = LineItem.query.order_by(LineItem.sort_order.asc()).all()
-    bills = Bill.query.filter(Bill.business_id == getattr(current_user, 'business_id', None)).order_by(Bill.bill_date.desc()).all()
-    payments = Payment.query.order_by(Payment.payment_date.desc()).paginate(page=page, per_page=10)
+    biz_id = getattr(current_user, 'business_id', None)
+    suppliers = Supplier.query.filter_by(business_id=biz_id).order_by(Supplier.name.asc()).all()
+    staff_members = Staff.query.filter_by(business_id=biz_id).order_by(Staff.name.asc()).all()
+    categories = FinancialCategory.query.filter_by(business_id=biz_id).order_by(FinancialCategory.sort_order.asc()).all()
+    line_items = LineItem.query.filter_by(business_id=biz_id).order_by(LineItem.sort_order.asc()).all()
+    bills = Bill.query.filter(Bill.business_id == biz_id).order_by(Bill.bill_date.desc()).all()
+    payments = Payment.query.filter_by(business_id=biz_id).order_by(Payment.payment_date.desc()).paginate(page=page, per_page=10)
 
     import json
     line_items_json = json.dumps([{
@@ -231,9 +233,10 @@ def purchases():
 
         return redirect(url_for('purchases.purchases'))
 
-    products = Product.query.order_by(Product.name.asc()).all()
+    biz_id = getattr(current_user, 'business_id', None)
+    products = Product.query.filter_by(business_id=biz_id).order_by(Product.name.asc()).all()
     page = request.args.get('page', 1, type=int)
-    purchase_records = Purchase.query.order_by(Purchase.purchase_date.desc()).paginate(page=page, per_page=10)
+    purchase_records = Purchase.query.filter_by(business_id=biz_id).order_by(Purchase.purchase_date.desc()).paginate(page=page, per_page=10)
     return render_template('purchases.html', products=products, purchases=purchase_records)
 
 

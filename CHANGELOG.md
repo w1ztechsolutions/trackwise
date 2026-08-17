@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - `.gitignore` was ignoring the entire `docs/` directory, preventing documentation from being version-controlled
+- Multi-tenant data isolation: users can no longer see or manipulate records from another business; dashboard, inventory, sales, purchases, and valuation queries are now scoped by `business_id`
 
 ### Security
 - Added `SECURITY.md` with vulnerability reporting process and deployment security best practices

@@ -206,7 +206,37 @@ psycopg.errors.UndefinedColumn: column businesses.created_by_superadmin_id does 
 
 ---
 
-## Bug 9: Content Security Policy Blocks Bootstrap Icons and Vercel Analytics
+## Bug 9: Cross-business data leak through unscoped page and API queries
+
+**Date:** 2026-08-17  
+**Severity:** Critical  
+**Environment:** All multi-tenant users
+
+**Symptom:**
+> A user logged into one business could see inventory, customer, supplier, and financial records belonging to a different business.
+
+**Root cause:**
+- Several route handlers and dashboard queries listed products, customers, suppliers, invoices, purchases, expenses, bills, and payment data without an explicit `business_id` filter.
+- The app set the tenant context at request time in `g.business_id`, but multiple lists ignored it and read across the full table.
+- Inventory valuation and some duplicate checks also used global queries, enabling cross-tenant visibility and accidental name collisions.
+
+**Fix:**
+- Scoped all dashboard, inventory, sales, purchases, and warehouse listing queries to the authenticated user’s business.
+- Added business ownership checks before update/delete actions on product records.
+- Added a regression test covering a second business user that confirms only their own business data is visible.
+- Restricted all inventory valuation queries to the active business as well.
+
+**Files changed:**
+- `app/dashboard/routes.py`
+- `app/inventory/routes.py`
+- `app/sales/routes.py`
+- `app/purchases/routes.py`
+- `services/fifo_service.py`
+- `tests/test_routes.py`
+
+---
+
+## Bug 10: Content Security Policy Blocks Bootstrap Icons and Vercel Analytics
 
 **Date:** 2026-07-21  
 **Severity:** Medium (styles and analytics fail to load)  

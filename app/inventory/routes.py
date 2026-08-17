@@ -21,6 +21,11 @@ def inventory():
         action = request.form.get('action', 'create_product')
 
         if action == 'create_product':
+            biz_id = getattr(current_user, 'business_id', None)
+            if biz_id is None:
+                flash('No active business selected.', 'danger')
+                return redirect(url_for('inventory.inventory'))
+
             name = request.form.get('name').strip()
             description = request.form.get('description', '').strip()
             threshold = int(request.form.get('low_stock_threshold', 5))
@@ -33,17 +38,17 @@ def inventory():
                 flash('Product Name is required!', 'danger')
                 return redirect(url_for('inventory.inventory'))
 
-            max_product = Product.query.order_by(Product.id.desc()).first()
+            max_product = Product.query.filter_by(business_id=biz_id).order_by(Product.id.desc()).first()
             next_num = max_product.id + 1 if max_product else 1
             sku = f'PROD-{next_num:03d}'
 
-            existing = Product.query.filter_by(name=name).first()
+            existing = Product.query.filter_by(business_id=biz_id, name=name).first()
             if existing:
                 flash(f'Product with name "{name}" already exists!', 'danger')
                 return redirect(url_for('inventory.inventory'))
 
             product = Product(
-                business_id=getattr(current_user, 'business_id', None),
+                business_id=biz_id,
                 sku=sku,
                 name=name,
                 description=description,
@@ -62,20 +67,22 @@ def inventory():
             return redirect(url_for('inventory.inventory'))
 
         elif action == 'delete_product':
+            biz_id = getattr(current_user, 'business_id', None)
             product_id = int(request.form['product_id'])
             product = db.session.get(Product, product_id)
-            if product:
-                product.is_active = False
-                db.session.commit()
-                flash(f'Product "{product.name}" has been deactivated.', 'success')
-            else:
+            if not product or product.business_id != biz_id:
                 flash('Product not found.', 'danger')
+                return redirect(url_for('inventory.inventory'))
+            product.is_active = False
+            db.session.commit()
+            flash(f'Product "{product.name}" has been deactivated.', 'success')
             return redirect(url_for('inventory.inventory'))
 
         elif action == 'edit_product':
+            biz_id = getattr(current_user, 'business_id', None)
             product_id = int(request.form['product_id'])
             product = db.session.get(Product, product_id)
-            if not product:
+            if not product or product.business_id != biz_id:
                 flash('Product not found.', 'danger')
                 return redirect(url_for('inventory.inventory'))
 
@@ -94,6 +101,11 @@ def inventory():
             return redirect(url_for('inventory.inventory'))
 
         elif action == 'create_warehouse':
+            biz_id = getattr(current_user, 'business_id', None)
+            if biz_id is None:
+                flash('No active business selected.', 'danger')
+                return redirect(url_for('inventory.inventory'))
+
             name = request.form.get('name', '').strip()
             location = request.form.get('location', '').strip() or None
 
@@ -101,7 +113,7 @@ def inventory():
                 flash('Warehouse name is required.', 'danger')
                 return redirect(url_for('inventory.inventory'))
 
-            warehouse = Warehouse(name=name, location=location, is_active=True)
+            warehouse = Warehouse(business_id=biz_id, name=name, location=location, is_active=True)
             db.session.add(warehouse)
             db.session.commit()
             flash(f'Warehouse "{name}" added successfully!', 'success')
@@ -194,11 +206,12 @@ def inventory():
             flash('Unknown inventory action.', 'danger')
             return redirect(url_for('inventory.inventory'))
 
-    products = Product.query.filter_by(is_active=True).order_by(Product.name.asc()).all()
-    warehouses = Warehouse.query.filter_by(is_active=True).order_by(Warehouse.name.asc()).all()
+    biz_id = getattr(current_user, 'business_id', None)
+    products = Product.query.filter_by(business_id=biz_id, is_active=True).order_by(Product.name.asc()).all()
+    warehouses = Warehouse.query.filter_by(business_id=biz_id, is_active=True).order_by(Warehouse.name.asc()).all()
     low_stock_count = sum(1 for p in products if p.quantity_in_stock <= p.low_stock_threshold)
 
-    valuations = get_inventory_valuation()
+    valuations = get_inventory_valuation(business_id=biz_id)
     val_map = {item['product'].id: item['valuation'] for item in valuations['product_valuations']}
 
     return render_template(

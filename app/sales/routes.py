@@ -47,9 +47,10 @@ def customers():
             flash(f'Customer "{name}" already exists.', 'info')
         return redirect(url_for('sales.customers'))
 
+    biz_id = getattr(current_user, 'business_id', None)
     search_query = request.args.get('search', '').strip()
-    customers = Customer.query.order_by(Customer.name.asc()).all()
-    
+    customers = Customer.query.filter_by(business_id=biz_id).order_by(Customer.name.asc()).all()
+
     if search_query:
         customers = [c for c in customers if search_query.lower() in c.name.lower() or 
                      (c.email and search_query.lower() in c.email.lower()) or
@@ -147,10 +148,11 @@ def invoices():
         flash(f'Invoice {invoice.invoice_number} created successfully.', 'success')
         return redirect(url_for('sales.invoices'))
 
+    biz_id = getattr(current_user, 'business_id', None)
     page = request.args.get('page', 1, type=int)
-    customers = Customer.query.order_by(Customer.name.asc()).all()
-    products = Product.query.order_by(Product.name.asc()).all()
-    invoices = Invoice.query.order_by(Invoice.invoice_date.desc()).paginate(page=page, per_page=10)
+    customers = Customer.query.filter_by(business_id=biz_id).order_by(Customer.name.asc()).all()
+    products = Product.query.filter_by(business_id=biz_id).order_by(Product.name.asc()).all()
+    invoices = Invoice.query.filter_by(business_id=biz_id).order_by(Invoice.invoice_date.desc()).paginate(page=page, per_page=10)
     return render_template('invoices.html', customers=customers, products=products, invoices=invoices)
 
 
@@ -211,10 +213,11 @@ def sales():
 
         return redirect(url_for('sales.sales'))
 
-    products = Product.query.filter(Product.quantity_in_stock > 0).order_by(Product.name.asc()).all()
-    invoices = Invoice.query.order_by(Invoice.invoice_date.desc()).all()
+    biz_id = getattr(current_user, 'business_id', None)
+    products = Product.query.filter(Product.business_id == biz_id, Product.quantity_in_stock > 0).order_by(Product.name.asc()).all()
+    invoices = Invoice.query.filter_by(business_id=biz_id).order_by(Invoice.invoice_date.desc()).all()
     page = request.args.get('page', 1, type=int)
-    sale_records = Sale.query.order_by(Sale.sale_date.desc()).paginate(page=page, per_page=10)
+    sale_records = Sale.query.filter_by(business_id=biz_id).order_by(Sale.sale_date.desc()).paginate(page=page, per_page=10)
     return render_template('sales.html', products=products, sales=sale_records, invoices=invoices)
 
 

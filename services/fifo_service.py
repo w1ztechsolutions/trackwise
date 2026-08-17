@@ -589,19 +589,25 @@ def get_profit_loss(start_date=None, end_date=None, business_id=None):
     }
 
 
-def get_inventory_valuation():
-    products = Product.query.all()
+def get_inventory_valuation(business_id=None):
+    products_query = Product.query
+    if business_id is not None:
+        products_query = products_query.filter(Product.business_id == business_id)
+    products = products_query.all()
     product_valuations = []
     total_valuation = 0.0
 
     for product in products:
-        layers = (
+        layers_query = (
             StockTransaction.query.filter(
                 StockTransaction.product_id == product.id,
                 StockTransaction.remaining_quantity > 0,
                 StockTransaction.quantity > 0,
-            ).all()
+            )
         )
+        if business_id is not None:
+            layers_query = layers_query.filter(StockTransaction.business_id == business_id)
+        layers = layers_query.all()
         prod_val = 0.0
         for layer in layers:
             prod_val += float(layer.remaining_quantity) * float(layer.unit_cost)
