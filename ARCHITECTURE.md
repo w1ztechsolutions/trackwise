@@ -313,7 +313,7 @@ All reports are dynamically generated from journal entries:
 | Role | Permissions |
 |------|-------------|
 | `admin` | Full access to everything |
-| `accountant` | Financial reports, expenses, settings |
+| `accountant` | Financial reports, payments, settings, accounting |
 | `cashier` | Sales, receipts, basic inventory view |
 | `storekeeper` | Inventory, purchases, production |
 | `viewer` | Read-only dashboards and reports |

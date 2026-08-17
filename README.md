@@ -178,14 +178,14 @@ Test configuration uses SQLite in-memory database. Tests cover:
 trackwise/
 ├── app/
 │   ├── __init__.py              # Application factory
-│   ├── models/                  # Database models
-│   │   ├── accounting.py        # Business, ChartOfAccounts, JournalEntry, etc.
-│   │   ├── approval.py          # Approval workflow models
-│   │   ├── inventory.py         # Product, Warehouse, StockMovement, etc.
+│   ├── models/                  # Database model submodules
+│   │   ├── __init__.py          # Re-exports all models
+│   │   ├── accounting.py        # Business, ChartOfAccounts, JournalEntry, JournalLine, AuditLog, BankStatement
+│   │   ├── approval.py          # ApprovalConfig, ApprovalRequest, ApprovalAction
+│   │   ├── inventory.py         # Product, Warehouse, StockMovement, StockTransaction, Customer, Supplier, Invoice, Bill, Payment, etc.
 │   │   ├── mixins.py            # BusinessScopedMixin for multi-tenant queries
 │   │   ├── superadmin.py        # SuperAdmin model
-│   │   ├── user.py              # User model wrapper
-│   │   └── __init__.py          # Model imports
+│   │   └── user.py              # User model wrapper
 │   ├── services/
 │   │   ├── accounting_service.py
 │   │   ├── inventory_service.py
@@ -208,13 +208,13 @@ trackwise/
 │   │   └── validators.py
 │   ├── dashboard/               # Dashboard routes
 │   │   └── routes.py
-│   ├── expenses/                # Expense routes (deprecated, redirects to payments)
-│   │   └── routes.py
 │   ├── inventory/               # Inventory routes
 │   │   └── routes.py
 │   ├── purchases/               # Purchase/Bill/Payment routes
 │   │   └── routes.py
 │   ├── sales/                   # Sales/Invoice routes
+│   │   └── routes.py
+│   ├── expenses/                # Expense routes (deprecated, redirects to payments)
 │   │   └── routes.py
 │   ├── reports/                 # Report routes
 │   │   └── routes.py
@@ -229,6 +229,9 @@ trackwise/
 │   │   ├── routes.py
 │   │   └── templates/
 │   ├── approvals/               # Approval workflow routes
+│   │   ├── routes.py
+│   │   └── templates/
+│   ├── accounting/              # Chart of Accounts & manual journal entries
 │   │   ├── routes.py
 │   │   └── templates/
 │   ├── tasks/                   # Celery tasks
@@ -261,7 +264,10 @@ trackwise/
 ├── ARCHITECTURE.md              # System architecture
 ├── UPGRADE.md                   # Upgrade roadmap
 ├── DEPLOY_VERCEL.md             # Vercel deployment guide
-└── README.md
+├── README.md
+├── AGENT.md                     # AI documentation enforcement rules
+├── SECURITY.md                  # Security policy
+└── LICENSE                      # Proprietary license
 ```
 
 ## API Endpoints
@@ -384,10 +390,18 @@ In production, logs are formatted as JSON for aggregation:
 - **[DEPLOY_VERCEL.md](DEPLOY_VERCEL.md)** — Vercel deployment guide
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — Contribution guidelines and code style
 - **[CHANGELOG.md](CHANGELOG.md)** — Version history and release notes
+- **[AGENT.md](AGENT.md)** — AI documentation enforcement rules
+- **[SECURITY.md](SECURITY.md)** — Security policy and best practices
+- **[LICENSE](LICENSE)** — Proprietary license
 - **[docs/API.md](docs/API.md)** — JSON API documentation
 - **[docs/PAYMENTS_HUB.md](docs/PAYMENTS_HUB.md)** — Payments Hub system documentation
 - **[docs/bugs_and_fixes.md](docs/bugs_and_fixes.md)** — Known bugs and fixes log
+- **[docs/OPERATIONS.md](docs/OPERATIONS.md)** — Operations runbook and utility scripts
+- **[docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)** — Environment variable reference
+- **[docs/DATABASE.md](docs/DATABASE.md)** — Database schema reference
+- **[docs/RELEASES.md](docs/RELEASES.md)** — Release process and versioning guide
 - **[docs/adr/README.md](docs/adr/README.md)** — Architecture Decision Records
+- **[docs/missing_documentation_audit.md](docs/missing_documentation_audit.md)** — Documentation gap audit
 
 ## License
 
