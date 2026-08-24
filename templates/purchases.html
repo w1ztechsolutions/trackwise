@@ -39,7 +39,7 @@
             <div class="items-section">
                 <div class="section-header">
                     <h4 class="checkout-section-title">Purchase Items</h4>
-                    <button type="button" class="btn-secondary btn-sm" onclick="addPurchaseRow()">
+                    <button type="button" class="btn-secondary btn-sm" id="add-purchase-row">
                         + Add Item Row
                     </button>
                 </div>
@@ -111,117 +111,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-    // Load products database for row selections
-    let productsList = [];
-    let suppliersList = [];
-
-    fetch('/api/products')
-        .then(res => res.json())
-        .then(data => {
-            productsList = data;
-            // Add initial row
-            addPurchaseRow();
-        });
-
-    fetch('/api/suppliers')
-        .then(res => res.json())
-        .then(data => {
-            suppliersList = data;
-            populateSupplierDropdown();
-        });
-
-    function populateSupplierDropdown() {
-        const select = document.getElementById('supplier_id');
-        suppliersList.forEach(s => {
-            const option = document.createElement('option');
-            option.value = s.id;
-            option.textContent = s.name;
-            select.appendChild(option);
-        });
-    }
-
-    function addPurchaseRow() {
-        const container = document.getElementById('purchase-items-container');
-        const rowId = Date.now() + Math.random().toString(36).substr(2, 5);
-
-        const rowHTML = `
-            <div class="item-row-grid" id="row-${rowId}">
-                <div class="form-group">
-                    <label class="form-label">Select Product</label>
-                    <select name="product_id[]" required class="form-control" onchange="updateRowDefaults('${rowId}', this)">
-                        <option value="">-- Choose --</option>
-                        ${productsList.map(p => `<option value="${p.id}" data-price="${p.default_selling_price}">${p.name} (${p.sku})</option>`).join('')}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Qty</label>
-                    <input type="number" name="quantity[]" min="1" required class="form-control quantity-input" oninput="validatePurchaseRow('${rowId}'); calculateTotal()" placeholder="0">
-                    <span class="field-error" id="qty-error-${rowId}" role="alert"></span>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Unit Cost (MWK)</label>
-                    <input type="number" name="unit_cost[]" step="0.01" min="0" required class="form-control price-input" oninput="calculateTotal()" placeholder="0.00">
-                    <span class="field-error" id="price-error-${rowId}" role="alert"></span>
-                </div>
-                <button type="button" class="btn-remove-row" onclick="removeRow('${rowId}')" aria-label="Remove item">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    </svg>
-                </button>
-            </div>
-        `;
-
-        container.insertAdjacentHTML('beforeend', rowHTML);
-    }
-
-    function removeRow(rowId) {
-        const row = document.getElementById(`row-${rowId}`);
-        if (row) {
-            row.remove();
-            calculateTotal();
-        }
-    }
-
-    function updateRowDefaults(rowId, selectElem) {
-        // Here we could autofill average cost, but for purchases, cost is entered by user.
-        // We just recalculate total in case.
-        calculateTotal();
-    }
-
-    function validatePurchaseRow(rowId) {
-        const row = document.getElementById(`row-${rowId}`);
-        const qtyInput = row.querySelector('.quantity-input');
-        const qtyError = document.getElementById(`qty-error-${rowId}`);
-        const qty = parseInt(qtyInput.value) || 0;
-        if (qty <= 0) {
-            qtyInput.classList.add('input-error');
-            qtyInput.setAttribute('aria-invalid', 'true');
-            if (qtyError) qtyError.textContent = 'Quantity must be at least 1';
-        } else {
-            qtyInput.classList.remove('input-error');
-            qtyInput.removeAttribute('aria-invalid');
-            if (qtyError) qtyError.textContent = '';
-        }
-    }
-
-    function calculateTotal() {
-        const container = document.getElementById('purchase-items-container');
-        const rows = container.querySelectorAll('.item-row-grid');
-        let overallTotal = 0;
-
-        rows.forEach(row => {
-            const qtyInput = row.querySelector('input[name="quantity[]"]');
-            const costInput = row.querySelector('input[name="unit_cost[]"]');
-
-            const qty = parseInt(qtyInput.value) || 0;
-            const cost = parseFloat(costInput.value) || 0;
-
-            overallTotal += qty * cost;
-        });
-
-        document.getElementById('overall-total').textContent = 'MWK ' + overallTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-</script>
+<script src="{{ url_for('static', filename='js/purchases.js') }}"></script>
+{% endblock %}
 {% endblock %}

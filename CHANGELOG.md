@@ -50,6 +50,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - Added `SECURITY.md` with vulnerability reporting process and deployment security best practices
+- CSP hardened: removed `'unsafe-inline'` from `script-src`, added per-request nonces, and added `object-src 'none'`
+- SRI added to all external `<script>` and `<link>` tags (Chart.js, Bootstrap, Vercel Insights, Google Fonts, Bootstrap Icons)
+- Inline event handlers replaced with `data-` attributes and external JS listeners to eliminate inline code dependencies
 
 ---
 

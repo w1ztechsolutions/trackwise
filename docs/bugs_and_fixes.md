@@ -385,3 +385,68 @@ Navigating to `/accounting/bank-reconciliation` returns HTTP 500.
 - `migrations/versions/20260817_merge_heads.py` — new merge migration
 - Database schema updated (not code files)
 - `migrations/versions/20260817_add_bank_statements.py` — existing migration now tracked in `alembic_version`
+
+---
+
+## Bug 13: MDN HTTP Observatory Flags Unsafe CSP and Missing SRI
+
+**Date:** 2026-08-24  
+**Severity:** High (security scan failures, -25 grade penalty)  
+**Environment:** Production (`trackwise-chi.vercel.app`)
+
+**Symptom:**
+
+- MDN HTTP Observatory score: 75/100 (Grade B)
+- **Content Security Policy (CSP)** test failed (-20 points)
+- **Subresource Integrity (SRI)** test failed (-5 points)
+
+**Root cause:**
+
+- `script-src` included `'unsafe-inline'`, allowing arbitrary inline JavaScript execution.
+- No `object-src` restriction was present.
+- External scripts loaded from CDNs lacked `integrity` and `crossorigin` attributes.
+- Inline `<style>` blocks and inline `<script>` blocks relied on `'unsafe-inline'` to function.
+
+**Fix:**
+
+- Added per-request CSP nonce generation in `app/__init__.py` via `_set_csp_nonce` and injected `csp_nonce` into all templates.
+- Removed `'unsafe-inline'` from `script-src`; added `'nonce-{nonce}'` and `object-src 'none'`.
+- Externalized inline critical CSS into `static/css/critical.css`.
+- Externalized inline scripts into dedicated files under `static/js/` (`speed-insights-init.js`, `sa-sidebar.js`, `dashboard.js`, `inventory.js`, `journal-entry-form.js`, `journal-entries.js`, `payments.js`, `purchases.js`, `sales.js`).
+- Replaced all inline event handlers (`onclick`, `onchange`, `onsubmit`) with `data-` attributes handled by `static/js/form-handlers.js`.
+- Added SHA-256 `integrity` hashes and `crossorigin="anonymous"` to all external `<script>` and `<link>` tags (Chart.js, Bootstrap, Vercel Insights, Google Fonts, Bootstrap Icons).
+
+**Security:** Yes — fixes two HTTP security header failures flagged by MDN Observatory.
+
+**Files changed:**
+
+- `app/__init__.py`
+- `templates/base.html`
+- `templates/dashboard.html`
+- `templates/inventory.html`
+- `templates/journal_entry_form.html`
+- `templates/journal_entries.html`
+- `templates/payments.html`
+- `templates/purchases.html`
+- `templates/sales.html`
+- `templates/bank_reconcile.html`
+- `templates/chart_of_accounts.html`
+- `templates/customers.html`
+- `templates/document_receipt.html`
+- `templates/invoices.html`
+- `templates/reports.html`
+- `templates/settings.html`
+- `templates/suppliers.html`
+- `app/superadmin/templates/sa_base.html`
+- `app/superadmin/templates/sa_login.html`
+- `static/css/critical.css`
+- `static/js/dashboard.js`
+- `static/js/form-handlers.js`
+- `static/js/inventory.js`
+- `static/js/journal-entries.js`
+- `static/js/journal-entry-form.js`
+- `static/js/payments.js`
+- `static/js/purchases.js`
+- `static/js/sa-sidebar.js`
+- `static/js/sales.js`
+- `static/js/speed-insights-init.js`

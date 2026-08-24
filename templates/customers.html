@@ -163,7 +163,7 @@
                     </td>
                     <td>
                         <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editCustomerModal{{ customer.id }}">Edit</button>
-                        <form method="POST" action="{{ url_for('sales.delete_customer', customer_id=customer.id) }}" style="display:inline" onsubmit="return confirm('Delete this customer?');">
+                        <form method="POST" action="{{ url_for('sales.delete_customer', customer_id=customer.id) }}" style="display:inline" data-confirm="Delete this customer?">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
                         </form>

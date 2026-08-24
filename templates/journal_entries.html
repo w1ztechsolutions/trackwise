@@ -65,18 +65,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-document.addEventListener('click', function (e) {
-    var t = e.target.closest('button[data-bs-toggle="modal"]');
-    if (!t) return;
-    var target = t.getAttribute('data-bs-target');
-    if (!target) return;
-    var modalEl = document.querySelector(target);
-    if (modalEl) {
-        var modal = new bootstrap.Modal(modalEl);
-        modal.show();
-        e.preventDefault();
-    }
-});
-</script>
+<script src="{{ url_for('static', filename='js/journal-entries.js') }}"></script>
+{% endblock %}
 {% endblock %}

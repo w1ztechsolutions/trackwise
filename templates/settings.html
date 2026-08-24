@@ -62,7 +62,7 @@
                 </p>
                 <form method="POST" action="{{ url_for('settings.settings') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="seed_data">
-                    <button type="submit" class="btn-primary btn-block" onclick="return confirm('WARNING: Seeding data will wipe out all current transactions and products in the database. Are you sure you want to proceed?')">
+                    <button type="submit" class="btn-primary btn-block" data-confirm="WARNING: Seeding data will wipe out all current transactions and products in the database. Are you sure you want to proceed?">
                         Seed Demonstration Data
                     </button>
                 </form>

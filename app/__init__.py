@@ -1,3 +1,4 @@
+import secrets
 import click
 import importlib
 import os
@@ -269,6 +270,10 @@ def create_app(config_object=None):
         return _db.session.get(User, int(user_id))
 
     @app.before_request
+    def _set_csp_nonce():
+        g.csp_nonce = secrets.token_urlsafe(16)
+
+    @app.before_request
     def _set_business_context():
         try:
             from flask_login import current_user
@@ -295,16 +300,18 @@ def create_app(config_object=None):
     @app.context_processor
     def _inject_nav():
         show_nav = True
+        csp_nonce = getattr(g, "csp_nonce", "")
         try:
             if request.endpoint in ("static",):
                 show_nav = False
         except Exception:
             show_nav = True
-        return dict(show_nav=show_nav)
+        return dict(show_nav=show_nav, csp_nonce=csp_nonce)
 
     @app.after_request
     def set_security_headers(response):
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline' https://cdn.vercel-insights.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://vitals.vercel-analytics.com; form-action 'self'; frame-ancestors 'none';"
+        nonce = getattr(g, "csp_nonce", "")
+        response.headers["Content-Security-Policy"] = f"default-src 'self'; script-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net https://cdn.vercel-insights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://vitals.vercel-analytics.com; form-action 'self'; frame-ancestors 'none'; object-src 'none';"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"

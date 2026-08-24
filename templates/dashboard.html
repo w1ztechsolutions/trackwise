@@ -218,79 +218,12 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const ctx = document.getElementById('salesExpensesChart').getContext('2d');
-        
-        const labels = {{ chart_labels | tojson }};
-        const salesData = {{ chart_sales | tojson }};
-        const expensesData = {{ chart_expenses | tojson }};
-        
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Sales Revenue',
-                        data: salesData,
-                        borderColor: '#8b5cf6',
-                        backgroundColor: 'rgba(139, 92, 246, 0.15)',
-                        borderWidth: 3,
-                        fill: true,
-                        tension: 0.4
-                    },
-                    {
-                        label: 'Operating Expenses',
-                        data: expensesData,
-                        borderColor: '#ef4444',
-                        backgroundColor: 'rgba(239, 68, 68, 0.05)',
-                        borderWidth: 3,
-                        fill: true,
-                        tension: 0.4
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: {
-                            color: '#9ca3af',
-                            font: {
-                                family: 'Outfit',
-                                size: 12
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: {
-                            color: 'rgba(255, 255, 255, 0.03)'
-                        },
-                        ticks: {
-                            color: '#9ca3af',
-                            font: { family: 'Outfit' }
-                        }
-                    },
-                    y: {
-                        grid: {
-                            color: 'rgba(255, 255, 255, 0.03)'
-                        },
-                        ticks: {
-                            color: '#9ca3af',
-                            font: { family: 'Outfit' },
-                            callback: function(value) {
-                                return 'MWK ' + value.toLocaleString();
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    });
+<script type="application/json" id="chartData">
+{
+    "labels": {{ chart_labels | tojson }},
+    "sales": {{ chart_sales | tojson }},
+    "expenses": {{ chart_expenses | tojson }}
+}
 </script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %}

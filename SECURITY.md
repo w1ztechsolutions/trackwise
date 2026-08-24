@@ -65,3 +65,14 @@ TrackWise sets the following security headers on all responses:
 - Celery tasks run synchronously in serverless mode; avoid processing sensitive data in synchronous request paths when possible.
 - WeasyPrint PDF generation runs in the request thread on Vercel; ensure PDF data does not contain sensitive information in logs.
 - The `/api/products` endpoint is authenticated but does not support API key auth; for integrations, consider adding token-based authentication.
+
+### Security Updates
+
+**2026-08-24 — CSP and SRI Hardening**
+- MDN HTTP Observatory flagged two failures: unsafe CSP (`'unsafe-inline'` in `script-src`, missing `object-src`) and missing SRI hashes on external scripts.
+- Implemented per-request CSP nonces (`secrets.token_urlsafe(16)`) and removed `'unsafe-inline'` from `script-src`.
+- Added `object-src 'none'` to prevent plugin-based attacks.
+- Externalized all inline critical CSS and JavaScript into dedicated files under `static/css/` and `static/js/`.
+- Replaced inline event handlers (`onclick`, `onchange`, `onsubmit`) with `data-` attributes handled by a global `form-handlers.js`.
+- Added SHA-256 `integrity` hashes and `crossorigin="anonymous"` to every external `<script>` and `<link>` tag.
+- Observatory score improved from 75 to expected 90+.

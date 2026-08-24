@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Super Admin{% endblock %} - TrackWise</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha256-7f1d37f0d90b6385354c2ac10e2bb91563c46bd7a266ed351222ebcac8496c2a" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" integrity="sha256-b9e2ee3ee86f447aebb15c14fe952200ce9afcde0e6b8b693bdc0907ea444b42" crossorigin="anonymous">
     <style>
         body {
             background: #f5f6fa;
@@ -167,34 +167,11 @@
         {% block content %}{% endblock %}
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer integrity="sha256-aa53d582f97eb594c2a5cc5824574707f9ba9837bce3046bfa5f3556860f4e04" crossorigin="anonymous"></script>
     <!-- Vercel Web Analytics -->
-    <script defer src="https://cdn.vercel-insights.com/v1/script.js"></script>
+    <script defer src="https://cdn.vercel-insights.com/v1/script.js" integrity="sha256-79bf638dd4acdeb9b80c5a4009a3e1986968d615e9557dcf23d91b5e8ad158d8" crossorigin="anonymous"></script>
     <!-- Vercel Speed Insights -->
-    <script type="module">
-        import { injectSpeedInsights } from 'https://cdn.jsdelivr.net/npm/@vercel/speed-insights@2/dist/index.mjs';
-        injectSpeedInsights();
-    </script>
-    <script>
-        const saToggle = document.getElementById('saSidebarToggle');
-        const saSidebar = document.querySelector('.sidebar');
-        const saOverlay = document.getElementById('saSidebarOverlay');
-
-        function closeSaSidebar() {
-            saSidebar.classList.remove('open');
-            saOverlay.classList.remove('open');
-        }
-
-        if (saToggle && saSidebar && saOverlay) {
-            saToggle.addEventListener('click', () => {
-                saSidebar.classList.toggle('open');
-                saOverlay.classList.toggle('open');
-            });
-            saOverlay.addEventListener('click', closeSaSidebar);
-            saSidebar.querySelectorAll('.nav-link').forEach(link => {
-                link.addEventListener('click', closeSaSidebar);
-            });
-        }
-    </script>
+    <script type="module" src="{{ url_for('static', filename='js/speed-insights-init.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/sa-sidebar.js') }}"></script>
 </body>
 </html>

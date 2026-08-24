@@ -173,7 +173,7 @@
                     </td>
                     <td>
                         <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editSupplierModal{{ supplier.id }}" aria-label="Edit supplier">Edit</button>
-                        <form method="POST" action="{{ url_for('purchases.delete_supplier', supplier_id=supplier.id) }}" style="display:inline" onsubmit="return confirm('Delete this supplier?');">
+                        <form method="POST" action="{{ url_for('purchases.delete_supplier', supplier_id=supplier.id) }}" style="display:inline" data-confirm="Delete this supplier?">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Delete supplier">Delete</button>
                         </form>

@@ -81,7 +81,7 @@
                             </form>
                             {% endif %}
                             {% if invoice.status not in ('paid', 'void', 'credit_note_issued') %}
-                            <form method="POST" action="{{ url_for('sales.invoice_mark_paid', invoice_id=invoice.id) }}" class="d-inline" onsubmit="return confirm('Mark this invoice as paid?');">
+                            <form method="POST" action="{{ url_for('sales.invoice_mark_paid', invoice_id=invoice.id) }}" class="d-inline" data-confirm="Mark this invoice as paid?">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="amount" value="{{ invoice.total_amount }}">
                                 <button type="submit" class="btn btn-outline-success">Mark Paid</button>

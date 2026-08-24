@@ -17,7 +17,7 @@
     <div class="form-group">
         <form method="GET" style="display: flex; gap: 8px; align-items: center;">
             <label class="form-label" style="margin-bottom: 0;">Show:</label>
-            <select name="show" class="form-control" onchange="this.form.submit()" style="max-width: 200px;">
+            <select name="show" class="form-control" data-autosubmit="true" style="max-width: 200px;">
                 <option value="unreconciled" {% if show == 'unreconciled' %}selected{% endif %}>Unreconciled</option>
                 <option value="reconciled" {% if show == 'reconciled' %}selected{% endif %}>Reconciled</option>
                 <option value="all" {% if show == 'all' %}selected{% endif %}>All</option>
