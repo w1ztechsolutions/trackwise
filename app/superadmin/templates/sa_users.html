@@ -21,8 +21,8 @@
                         {% for user in users %}
                         <tr>
                             <td>{{ user.id }}</td>
-                            <td>{{ user.email }}</td>
-                            <td>{{ businesses[user.business_id].name if user.business_id in businesses else 'N/A' }}</td>
+                            <td><div class="text-truncate" style="max-width: 250px;">{{ user.email }}</div></td>
+                            <td><div class="text-truncate" style="max-width: 200px;">{{ businesses[user.business_id].name if user.business_id in businesses else 'N/A' }}</div></td>
                             <td>
                                 {% if user.role == 'admin' %}
                                 <span class="badge bg-danger">admin</span>

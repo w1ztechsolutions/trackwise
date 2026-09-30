@@ -24,7 +24,7 @@
                         {% for biz in businesses %}
                         <tr>
                             <td>{{ biz.id }}</td>
-                            <td><strong>{{ biz.name }}</strong></td>
+                            <td><div class="text-truncate" style="max-width: 250px;"><strong>{{ biz.name }}</strong></div></td>
                             <td>{{ biz.currency }}</td>
                             <td>{{ biz.tax_id or '-' }}</td>
                             <td>{{ biz.created_at.strftime('%Y-%m-%d') if biz.created_at else '-' }}</td>

@@ -13,11 +13,11 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="mb-3">
                             <label for="name" class="form-label">Business Name *</label>
-                            <input type="text" class="form-control" id="name" name="name" value="{{ business.name if business else '' }}" required>
+                            <input type="text" class="form-control" id="name" name="name" value="{{ business.name if business else '' }}" required autocomplete="off">
                         </div>
                         <div class="mb-3">
                             <label for="tax_id" class="form-label">Tax ID</label>
-                            <input type="text" class="form-control" id="tax_id" name="tax_id" value="{{ business.tax_id if business else '' }}">
+                            <input type="text" class="form-control" id="tax_id" name="tax_id" value="{{ business.tax_id if business else '' }}" autocomplete="off">
                         </div>
                         <div class="mb-3">
                             <label for="currency" class="form-label">Currency</label>

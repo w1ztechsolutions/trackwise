@@ -27,7 +27,7 @@
                         {% for admin in admins %}
                         <tr>
                             <td>{{ admin.id }}</td>
-                            <td>{{ admin.email }}</td>
+                            <td><div class="text-truncate" style="max-width: 250px;">{{ admin.email }}</div></td>
                             <td><span class="badge bg-danger">admin</span></td>
                             <td>{{ 'Yes' if admin.is_active else 'No' }}</td>
                             <td>{{ 'Yes' if admin.must_change_password else 'No' }}</td>
