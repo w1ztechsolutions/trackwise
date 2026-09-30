@@ -10,6 +10,7 @@
 TrackWise is a **mature, production-ready Flask-based multi-tenant accounting platform** with strong foundational architecture. The system implements double-entry accounting, FIFO inventory, sales/purchase management, and financial reporting aligned with **QuickBooks, Sage, Xero, and Zoho standards**.
 
 **Overall Status:** ⚠️ **GOOD WITH CRITICAL GAPS**
+
 - ✅ Core accounting engine is sound
 - ✅ Database schema uses Numeric(14,2) precision correctly
 - ✅ Test coverage is comprehensive
@@ -30,7 +31,7 @@ TrackWise is a **mature, production-ready Flask-based multi-tenant accounting pl
 **Requirements.txt Status (as of 2026-09-30):**
 
 | Package | Version | Status | Notes |
-|---------|---------|--------|-------|
+| --------- | --------- | -------- | ------- |
 | Flask | 3.1.3 | ✅ Current | Latest stable 3.x line |
 | Flask-SQLAlchemy | 3.1.1 | ✅ Current | Latest stable |
 | SQLAlchemy | 2.0.51 | ✅ Current | Production-grade ORM, full Python 3.12 support |
@@ -55,6 +56,7 @@ All dependencies are on current, stable, and maintenance-active versions. No imm
 ### ⚠️ Configuration Improvements Needed
 
 **Issue 1: Missing Python Version Pinning in requirements.txt**
+
 - Current: No explicit Python version constraint
 - Recommended: Add `# Python >=3.12` comment header
 - Impact: Ensures CI/CD clarity; doesn't affect runtime
@@ -66,11 +68,13 @@ All dependencies are on current, stable, and maintenance-active versions. No imm
 ### ✅ Numeric Precision — Best Practice Compliance
 
 **All monetary columns use `Numeric(14, 2)` or `Numeric(12, 2)` decimal types:**
+
 - ✅ Prevents floating-point rounding errors (common bug in accounting)
 - ✅ Complies with QuickBooks, Sage, Xero, Zoho standards
 - ✅ Supports values up to 99,999,999.99 (standard SME range)
 
 **Models audited:**
+
 - [JournalLine](/app/models/accounting.py): `Numeric(14, 2)` ✅
 - [InvoiceItem](/models.py): `Numeric(14, 2)` ✅
 - [BillItem](/models.py): `Numeric(14, 2)` ✅
@@ -84,6 +88,7 @@ All dependencies are on current, stable, and maintenance-active versions. No imm
 ### ✅ Double-Entry Enforcement
 
 [accounting_service.py](/app/services/accounting_service.py) **correctly**:
+
 1. Validates all journal entries balance within ±0.01 tolerance
 2. Enforces minimum 2 lines per entry
 3. Posts entries atomically (all-or-nothing)
@@ -102,11 +107,13 @@ if abs(total_debit - total_credit) > 0.01:
 ### ⚠️ CRITICAL: Missing Entry Reversal Framework
 
 **Issue:** No mechanism to reverse/correct posted entries
+
 - Current behavior: Manual deletion via soft-delete (is_deleted flag)
 - **Problem:** Breaks audit trail; does not match accounting standards (QuickBooks, Xero, Sage require explicit reversals)
 - **Risk:** Auditors cannot reconcile transaction history; regulatory non-compliance
 
 **Recommended Fix:**
+
 ```sql
 ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS 
   reversed_by_entry_id INTEGER REFERENCES journal_entries(id);
@@ -123,12 +130,14 @@ ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS
 **Issue:** Business.currency defaults to 'MWK' (Malawi Kwacha); no multi-currency support
 
 **Current:**
+
 ```python
 # From accounting.py:
 currency = db.Column(db.String(10), nullable=False, default='MWK')
 ```
 
 **Problems:**
+
 1. ❌ Cannot operate multi-currency businesses (e.g., USD, ZAR, ZWL)
 2. ❌ No exchange rate tracking or conversion logic
 3. ❌ Foreign receivables/payables cannot be modeled
@@ -138,6 +147,7 @@ currency = db.Column(db.String(10), nullable=False, default='MWK')
 **Risk:** HIGH – Blocks regional expansion beyond MWK markets
 
 **Recommended Fix:** (Phase 2)
+
 - [ ] Create `CurrencyRate` model with date-based rates
 - [ ] Add `currency_code` column to JournalLine (optional, for reporting)
 - [ ] Implement revaluation entries for FX gains/losses
@@ -149,6 +159,7 @@ currency = db.Column(db.String(10), nullable=False, default='MWK')
 **Issue:** No mechanism to lock periods or mark year-end close
 
 **Missing:**
+
 - No "locked period" concept (can edit past transactions indefinitely)
 - No COA/GL freeze for audit trail
 - No way to prevent post-close journal entries
@@ -156,6 +167,7 @@ currency = db.Column(db.String(10), nullable=False, default='MWK')
 **Risk:** MEDIUM – Large organizations need this for SOX/IFRS compliance
 
 **Recommended Fix:**
+
 ```sql
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS 
   last_closed_period_date DATE;
@@ -170,10 +182,12 @@ ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS
 ### ✅ Correct Account Type Handling
 
 Trial Balance, Income Statement, Balance Sheet correctly compute balances by account type:
+
 - Assets/Expenses: Normal debit balance (Dr = +, Cr = −)
 - Liabilities/Equity/Income: Normal credit balance (Cr = +, Dr = −)
 
 **Files verified:**
+
 - [trial_balance.py](/app/services/reports/trial_balance.py) ✅
 - [balance_sheet.py](/app/services/reports/balance_sheet.py) ✅
 - [income_statement.py](/app/services/reports/income_statement.py) ✅
@@ -183,6 +197,7 @@ Trial Balance, Income Statement, Balance Sheet correctly compute balances by acc
 ### ✅ FIFO Inventory Costing
 
 [fifo_service.py](/services/fifo_service.py) correctly:
+
 1. Tracks purchase layers (FIFO by timestamp)
 2. Consumes layers in order (oldest first)
 3. Records COGS via [StockTransaction](/models.py)
@@ -201,6 +216,7 @@ Trial Balance, Income Statement, Balance Sheet correctly compute balances by acc
 **Issue:** Aging calculation ignores payments received/made
 
 **Current logic:**
+
 ```python
 for inv in customer_invoices:
     if inv.status in ('draft', 'issued'):
@@ -208,12 +224,14 @@ for inv in customer_invoices:
 ```
 
 **Problems:**
+
 1. ❌ Counts full invoice even if partially paid
 2. ❌ No link to Receipt/Payment records
 3. ❌ Violates Xero/QB aging methodology
 4. ❌ Unusable for credit management
 
 **Recommended Fix:**
+
 - Calculate balance as: `invoice.total_amount - sum(receipts.amount WHERE invoice_id = X)`
 - Segment by due date of *unpaid balance*, not invoice date
 
@@ -226,17 +244,20 @@ for inv in customer_invoices:
 **File:** [income_statement.py](/app/services/reports/income_statement.py)
 
 **Current:**
+
 ```python
 tax_amount = max(0.0, pre_tax_profit * (tax_rate / 100.0))
 ```
 
 **Problems:**
+
 1. ❌ Applies flat rate to profit (ignores tax rules: deductible expenses, loss carryforward)
 2. ❌ No deferred tax asset/liability tracking
 3. ❌ No quarterly/provisional tax handling
 4. ❌ Inconsistent with tax authority requirements (Malawi Revenue Authority, etc.)
 
 **Recommended Fix:**
+
 - Create `TaxConfig` model for jurisdiction-specific rules
 - Link tax adjustments to GL via separate journal entries
 - Support deferred tax (deferred tax asset/liability accounts)
@@ -250,11 +271,13 @@ tax_amount = max(0.0, pre_tax_profit * (tax_rate / 100.0))
 **Current:** Revenue posted immediately on invoice creation (cash vs. accrual mismatch)
 
 **Issue:** IFRS 15 / ASC 606 requires performance obligation tracking; current model doesn't support:
+
 - Multi-period subscriptions (revenue recognition over time)
 - Conditional revenue (e.g., refundable until day 30)
 - Contract asset/liability accounts
 
 **Recommended Fix:**
+
 - Create `RevenueRecognition` model (milestone-based)
 - Support subscription revenue amortization entries
 - Add deferred revenue (liability) account support
@@ -268,6 +291,7 @@ tax_amount = max(0.0, pre_tax_profit * (tax_rate / 100.0))
 ### ✅ Soft-Delete Implementation
 
 [JournalEntry](/app/models/accounting.py) correctly implements soft-delete:
+
 ```python
 is_deleted = db.Column(db.Boolean, nullable=False, default=False)
 deleted_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
@@ -283,6 +307,7 @@ deleted_at = db.Column(db.DateTime, nullable=True)
 **Issue:** Only journal_entries are logged; inventory adjustments, payment approvals, and user actions are NOT logged
 
 **Missing audit coverage:**
+
 - ❌ StockMovement/StockTransaction changes
 - ❌ Purchase/Sale/Invoice modifications
 - ❌ Payment status transitions
@@ -292,6 +317,7 @@ deleted_at = db.Column(db.DateTime, nullable=True)
 **Risk:** HIGH – Regulatory bodies (MRA, tax authorities) require complete transaction audit trails
 
 **Recommended Fix:**
+
 - Expand [AuditLog](/app/models/accounting.py) to trigger on all Create/Update/Delete via SQLAlchemy events
 - Log user actions via middleware (login, logout, password change, report access)
 
@@ -302,6 +328,7 @@ deleted_at = db.Column(db.DateTime, nullable=True)
 ### ✅ Approval Workflow Framework
 
 [ApprovalRequest](/app/models/approval.py) correctly supports:
+
 - Transaction-level approvals (journal_entry, payment)
 - Role-based approval levels
 - Audit trail (ApprovalAction)
@@ -315,6 +342,7 @@ deleted_at = db.Column(db.DateTime, nullable=True)
 ### ✅ business_id Scoping
 
 All queries correctly filter by `business_id`:
+
 - [accounting_service.py](/app/services/accounting_service.py) ✅
 - [inventory_service.py](/app/services/inventory_service.py) ✅
 - All route handlers ✅
@@ -330,6 +358,7 @@ All queries correctly filter by `business_id`:
 ### ✅ No Hard-Coded Credentials
 
 All sensitive config via environment variables (config.py)
+
 - ✅ SECRET_KEY enforced in production
 - ✅ DATABASE_URL via .env
 - ✅ Neon Postgres pooling optimized
@@ -341,6 +370,7 @@ Flask-WTF CSRF enabled on all POST/PUT/DELETE routes ✅
 ### ⚠️ Missing Security Headers (from CHANGELOG)
 
 **Noted in CHANGELOG as FIXED:**
+
 - ✅ CSP hardened (removed unsafe-inline)
 - ✅ SRI on external scripts
 - ✅ Inline event handlers replaced
@@ -354,7 +384,7 @@ Flask-WTF CSRF enabled on all POST/PUT/DELETE routes ✅
 ### ✅ Comprehensive Test Suite
 
 | Test File | Status | Coverage | Notes |
-|-----------|--------|----------|-------|
+| ----------- | -------- | ---------- | ------- |
 | test_accounting.py | ✅ Pass | High | Tests post_entry, balancing, audit logs |
 | test_reports.py | ✅ Pass | High | Tests all 8 reports (IS, BS, CF, TB, GL, AR/AP, Cashbook, Audit) |
 | test_fifo.py | ✅ Pass | High | Tests FIFO layer consumption, COGS calculation |
@@ -399,7 +429,7 @@ Flask-WTF CSRF enabled on all POST/PUT/DELETE routes ✅
 ### ✅ All Documented Bugs Fixed
 
 | Issue | Status | Impact |
-|-------|--------|--------|
+| ------- | -------- | -------- |
 | RuntimeError: No secret key in production | ✅ Fixed | v1.0.1 |
 | 404 on /register endpoint | ✅ Fixed | v1.0.1 |
 | Missing superadmin templates | ✅ Fixed | v1.0.1 |
@@ -416,7 +446,7 @@ Flask-WTF CSRF enabled on all POST/PUT/DELETE routes ✅
 ### QuickBooks Compatibility
 
 | Feature | TrackWise | Status |
-|---------|-----------|--------|
+| --------- | ----------- | -------- |
 | Double-entry posting | ✅ Yes | Full compliance |
 | Chart of Accounts hierarchy | ✅ Yes | Supported (parent_id) |
 | Multi-business (company) | ✅ Yes | Via business_id |
@@ -504,6 +534,7 @@ Flask-WTF CSRF enabled on all POST/PUT/DELETE routes ✅
 ### Immediate Actions (This Sprint)
 
 1. **Expand AuditLog coverage:**
+
    ```python
    # Add SQLAlchemy event listeners in app/__init__.py
    @event.listens_for(StockMovement, 'after_insert')
@@ -513,6 +544,7 @@ Flask-WTF CSRF enabled on all POST/PUT/DELETE routes ✅
    ```
 
 2. **Add entry reversal support:**
+
    ```sql
    ALTER TABLE journal_entries ADD COLUMN reversed_by_entry_id INTEGER;
    ALTER TABLE journal_entries ADD COLUMN reversal_reason VARCHAR(255);
@@ -581,6 +613,7 @@ Flask-WTF CSRF enabled on all POST/PUT/DELETE routes ✅
 TrackWise is a **well-engineered, production-ready accounting system** suitable for SMEs in the Malawi/Southern Africa region. It successfully implements core double-entry accounting, FIFO inventory costing, sales/purchase management, and financial reporting aligned with industry standards.
 
 **Strengths:**
+
 - ✅ Sound accounting engine with perfect numerical precision
 - ✅ Comprehensive financial reports (8+ report types)
 - ✅ Strong multi-tenant architecture
@@ -589,6 +622,7 @@ TrackWise is a **well-engineered, production-ready accounting system** suitable 
 - ✅ Responsive approval workflow
 
 **Critical Gaps (Must Fix):**
+
 1. **Incomplete audit trail** → Regulatory risk
 2. **Hard-coded MWK currency** → Regional expansion blocked
 3. **Simplified AR/AP aging** → Reports misleading
@@ -597,6 +631,7 @@ TrackWise is a **well-engineered, production-ready accounting system** suitable 
 **Recommendation:** TrackWise is **READY FOR PRODUCTION** for single-currency operations (MWK). Before regional expansion or enterprise deployment, implement the 4 critical fixes above (3–6 months effort). With fixes, it will rival QuickBooks Online and Xero in feature parity for SME segments.
 
 **Next Steps:**
+
 1. Create GitHub issues for all 11 recommendations (C1–L2)
 2. Prioritize C1 (audit log expansion)
 3. Schedule multi-currency design phase (Q4 2026)

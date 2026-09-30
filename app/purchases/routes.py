@@ -130,7 +130,7 @@ def payments():
         db.session.add(payment)
         db.session.flush()
 
-        from app.approvals.routes import create_approval_request
+        from app.services.approval_service import create_approval_request
         approval_req = create_approval_request(
             business_id=biz_id,
             transaction_type='payment',

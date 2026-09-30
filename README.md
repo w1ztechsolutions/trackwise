@@ -189,6 +189,10 @@ trackwise/
 │   │   └── user.py              # User model wrapper
 │   ├── services/
 │   │   ├── accounting_service.py
+│   │   ├── audit_service.py
+│   │   ├── approval_service.py
+│   │   ├── period_service.py
+│   │   ├── revenue_recognition_service.py
 │   │   ├── inventory_service.py
 │   │   ├── production_service.py
 │   │   ├── subscription_service.py
@@ -322,6 +326,15 @@ trackwise/
 - `GET /accounting/bank-reconciliation/statements/<account_id>` — Imported bank statement lines
 - `GET /accounting/bank-reconciliation/import` — Import bank statements (CSV/statement upload)
 - `GET /accounting/bank-reconciliation/reconcile/<account_id>` — Match/unmatch statement lines to journal entries
+
+### Accounting Controls
+
+- `POST /accounting/journal-entries/<entry_id>/reverse` — Post a reasoned counter-entry without deleting the original
+- `GET|POST /accounting/period-close` — Close a business's accounting period through a date
+- `GET|POST /accounting/revenue-recognition` — Create time-based deferred revenue schedules
+- `POST /accounting/revenue-recognition/<schedule_id>/recognize` — Post earned revenue through a date
+
+See [the accounting-controls migration guide](docs/MIGRATION_2026-09_financial_controls.md) before deployment.
 
 ### Settings
 

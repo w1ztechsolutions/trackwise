@@ -19,6 +19,7 @@ The tenant root. Every record belongs to a single business.
 | `tax_id` | VARCHAR(100) | Yes | — | Tax identification number |
 | `currency` | VARCHAR(10) | No | `MWK` | Default currency code |
 | `fiscal_year_start` | VARCHAR(5) | Yes | `01-01` | Fiscal year start month-day |
+| `last_closed_period_date` | DATE | Yes | — | Transactions on or before this date are locked |
 | `created_at` | TIMESTAMP | No | UTC now | Record creation timestamp |
 | `created_by_superadmin_id` | INTEGER | Yes | — | FK to `super_admins.id` |
 
@@ -98,6 +99,8 @@ Double-entry journal entry headers.
 | `is_deleted` | BOOLEAN | No | `FALSE` | Soft-delete flag |
 | `deleted_by` | INTEGER | Yes | — | FK to `users.id` |
 | `deleted_at` | TIMESTAMP | Yes | — | Soft-delete timestamp |
+| `reversed_by_entry_id` | INTEGER | Yes | — | Counter-entry ID; reversal leaves this entry intact |
+| `reversal_reason` | VARCHAR(255) | Yes | — | Required reason recorded when this entry is reversed |
 
 **Relationships:** One-to-many with `journal_lines`.
 
@@ -123,19 +126,42 @@ Individual debit/credit lines within a journal entry.
 
 ### `audit_logs`
 
-Immutable audit trail for accounting events.
+Application-level append-only audit trail for financially significant records and user actions. ORM updates/deletes are rejected; database administrators with direct SQL access remain able to alter the table.
 
 | Column | Type | Nullable | Default | Description |
 |--------|------|----------|---------|-------------|
 | `id` | INTEGER | No | Auto | Primary key |
 | `business_id` | INTEGER | Yes | — | FK to `businesses.id` |
 | `user_id` | INTEGER | Yes | — | FK to `users.id` |
-| `action` | VARCHAR(50) | No | — | Action type (e.g., `CREATE`, `UPDATE`, `DELETE`) |
+| `action` | VARCHAR(50) | No | — | Action type (e.g., `CREATE`, `UPDATE`, `DELETE`, `LOGIN`) |
 | `table_name` | VARCHAR(100) | No | — | Affected table |
 | `record_id` | INTEGER | Yes | — | Affected record ID |
 | `old_values` | TEXT | Yes | — | JSON snapshot of old values |
 | `new_values` | TEXT | Yes | — | JSON snapshot of new values |
 | `timestamp` | TIMESTAMP | No | UTC now | Event timestamp |
+
+Password hashes and bank account numbers are intentionally excluded from audit snapshots.
+
+### `revenue_recognition_schedules`
+
+Straight-line, time-based deferral schedule linked to an invoice and its posted sale.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | INTEGER | No | Auto | Primary key |
+| `business_id` | INTEGER | No | — | FK to `businesses.id` |
+| `invoice_id` | INTEGER | No | — | Unique FK to the invoice being deferred |
+| `revenue_account_id` | INTEGER | No | — | Income account to recognize into |
+| `deferred_revenue_account_id` | INTEGER | No | — | Liability account holding unearned revenue |
+| `start_date` / `end_date` | DATE | No | — | Inclusive straight-line recognition period |
+| `total_amount` | NUMERIC(14,2) | No | — | Amount initially reclassified to deferred revenue |
+| `recognized_amount` | NUMERIC(14,2) | No | `0.00` | Cumulative amount posted back to income |
+| `last_recognized_through` | DATE | Yes | — | Last date through which recognition was posted |
+| `status` | VARCHAR(20) | No | `active` | `active` or `completed` |
+| `created_by` | INTEGER | Yes | — | FK to `users.id` |
+| `created_at` | TIMESTAMP | No | UTC now | Creation timestamp |
+
+**Accounting scope:** This feature only supports straight-line time-based schedules. It does not determine contract eligibility or replace IFRS 15/ASC 606 performance-obligation analysis.
 
 ---
 

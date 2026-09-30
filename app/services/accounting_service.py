@@ -1,28 +1,67 @@
-import json
+import math
 from datetime import datetime, timezone
 
-from app.models import db, ChartOfAccounts, JournalEntry, JournalLine, AuditLog, User
+from sqlalchemy.exc import IntegrityError
+
+from app.models import db, ChartOfAccounts, JournalEntry, JournalLine
+from app.services.audit_service import install_audit_listeners
+from app.services.period_service import assert_period_open
+
+
+install_audit_listeners()
 
 
 class AccountingException(Exception):
     pass
 
 
-def post_entry(business_id, entry_date, description, lines, reference_type=None, reference_id=None, created_by=None):
+def post_entry(
+    business_id,
+    entry_date,
+    description,
+    lines,
+    reference_type=None,
+    reference_id=None,
+    created_by=None,
+    commit=True,
+):
     if business_id is None:
         raise AccountingException("business_id is required")
+    assert_period_open(business_id, entry_date or datetime.now(timezone.utc))
     if not lines:
-        raise AccountingException("Journal entry must have at least one line")
+        raise AccountingException("Journal entry must have at least two lines")
 
-    total_debit = float(sum(l.get('debit_amount', 0) or 0 for l in lines))
-    total_credit = float(sum(l.get('credit_amount', 0) or 0 for l in lines))
+    normalized_lines = []
+    for line in lines:
+        if not isinstance(line, dict) or 'account_id' not in line:
+            raise AccountingException("Each journal line must specify an account")
+        try:
+            debit = float(line.get('debit_amount', 0) or 0)
+            credit = float(line.get('credit_amount', 0) or 0)
+        except (TypeError, ValueError):
+            raise AccountingException("Journal line amounts must be numeric")
+        if not math.isfinite(debit) or not math.isfinite(credit) or debit < 0 or credit < 0:
+            raise AccountingException("Journal line amounts must be finite and non-negative")
+        if debit > 0 and credit > 0:
+            raise AccountingException("A journal line cannot contain both a debit and a credit")
+        if debit > 0 or credit > 0:
+            normalized_lines.append({
+                'account_id': line['account_id'],
+                'debit_amount': debit,
+                'credit_amount': credit,
+            })
+    if len(normalized_lines) < 2:
+        raise AccountingException("Journal entry must have at least two non-zero lines")
+
+    total_debit = sum(line['debit_amount'] for line in normalized_lines)
+    total_credit = sum(line['credit_amount'] for line in normalized_lines)
 
     if abs(total_debit - total_credit) > 0.01:
         raise AccountingException(
             f"Entry does not balance: debits={total_debit}, credits={total_credit}"
         )
 
-    account_ids = [l['account_id'] for l in lines]
+    account_ids = [line['account_id'] for line in normalized_lines]
     accounts = ChartOfAccounts.query.filter(
         ChartOfAccounts.id.in_(account_ids),
         ChartOfAccounts.business_id == business_id,
@@ -44,47 +83,67 @@ def post_entry(business_id, entry_date, description, lines, reference_type=None,
     db.session.add(entry)
     db.session.flush()
 
-    for line_data in lines:
+    for line_data in normalized_lines:
         line = JournalLine(
             journal_entry_id=entry.id,
             account_id=line_data['account_id'],
-            debit_amount=float(line_data.get('debit_amount', 0) or 0),
-            credit_amount=float(line_data.get('credit_amount', 0) or 0),
+            debit_amount=line_data['debit_amount'],
+            credit_amount=line_data['credit_amount'],
         )
         db.session.add(line)
 
-    db.session.commit()
-    try:
-        _log_audit(
-            business_id, created_by, 'CREATE', 'journal_entries', entry.id,
-            None,
-            {
-                'entry_date': str(entry.entry_date),
-                'description': description,
-                'lines': [
-                    {'account_id': l['account_id'], 'debit_amount': l.get('debit_amount', 0), 'credit_amount': l.get('credit_amount', 0)}
-                    for l in lines
-                ],
-            },
-        )
+    if commit:
         db.session.commit()
-    except Exception:
-        db.session.rollback()
-        raise
     return entry
 
 
-def _log_audit(business_id, user_id, action, table_name, record_id, old_values=None, new_values=None):
-    log = AuditLog(
-        business_id=business_id,
-        user_id=user_id,
-        action=action,
-        table_name=table_name,
-        record_id=record_id,
-        old_values=json.dumps(old_values, default=str) if old_values else None,
-        new_values=json.dumps(new_values, default=str) if new_values else None,
+def reverse_entry(business_id, entry_id, reason, created_by=None, reversal_date=None):
+    """Post a balanced opposite entry while preserving the original posted entry."""
+    reason = (reason or "").strip()
+    if not reason:
+        raise AccountingException("A reason is required to reverse a journal entry")
+    if len(reason) > 255:
+        raise AccountingException("Reversal reason must be 255 characters or fewer")
+
+    entry = (
+        JournalEntry.query
+        .filter_by(id=entry_id, business_id=business_id)
+        .with_for_update()
+        .first()
     )
-    db.session.add(log)
+    if entry is None or entry.is_deleted:
+        raise AccountingException("Journal entry not found")
+    if entry.reversed_by_entry_id is not None:
+        raise AccountingException("Journal entry has already been reversed")
+    if not entry.lines:
+        raise AccountingException("Journal entry has no lines to reverse")
+
+    reversed_lines = [
+        {
+            "account_id": line.account_id,
+            "debit_amount": line.credit_amount,
+            "credit_amount": line.debit_amount,
+        }
+        for line in entry.lines
+    ]
+    reversal = post_entry(
+        business_id,
+        reversal_date or datetime.now(timezone.utc),
+        f"Reversal of journal entry #{entry.id}: {reason}",
+        reversed_lines,
+        reference_type="Reversal",
+        reference_id=entry.id,
+        created_by=created_by,
+        commit=False,
+    )
+    entry.reversed_by_entry_id = reversal.id
+    entry.reversal_reason = reason
+    try:
+        db.session.commit()
+    except IntegrityError as error:
+        db.session.rollback()
+        raise AccountingException("Journal entry has already been reversed") from error
+    return reversal
 
 
 def get_ledger_balances(business_id, account_ids=None):
@@ -92,7 +151,10 @@ def get_ledger_balances(business_id, account_ids=None):
         JournalLine.account_id,
         db.func.sum(JournalLine.debit_amount).label('total_debit'),
         db.func.sum(JournalLine.credit_amount).label('total_credit'),
-    ).join(JournalEntry).filter(JournalEntry.business_id == business_id)
+    ).join(JournalEntry).filter(
+        JournalEntry.business_id == business_id,
+        JournalEntry.is_deleted.is_(False),
+    )
 
     if account_ids:
         line_sums = line_sums.filter(JournalLine.account_id.in_(account_ids))
@@ -188,7 +250,10 @@ def verify_balances(business_id):
         JournalLine.journal_entry_id,
         db.func.sum(JournalLine.debit_amount).label('total_debit'),
         db.func.sum(JournalLine.credit_amount).label('total_credit'),
-    ).join(JournalEntry).filter(JournalEntry.business_id == business_id)
+    ).join(JournalEntry).filter(
+        JournalEntry.business_id == business_id,
+        JournalEntry.is_deleted.is_(False),
+    )
     line_sums = line_sums.group_by(JournalLine.journal_entry_id).subquery()
 
     results = db.session.query(

@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Transaction-level audit events for accounting, sales, purchasing, inventory movements, approvals, and user authentication actions
+- Journal entry reversal workflow that posts a balanced counter-entry and retains the original entry
+- Business-scoped period close through date with guards against writes to closed periods
+- Time-based straight-line revenue deferral schedules for posted invoice sales
+- `docs/MIGRATION_2026-09_financial_controls.md` — rollout and migration guidance for accounting controls
 - `AGENT.md` — AI documentation enforcement rules for bug fixes, features, and architecture changes
 - `SECURITY.md` — Security policy and deployment best practices
 - `docs/OPERATIONS.md` — Operations runbook for utility scripts and common procedures
@@ -35,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- AR/AP aging now subtracts linked receipts and approved bill payments as of the report date
+- Income statement and dashboard tax figures are labelled as estimates and use the current business's configured rate
+- Financial reports and ledger balance checks exclude soft-deleted journal entries
+- Approval request creation moved from route modules into `app/services/approval_service.py`
 - `.gitignore` — Removed `/docs/` entry so documentation is tracked by git
 - `README.md` — Corrected project structure to reflect actual `app/models/` submodule layout
 - `ARCHITECTURE.md` — Updated RBAC table: `accountant` role now references "accounting" instead of deprecated "expenses"
@@ -43,12 +52,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Audit coverage now records financial record create/update/delete operations and relevant login, logout, password, and approval changes (see Bug 14)
+- Journal entries can be corrected by posting a reasoned reversal instead of deleting history (see Bug 16)
+- AR/AP aging no longer reports gross invoice/bill amounts after linked payments (see Bug 15)
+- Closed accounting periods reject postings and edits dated in the closed range (see Bug 17)
+- Income statement tax estimates are tenant-scoped and are not presented as statutory tax provision (see Bug 18)
+- Journal entry details render and expose reversal metadata (see Bug 19)
+- Financial reports exclude soft-deleted journal entries (see Bug 21)
 - `.gitignore` was ignoring the entire `docs/` directory, preventing documentation from being version-controlled
 - Multi-tenant data isolation: users can no longer see or manipulate records from another business; dashboard, inventory, sales, purchases, and valuation queries are now scoped by `business_id`
 - Bank reconciliation page: `bank_statements` table missing from database (Bug 12)
 
 ### Security
 
+- Audit event coverage includes authentication and permission-related user changes; ORM changes to existing audit records are rejected
 - Added `SECURITY.md` with vulnerability reporting process and deployment security best practices
 - CSP hardened: removed `'unsafe-inline'` from `script-src`, added per-request nonces, and added `object-src 'none'`
 - SRI added to all external `<script>` and `<link>` tags (Chart.js, Bootstrap, Vercel Insights, Google Fonts, Bootstrap Icons)

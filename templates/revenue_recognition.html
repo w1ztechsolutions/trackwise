@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Revenue Recognition{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="breadcrumb-nav">
+    <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{{ url_for('accounting.je_list') }}">Accounting</a>
+    <span class="breadcrumb-separator">/</span>
+    <span>Revenue Recognition</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Revenue Recognition</h1>
+        <p>Create a straight-line, time-based deferral schedule for revenue already posted to an invoice.</p>
+    </div>
+</div>
+
+<div class="alert alert-warning">
+    This tool supports time-based straight-line schedules only. It does not determine whether a contract
+    qualifies for deferral or replace IFRS 15/ASC 606 performance-obligation analysis.
+</div>
+
+<div class="glass-card mb-4">
+    <h2 class="section-title">Create schedule</h2>
+    {% if invoices and income_accounts and liability_accounts %}
+    <form method="post" action="{{ url_for('accounting.revenue_recognition') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label" for="invoice-id">Invoice</label>
+                <select class="form-control" id="invoice-id" name="invoice_id" required>
+                    {% for invoice in invoices %}
+                    <option value="{{ invoice.id }}">
+                        {{ invoice.invoice_number or invoice.id }} — {{ invoice.total_amount | currency }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="amount">Amount to defer</label>
+                <input class="form-control" id="amount" name="amount" type="number" min="0.01" step="0.01" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="start-date">Recognition starts</label>
+                <input class="form-control" id="start-date" name="start_date" type="date" min="{{ today }}" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="revenue-account">Revenue account</label>
+                <select class="form-control" id="revenue-account" name="revenue_account_id" required>
+                    {% for account in income_accounts %}
+                    <option value="{{ account.id }}">{{ account.code }} — {{ account.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="deferred-account">Deferred revenue liability</label>
+                <select class="form-control" id="deferred-account" name="deferred_revenue_account_id" required>
+                    {% for account in liability_accounts %}
+                    <option value="{{ account.id }}">{{ account.code }} — {{ account.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="end-date">Recognition ends</label>
+                <input class="form-control" id="end-date" name="end_date" type="date" min="{{ today }}" required>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Defer revenue</button>
+    </form>
+    {% else %}
+    <p class="text-muted mb-0">
+        A posted invoice sale and active income and liability accounts are required before a schedule can be created.
+    </p>
+    {% endif %}
+</div>
+
+<div class="glass-card">
+    <h2 class="section-title">Schedules</h2>
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Invoice</th>
+                    <th>Period</th>
+                    <th>Deferred</th>
+                    <th>Recognized</th>
+                    <th>Status</th>
+                    <th>Recognize through</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for schedule in schedules %}
+                <tr>
+                    <td>{{ schedule.invoice.invoice_number or schedule.invoice_id }}</td>
+                    <td>{{ schedule.start_date }} — {{ schedule.end_date }}</td>
+                    <td>{{ schedule.total_amount | currency }}</td>
+                    <td>{{ schedule.recognized_amount | currency }}</td>
+                    <td>{{ schedule.status }}</td>
+                    <td>
+                        {% if schedule.status == 'active' %}
+                        <form method="post" action="{{ url_for('accounting.revenue_recognition_post', schedule_id=schedule.id) }}" class="d-flex gap-2">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input class="form-control" type="date" name="through_date" min="{{ schedule.start_date }}" max="{{ today }}" required>
+                            <button type="submit" class="btn btn-sm btn-outline-primary">Post</button>
+                        </form>
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="empty-state">No revenue schedules yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

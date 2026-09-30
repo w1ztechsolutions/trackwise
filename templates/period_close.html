@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Accounting Period Close{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="breadcrumb-nav">
+    <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{{ url_for('accounting.je_list') }}">Accounting</a>
+    <span class="breadcrumb-separator">/</span>
+    <span>Period Close</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Accounting Period Close</h1>
+        <p>Close transactions through a date to prevent later edits or postings in that period.</p>
+    </div>
+</div>
+
+<div class="glass-card">
+    <p>
+        {% if last_closed_period_date %}
+        Closed through <strong>{{ last_closed_period_date.isoformat() }}</strong>.
+        {% else %}
+        No accounting period has been closed.
+        {% endif %}
+    </p>
+    <form method="post" action="{{ url_for('accounting.period_close') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="close-through" class="form-label">Close through</label>
+        <div class="d-flex gap-2 align-items-end">
+            <input
+                id="close-through"
+                name="close_through"
+                type="date"
+                max="{{ today }}"
+                min="{{ min_close_date }}"
+                required
+                class="form-control"
+            >
+            <button type="submit" class="btn btn-danger">Close period</button>
+        </div>
+    </form>
+    <p class="text-muted mt-3">
+        This action is one-way in the application. Transactions dated on or before the close date
+        cannot be created or edited; post correcting entries in an open period instead.
+    </p>
+</div>
+{% endblock %}

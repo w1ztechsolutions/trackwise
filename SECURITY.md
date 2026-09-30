@@ -57,7 +57,7 @@ TrackWise sets the following security headers on all responses:
 
 ### Data Protection
 - Multi-tenant data isolation is enforced via `business_id` scoping on all queries.
-- Audit logs record all journal entry creations (`AuditLog` model).
+- Audit logs record financially significant ORM creates/updates/deletes, journal lines, approval actions, and authentication events (`AuditLog` model). Password hashes and bank account numbers are excluded from snapshots.
 - Soft-delete support exists for `JournalEntry` (`is_deleted`, `deleted_by`, `deleted_at`).
 - No credit card data is stored; Stripe handles all payment processing.
 
@@ -67,6 +67,12 @@ TrackWise sets the following security headers on all responses:
 - The `/api/products` endpoint is authenticated but does not support API key auth; for integrations, consider adding token-based authentication.
 
 ### Security Updates
+
+**2026-09-30 — Financial audit coverage**
+- Added transactional audit events for financial records and audit events for login, logout, and password changes.
+- Application code rejects updates and deletes to existing audit log rows.
+- This is application-level audit protection; database administrators with direct SQL privileges can still change stored records.
+- Operators should apply the documented financial-controls migration and restrict direct database write access to trusted administrators; no action is required for existing audit rows.
 
 **2026-08-24 — CSP and SRI Hardening**
 - MDN HTTP Observatory flagged two failures: unsafe CSP (`'unsafe-inline'` in `script-src`, missing `object-src`) and missing SRI hashes on external scripts.

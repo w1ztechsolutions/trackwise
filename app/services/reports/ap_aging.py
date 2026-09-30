@@ -1,7 +1,11 @@
-"""AP Aging report derived from journal entries."""
+"""Accounts payable aging based on bill balances and approved payments."""
 
-from datetime import datetime, timedelta
-from app.models import db, Supplier, Bill, ChartOfAccounts, JournalLine, JournalEntry
+from app.models import Bill, Payment, Supplier
+from app.services.reports.aging_utils import (
+    add_to_aging_buckets,
+    get_allocated_amounts,
+    normalize_as_of_date,
+)
 
 
 def get_ap_aging(business_id, as_of_date=None):
@@ -14,80 +18,69 @@ def get_ap_aging(business_id, as_of_date=None):
     Returns:
         dict with supplier balances grouped by aging buckets
     """
-    if as_of_date is None:
-        as_of_date = datetime.now()
+    as_of_date = normalize_as_of_date(as_of_date)
     
     # Get all suppliers for the business
     suppliers = Supplier.query.filter_by(
         business_id=business_id, is_active=True
     ).all()
     
-    # Get AP account
-    ap_acct = ChartOfAccounts.query.filter_by(
-        business_id=business_id, code='2100', is_active=True
-    ).first()
-    
-    # Get all bills for the business
-    bills = Bill.query.filter_by(
-        business_id=business_id
-    ).all()
+    bills = Bill.query.filter_by(business_id=business_id).all()
+    payments_by_bill = get_allocated_amounts(
+        Payment,
+        Payment.bill_id,
+        Payment.payment_date,
+        business_id,
+        as_of_date,
+        require_approved=True,
+    )
     
     # Build supplier aging data
     aging_data = []
     
     for supplier in suppliers:
         # Get bills for this supplier
-        supplier_bills = [b for b in bills if b.supplier_id == supplier.id]
+        supplier_bills = [
+            bill for bill in bills
+            if bill.supplier_id == supplier.id and bill.status == "received"
+        ]
         
         # Calculate total outstanding balance
         total_balance = 0.0
+        bill_balances = {}
         for bill in supplier_bills:
-            if bill.status in ('draft', 'received'):
-                total_balance += float(bill.total_amount or 0)
+            outstanding = max(
+                float(bill.total_amount or 0)
+                - payments_by_bill.get(bill.id, 0.0),
+                0.0,
+            )
+            if outstanding > 0:
+                bill_balances[bill.id] = outstanding
+                total_balance += outstanding
         
         if total_balance <= 0:
             continue
         
         # Calculate aging buckets based on due dates
-        current = 0.0      # 0-30 days
-        days_30 = 0.0      # 31-60 days
-        days_60 = 0.0      # 61-90 days
-        days_90 = 0.0      # 90+ days
+        buckets = {
+            "current": 0.0,
+            "days_30": 0.0,
+            "days_60": 0.0,
+            "days_90": 0.0,
+        }
         
         for bill in supplier_bills:
-            if bill.status not in ('draft', 'received'):
-                continue
-            
-            # Use due_date if available, otherwise bill_date
-            ref_date = bill.due_date or bill.bill_date
-            if ref_date is None:
-                continue
-            
-            days_overdue = (as_of_date.date() - ref_date.date()).days
-            amount = float(bill.total_amount or 0)
-            
-            if days_overdue <= 0:
-                current += amount
-            elif days_overdue <= 30:
-                current += amount
-            elif days_overdue <= 60:
-                days_30 += amount
-            elif days_overdue <= 90:
-                days_60 += amount
-            else:
-                days_90 += amount
-        
-        # If no due dates, put all in current
-        if all(v == 0 for v in [current, days_30, days_60, days_90]) and total_balance > 0:
-            current = total_balance
+            add_to_aging_buckets(
+                buckets,
+                bill.due_date or bill.bill_date,
+                as_of_date,
+                bill_balances.get(bill.id, 0.0),
+            )
         
         aging_data.append({
             'supplier': supplier,
             'total_balance': total_balance,
-            'current': current,
-            'days_30': days_30,
-            'days_60': days_60,
-            'days_90': days_90,
+            **buckets,
         })
     
     # Calculate totals

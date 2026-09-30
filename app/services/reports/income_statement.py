@@ -1,7 +1,7 @@
 """Income Statement report derived from journal entries."""
 
 from datetime import datetime
-from app.models import db, ChartOfAccounts, JournalLine, JournalEntry
+from app.models import db, ChartOfAccounts, JournalLine, JournalEntry, Setting
 
 
 def get_income_statement(business_id, start_date=None, end_date=None):
@@ -31,7 +31,8 @@ def get_income_statement(business_id, start_date=None, end_date=None):
         db.func.sum(JournalLine.debit_amount).label('total_debit'),
         db.func.sum(JournalLine.credit_amount).label('total_credit'),
     ).join(JournalEntry).filter(
-        JournalEntry.business_id == business_id
+        JournalEntry.business_id == business_id,
+        JournalEntry.is_deleted.is_(False),
     )
     
     if start_date:
@@ -87,9 +88,14 @@ def get_income_statement(business_id, start_date=None, end_date=None):
     pre_tax_profit = gross_profit - total_expenses
     
     # Get tax rate from settings
-    from app.models import Setting
-    tax_setting = Setting.query.filter_by(key='tax_rate').first()
-    tax_rate = float(tax_setting.value) if tax_setting else 30.0
+    tax_setting = Setting.query.filter_by(
+        business_id=business_id,
+        key='tax_rate',
+    ).first()
+    try:
+        tax_rate = float(tax_setting.value) if tax_setting else 30.0
+    except (TypeError, ValueError):
+        tax_rate = 30.0
     tax_amount = max(0.0, pre_tax_profit * (tax_rate / 100.0))
     net_profit = pre_tax_profit - tax_amount
     
@@ -104,6 +110,11 @@ def get_income_statement(business_id, start_date=None, end_date=None):
         'pre_tax_profit': pre_tax_profit,
         'tax_rate': tax_rate,
         'tax_amount': tax_amount,
+        'tax_is_estimate': True,
+        'tax_note': (
+            'Informational estimate only; jurisdiction-specific tax rules, '
+            'deductions, carryforwards, and deferred tax are not calculated.'
+        ),
         'net_profit': net_profit,
         'start_date': start_date,
         'end_date': end_date,

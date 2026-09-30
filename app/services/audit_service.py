@@ -1,0 +1,251 @@
+"""Transactional audit logging for financially significant ORM changes."""
+
+import json
+
+from sqlalchemy import event, inspect, select
+from sqlalchemy.orm import Session
+from app.models.accounting import Business
+
+
+AUDITED_TABLES = {
+    "businesses",
+    "chart_of_accounts",
+    "customers",
+    "suppliers",
+    "purchases",
+    "purchase_items",
+    "sales",
+    "sale_items",
+    "expenses",
+    "stock_transactions",
+    "stock_movements",
+    "invoices",
+    "invoice_items",
+    "receipts",
+    "bills",
+    "bill_items",
+    "payments",
+    "journal_entries",
+    "journal_lines",
+    "production_batches",
+    "material_usages",
+    "finished_good_outputs",
+    "approval_requests",
+    "approval_actions",
+    "users",
+    "revenue_recognition_schedules",
+    "settings",
+}
+
+SENSITIVE_FIELDS = {
+    "password_hash",
+    "bank_account_number",
+    "stripe_subscription_id",
+}
+
+PERIOD_DATE_FIELDS = {
+    "journal_entries": "entry_date",
+    "sales": "sale_date",
+    "purchases": "purchase_date",
+    "expenses": "expense_date",
+    "invoices": "invoice_date",
+    "receipts": "receipt_date",
+    "bills": "bill_date",
+    "payments": "payment_date",
+    "stock_transactions": "timestamp",
+    "stock_movements": "timestamp",
+    "production_batches": "production_date",
+}
+
+
+class AuditLogImmutableError(Exception):
+    """Raised when application code attempts to alter an existing audit log."""
+
+
+def _guard_closed_periods(session, _flush_context, _instances):
+    candidates = []
+    business_ids = set()
+    for instance in session.new.union(session.dirty).union(session.deleted):
+        field = PERIOD_DATE_FIELDS.get(getattr(instance, "__tablename__", ""))
+        if not field:
+            continue
+        if instance in session.dirty:
+            state = inspect(instance)
+            changed = {
+                attribute.key
+                for attribute in state.mapper.column_attrs
+                if state.attrs[attribute.key].history.has_changes()
+            }
+            if not changed:
+                continue
+            if (
+                instance.__tablename__ == "journal_entries"
+                and changed <= {"reversed_by_entry_id", "reversal_reason"}
+            ):
+                continue
+            if (
+                instance.__tablename__ == "invoices"
+                and changed == {"status"}
+                and instance.status in {"paid", "partially_paid"}
+            ):
+                continue
+        business_id = getattr(instance, "business_id", None)
+        transaction_date = getattr(instance, field, None)
+        if business_id is not None and transaction_date is not None:
+            business_ids.add(business_id)
+            candidates.append((business_id, transaction_date))
+
+    if not candidates:
+        return
+
+    connection = session.connection()
+    closed_dates = dict(connection.execute(
+        select(Business.id, Business.last_closed_period_date).where(
+            Business.id.in_(business_ids)
+        ).with_for_update()
+    ).all())
+
+    from app.services.period_service import PeriodClosedError, as_date
+
+    for business_id, transaction_date in candidates:
+        closed_through = closed_dates.get(business_id)
+        if closed_through and as_date(transaction_date) <= closed_through:
+            raise PeriodClosedError(
+                f"Accounting period is closed through {closed_through.isoformat()}; "
+                "transactions in that period cannot be changed."
+            )
+
+
+def _before_flush(session, flush_context, instances):
+    if any(
+        getattr(instance, "__tablename__", None) == "audit_logs"
+        for instance in session.dirty.union(session.deleted)
+    ):
+        raise AuditLogImmutableError("Audit log records cannot be changed or deleted")
+    _guard_closed_periods(session, flush_context, instances)
+
+
+def _snapshot(instance, fields=None):
+    mapper = inspect(instance).mapper
+    names = fields or (column.key for column in mapper.column_attrs)
+    return {
+        name: getattr(instance, name)
+        for name in names
+        if name not in SENSITIVE_FIELDS and hasattr(instance, name)
+    }
+
+
+def _business_id(instance):
+    value = getattr(instance, "business_id", None)
+    if value is None and instance.__tablename__ == "businesses":
+        value = getattr(instance, "id", None)
+    return value
+
+
+def _related_business_id(instance, connection):
+    if instance.__tablename__ == "journal_lines":
+        from app.models.accounting import JournalEntry
+
+        return connection.execute(
+            select(JournalEntry.business_id).where(
+                JournalEntry.id == instance.journal_entry_id
+            )
+        ).scalar_one_or_none()
+    if instance.__tablename__ == "approval_actions":
+        from app.models.approval import ApprovalRequest
+
+        return connection.execute(
+            select(ApprovalRequest.business_id).where(
+                ApprovalRequest.id == instance.approval_request_id
+            )
+        ).scalar_one_or_none()
+    return None
+
+
+def _actor_id(session, instance):
+    return (
+        session.info.get("audit_actor_id")
+        or getattr(instance, "created_by", None)
+        or getattr(instance, "user_id", None)
+    )
+
+
+def _audit_after_flush(session, _flush_context):
+    from app.models.accounting import AuditLog
+
+    connection = session.connection()
+    changes = []
+
+    for instance in session.new:
+        if instance.__tablename__ in AUDITED_TABLES:
+            changes.append((instance, "CREATE", None, _snapshot(instance)))
+
+    for instance in session.dirty:
+        if instance.__tablename__ not in AUDITED_TABLES:
+            continue
+        state = inspect(instance)
+        changed = {
+            attribute.key: state.attrs[attribute.key].history
+            for attribute in state.mapper.column_attrs
+            if state.attrs[attribute.key].history.has_changes()
+            and attribute.key not in SENSITIVE_FIELDS
+        }
+        if changed:
+            old_values = {
+                name: history.deleted[0] if history.deleted else None
+                for name, history in changed.items()
+            }
+            new_values = {
+                name: history.added[0] if history.added else getattr(instance, name)
+                for name, history in changed.items()
+            }
+            changes.append((instance, "UPDATE", old_values, new_values))
+
+    for instance in session.deleted:
+        if instance.__tablename__ in AUDITED_TABLES:
+            changes.append((instance, "DELETE", _snapshot(instance), None))
+
+    for instance, action, old_values, new_values in changes:
+        business_id = _business_id(instance)
+        if business_id is None:
+            business_id = _related_business_id(instance, connection)
+        connection.execute(
+            AuditLog.__table__.insert().values(
+                business_id=business_id,
+                user_id=_actor_id(session, instance),
+                action=action,
+                table_name=instance.__tablename__,
+                record_id=getattr(instance, "id", None),
+                old_values=(
+                    json.dumps(old_values, default=str, sort_keys=True)
+                    if old_values is not None else None
+                ),
+                new_values=(
+                    json.dumps(new_values, default=str, sort_keys=True)
+                    if new_values is not None else None
+                ),
+            )
+        )
+
+
+def install_audit_listeners():
+    if not event.contains(Session, "after_flush", _audit_after_flush):
+        event.listen(Session, "after_flush", _audit_after_flush)
+    if not event.contains(Session, "before_flush", _before_flush):
+        event.listen(Session, "before_flush", _before_flush)
+
+
+def record_user_action(business_id, user_id, action, table_name, record_id=None, details=None):
+    """Stage a non-model user action in the current database transaction."""
+    from app.models.accounting import AuditLog
+
+    from models import db
+
+    db.session.add(AuditLog(
+        business_id=business_id,
+        user_id=user_id,
+        action=action,
+        table_name=table_name,
+        record_id=record_id,
+        new_values=json.dumps(details, default=str, sort_keys=True) if details else None,
+    ))

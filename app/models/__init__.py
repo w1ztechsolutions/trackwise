@@ -29,7 +29,15 @@ from .inventory import (
     LineItem,
     Staff,
 )
-from .accounting import Business, ChartOfAccounts, JournalEntry, JournalLine, AuditLog, BankStatement
+from .accounting import (
+    Business,
+    ChartOfAccounts,
+    JournalEntry,
+    JournalLine,
+    AuditLog,
+    BankStatement,
+    RevenueRecognitionSchedule,
+)
 from .user import User
 from .superadmin import SuperAdmin
 from .approval import ApprovalConfig, ApprovalRequest, ApprovalAction

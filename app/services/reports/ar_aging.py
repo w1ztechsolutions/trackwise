@@ -1,7 +1,11 @@
-"""AR Aging report derived from journal entries."""
+"""Accounts receivable aging based on invoice balances and linked receipts."""
 
-from datetime import datetime, timedelta
-from app.models import db, Customer, Invoice, ChartOfAccounts, JournalLine, JournalEntry
+from app.models import Customer, Invoice, Receipt
+from app.services.reports.aging_utils import (
+    add_to_aging_buckets,
+    get_allocated_amounts,
+    normalize_as_of_date,
+)
 
 
 def get_ar_aging(business_id, as_of_date=None):
@@ -14,80 +18,69 @@ def get_ar_aging(business_id, as_of_date=None):
     Returns:
         dict with customer balances grouped by aging buckets
     """
-    if as_of_date is None:
-        as_of_date = datetime.now()
+    as_of_date = normalize_as_of_date(as_of_date)
     
     # Get all customers for the business
     customers = Customer.query.filter_by(
         business_id=business_id, is_active=True
     ).all()
     
-    # Get AR account
-    ar_acct = ChartOfAccounts.query.filter_by(
-        business_id=business_id, code='1200', is_active=True
-    ).first()
-    
-    # Get all invoices for the business
-    invoices = Invoice.query.filter_by(
-        business_id=business_id
-    ).all()
+    invoices = Invoice.query.filter_by(business_id=business_id).all()
+    receipts_by_invoice = get_allocated_amounts(
+        Receipt,
+        Receipt.invoice_id,
+        Receipt.receipt_date,
+        business_id,
+        as_of_date,
+    )
     
     # Build customer aging data
     aging_data = []
     
     for customer in customers:
         # Get invoices for this customer
-        customer_invoices = [i for i in invoices if i.customer_id == customer.id]
+        customer_invoices = [
+            invoice for invoice in invoices
+            if invoice.customer_id == customer.id
+            and invoice.status not in ("draft", "void")
+        ]
         
         # Calculate total outstanding balance
         total_balance = 0.0
-        for inv in customer_invoices:
-            if inv.status in ('draft', 'issued'):
-                total_balance += float(inv.total_amount or 0)
+        invoice_balances = {}
+        for invoice in customer_invoices:
+            outstanding = max(
+                float(invoice.total_amount or 0)
+                - receipts_by_invoice.get(invoice.id, 0.0),
+                0.0,
+            )
+            if outstanding > 0:
+                invoice_balances[invoice.id] = outstanding
+                total_balance += outstanding
         
         if total_balance <= 0:
             continue
         
         # Calculate aging buckets based on due dates
-        current = 0.0      # 0-30 days
-        days_30 = 0.0      # 31-60 days
-        days_60 = 0.0      # 61-90 days
-        days_90 = 0.0      # 90+ days
+        buckets = {
+            "current": 0.0,
+            "days_30": 0.0,
+            "days_60": 0.0,
+            "days_90": 0.0,
+        }
         
-        for inv in customer_invoices:
-            if inv.status not in ('draft', 'issued'):
-                continue
-            
-            # Use due_date if available, otherwise invoice_date
-            ref_date = inv.due_date or inv.invoice_date
-            if ref_date is None:
-                continue
-            
-            days_overdue = (as_of_date.date() - ref_date.date()).days
-            amount = float(inv.total_amount or 0)
-            
-            if days_overdue <= 0:
-                current += amount
-            elif days_overdue <= 30:
-                current += amount
-            elif days_overdue <= 60:
-                days_30 += amount
-            elif days_overdue <= 90:
-                days_60 += amount
-            else:
-                days_90 += amount
-        
-        # If no due dates, put all in current
-        if all(v == 0 for v in [current, days_30, days_60, days_90]) and total_balance > 0:
-            current = total_balance
+        for invoice in customer_invoices:
+            add_to_aging_buckets(
+                buckets,
+                invoice.due_date or invoice.invoice_date,
+                as_of_date,
+                invoice_balances.get(invoice.id, 0.0),
+            )
         
         aging_data.append({
             'customer': customer,
             'total_balance': total_balance,
-            'current': current,
-            'days_30': days_30,
-            'days_60': days_60,
-            'days_90': days_90,
+            **buckets,
         })
     
     # Calculate totals

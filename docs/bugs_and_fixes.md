@@ -450,3 +450,221 @@ Navigating to `/accounting/bank-reconciliation` returns HTTP 500.
 - `static/js/sa-sidebar.js`
 - `static/js/sales.js`
 - `static/js/speed-insights-init.js`
+
+---
+
+## Bug 14: Financial Changes Were Not Consistently Audited
+
+**Date:** 2026-09-30 | **Severity:** Critical (financial auditability) | **Environment:** All
+
+**Symptom:**
+
+Financial source records and authentication actions could be changed without a complete, actor-attributed audit trail.
+
+**Root cause:**
+
+Audit events were limited and did not consistently cover financial source records, journal lines, approval actions, or authentication actions. Existing audit rows were also mutable through the ORM.
+
+**Fix:**
+
+- Added transactional create/update/delete auditing for financially significant records and explicit login, logout, and password-change events.
+- Resolved tenant attribution for journal lines and approval actions through their parent records.
+- Excluded password hashes and bank account numbers from snapshots and reject ORM updates/deletes to existing audit rows.
+
+**Security:** Yes — the audit trail records authentication and financial changes. This is application-level protection; direct database administrators can still alter rows.
+
+**Files changed:**
+
+- `app/services/audit_service.py`
+- `app/__init__.py`
+- `app/auth/routes.py`
+- `app/models/accounting.py`
+- `tests/test_accounting.py`
+
+---
+
+## Bug 15: AR/AP Aging Included Settled Amounts
+
+**Date:** 2026-09-30 | **Severity:** High (receivables/payables reporting) | **Environment:** All
+
+**Symptom:**
+
+The aging reports could show original invoice or bill amounts after linked receipts or approved payments had reduced the open balance.
+
+**Root cause:**
+
+Aging used gross source-document amounts instead of allocating linked movements through the report's as-of date.
+
+**Fix:**
+
+Allocate linked receipts and approved bill payments dated on or before the report date against each document before bucketing the remaining balance. Pending payments and future-dated movements are excluded.
+
+**Files changed:**
+
+- `app/services/reports/aging_utils.py`
+- `app/services/reports/ar_aging.py`
+- `app/services/reports/ap_aging.py`
+- `tests/test_reports.py`
+
+---
+
+## Bug 16: Posted Journal Entries Had No Reversal Workflow
+
+**Date:** 2026-09-30 | **Severity:** Critical (financial history integrity) | **Environment:** All
+
+**Symptom:**
+
+Users had no supported way to correct a posted journal entry while retaining its original record and audit history.
+
+**Root cause:**
+
+There was no reversal operation, and journal-line validation did not reject several invalid line shapes.
+
+**Fix:**
+
+Post a separately identified, balanced counter-entry with a required reason, link it to the original, and retain the original entry. Validate non-zero lines, finite non-negative amounts, and mutually exclusive debit/credit values.
+
+**Files changed:**
+
+- `app/services/accounting_service.py`
+- `app/models/accounting.py`
+- `app/accounting/routes.py`
+- `templates/journal_entries.html`
+- `templates/journal_entry_view.html`
+- `tests/test_accounting.py`
+- `tests/test_routes.py`
+
+---
+
+## Bug 17: Closed Accounting Periods Accepted New or Changed Transactions
+
+**Date:** 2026-09-30 | **Severity:** Critical (period integrity) | **Environment:** All
+
+**Symptom:**
+
+Transactions dated in an already-reviewed accounting period could be posted or edited without an explicit reopen operation.
+
+**Root cause:**
+
+The business had no close-through date or shared write guard for closed periods.
+
+**Fix:**
+
+Add a business-scoped close-through date, permit admins/accountants to advance it through the period-close page, and reject financial writes dated on or before it. Corrections should use a reversal and a new entry in an open period; the UI does not reopen closed periods.
+
+**Files changed:**
+
+- `app/services/period_service.py`
+- `app/services/audit_service.py`
+- `app/models/accounting.py`
+- `app/accounting/routes.py`
+- `templates/period_close.html`
+- `tests/test_accounting.py`
+- `tests/test_routes.py`
+
+---
+
+## Bug 18: Tax Estimate Was Not Clearly Scoped or Qualified
+
+**Date:** 2026-09-30 | **Severity:** High (financial reporting presentation) | **Environment:** All
+
+**Symptom:**
+
+The income statement tax display could use an unscoped configured rate and appear to be a statutory tax calculation.
+
+**Root cause:**
+
+The configured rate was not consistently read in the current business context, and the presentation did not sufficiently distinguish a simple estimate from a tax provision or filing calculation.
+
+**Fix:**
+
+Scope the rate to the current business and label the result as an informational estimate. The application does not calculate jurisdiction-specific tax, deductible adjustments, carryforwards, provisional tax, or deferred tax.
+
+**Files changed:**
+
+- `app/services/reports/income_statement.py`
+- `services/fifo_service.py`
+- `templates/reports.html`
+- `templates/dashboard.html`
+- `tests/test_reports.py`
+
+---
+
+## Bug 19: Journal Entry Templates Could Not Render
+
+**Date:** 2026-09-30 | **Severity:** High (accounting workflow availability) | **Environment:** All
+
+**Symptom:**
+
+Opening the journal entry list, detail, or creation pages raised Jinja template syntax errors.
+
+**Root cause:**
+
+The detail template used a generator expression in a syntax form unsupported by the configured Jinja parser, and the list and creation templates had unmatched `endblock` tags.
+
+**Fix:**
+
+Use supported template logic and balanced block delimiters; expose reversal metadata and debit/credit totals.
+
+**Files changed:**
+
+- `templates/journal_entries.html`
+- `templates/journal_entry_view.html`
+- `templates/journal_entry_form.html`
+- `app/accounting/routes.py`
+- `tests/test_routes.py`
+
+---
+
+## Bug 20: Deferred Revenue Had No Supported Recognition Schedule
+
+**Date:** 2026-09-30 | **Severity:** High (revenue cut-off and presentation) | **Environment:** All
+
+**Symptom:**
+
+Posted invoice revenue requiring time-based deferral had no application workflow to reclassify the unearned balance and recognize it over a service period.
+
+**Root cause:**
+
+No deferred-revenue schedule model or idempotent recognition service existed.
+
+**Fix:**
+
+Add a straight-line daily schedule for posted invoice revenue, with a liability reclassification and date-bounded recognition entries. This is an operational aid only: it does not evaluate IFRS 15/ASC 606 contract eligibility, identify performance obligations, or replace an accountant's assessment.
+
+**Files changed:**
+
+- `app/services/revenue_recognition_service.py`
+- `app/models/accounting.py`
+- `app/accounting/routes.py`
+- `templates/revenue_recognition.html`
+- `migrations/versions/20260930_financial_controls.py`
+- `tests/test_accounting.py`
+
+---
+
+## Bug 21: Financial Reports Included Soft-Deleted Journal Entries
+
+**Date:** 2026-09-30 | **Severity:** High (ledger/report accuracy) | **Environment:** All
+
+**Symptom:**
+
+Several financial reports and balance checks could include journal entries marked as deleted.
+
+**Root cause:**
+
+Report queries did not consistently filter the journal-entry soft-delete flag.
+
+**Fix:**
+
+Exclude soft-deleted entries from the financial report services and accounting integrity checks.
+
+**Files changed:**
+
+- `app/services/reports/balance_sheet.py`
+- `app/services/reports/cash_flow.py`
+- `app/services/reports/cashbook.py`
+- `app/services/reports/general_ledger.py`
+- `app/services/reports/income_statement.py`
+- `app/services/reports/trial_balance.py`
+- `tests/test_reports.py`

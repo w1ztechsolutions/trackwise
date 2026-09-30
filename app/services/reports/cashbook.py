@@ -55,6 +55,7 @@ def get_cashbook(business_id, start_date=None, end_date=None):
             .join(JournalEntry)
             .filter(
                 JournalEntry.business_id == business_id,
+                JournalEntry.is_deleted.is_(False),
                 JournalLine.account_id.in_(account_ids),
                 JournalEntry.entry_date < start_date,
             )
@@ -76,6 +77,7 @@ def get_cashbook(business_id, start_date=None, end_date=None):
             .join(ChartOfAccounts, JournalLine.account_id == ChartOfAccounts.id)
             .filter(
                 JournalEntry.business_id == business_id,
+                JournalEntry.is_deleted.is_(False),
                 JournalLine.account_id.in_(account_ids),
             )
         )

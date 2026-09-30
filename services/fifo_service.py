@@ -582,6 +582,11 @@ def get_profit_loss(start_date=None, end_date=None, business_id=None):
         'pre_tax_profit': pre_tax_profit,
         'tax_rate': tax_rate,
         'tax_amount': tax_amount,
+        'tax_is_estimate': True,
+        'tax_note': (
+            'Informational estimate only; jurisdiction-specific tax rules, '
+            'deductions, carryforwards, and deferred tax are not calculated.'
+        ),
         'net_profit': net_profit,
         'sales_count': len(sales),
         'expenses_count': len(expenses),

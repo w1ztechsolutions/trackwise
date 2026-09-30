@@ -1,14 +1,22 @@
 import unittest
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from flask import Flask
 from models import db, Product, User
 from services.fifo_service import record_purchase, record_sale, record_expense
 from app.services.accounting_service import (
     AccountingException,
     post_entry,
+    reverse_entry,
     get_ledger_balances,
     get_account_by_code,
 )
+from app.services.period_service import PeriodClosedError, assert_period_open, close_period
+from app.services.revenue_recognition_service import (
+    RevenueRecognitionError,
+    create_revenue_schedule,
+    recognize_revenue,
+)
+from app.services.audit_service import AuditLogImmutableError, record_user_action
 from app.models.accounting import Business, ChartOfAccounts, JournalEntry, JournalLine, AuditLog
 
 
@@ -181,6 +189,240 @@ class TestAccountingEngine(unittest.TestCase):
         
         audit = AuditLog.query.filter_by(table_name='journal_entries', record_id=entry.id).first()
         self.assertIsNotNone(audit)
+        line_audit = AuditLog.query.filter_by(
+            business_id=self.business.id,
+            table_name='journal_lines',
+            record_id=entry.lines[0].id,
+        ).first()
+        self.assertIsNotNone(line_audit)
+
+    def test_user_audit_action_is_attributed_and_immutable(self):
+        record_user_action(
+            self.business.id,
+            self.user.id,
+            'LOGIN',
+            'users',
+            self.user.id,
+        )
+        db.session.commit()
+
+        audit = AuditLog.query.filter_by(
+            business_id=self.business.id,
+            user_id=self.user.id,
+            action='LOGIN',
+            table_name='users',
+            record_id=self.user.id,
+        ).one()
+        audit.action = 'UPDATE'
+        with self.assertRaises(AuditLogImmutableError):
+            db.session.commit()
+        db.session.rollback()
+
+        audit = db.session.get(AuditLog, audit.id)
+        self.assertEqual(audit.action, 'LOGIN')
+
+    def test_reversal_posts_opposite_lines_and_preserves_original(self):
+        entry = post_entry(
+            self.business.id,
+            datetime(2026, 6, 1, tzinfo=timezone.utc),
+            'Incorrect sale',
+            [
+                {'account_id': self.accounts['1000'].id, 'debit_amount': 125, 'credit_amount': 0},
+                {'account_id': self.accounts['4000'].id, 'debit_amount': 0, 'credit_amount': 125},
+            ],
+            created_by=self.user.id,
+        )
+
+        reversal = reverse_entry(
+            self.business.id,
+            entry.id,
+            'Sale entered against the wrong customer',
+            created_by=self.user.id,
+            reversal_date=datetime(2026, 6, 2, tzinfo=timezone.utc),
+        )
+
+        self.assertFalse(entry.is_deleted)
+        self.assertEqual(entry.reversed_by_entry_id, reversal.id)
+        self.assertEqual(entry.reversal_reason, 'Sale entered against the wrong customer')
+        self.assertEqual(reversal.reference_type, 'Reversal')
+        self.assertEqual(reversal.reference_id, entry.id)
+        self.assertEqual(
+            [(line.debit_amount, line.credit_amount) for line in reversal.lines],
+            [(0, 125), (125, 0)],
+        )
+        self.assertEqual(
+            AuditLog.query.filter_by(table_name='journal_entries', record_id=entry.id).count(),
+            2,
+        )
+
+    def test_reversal_requires_reason_and_cannot_be_repeated(self):
+        entry = post_entry(
+            self.business.id,
+            datetime.now(timezone.utc),
+            'Original',
+            [
+                {'account_id': self.accounts['1000'].id, 'debit_amount': 20, 'credit_amount': 0},
+                {'account_id': self.accounts['4000'].id, 'debit_amount': 0, 'credit_amount': 20},
+            ],
+        )
+
+        with self.assertRaises(AccountingException):
+            reverse_entry(self.business.id, entry.id, '')
+
+        reverse_entry(self.business.id, entry.id, 'Correction')
+        with self.assertRaises(AccountingException):
+            reverse_entry(self.business.id, entry.id, 'Duplicate correction')
+
+    def test_closed_period_rejects_postings_and_allows_later_dates(self):
+        close_through = datetime(2026, 6, 30).date()
+        close_period(self.business.id, close_through)
+        db.session.commit()
+
+        with self.assertRaises(PeriodClosedError):
+            assert_period_open(self.business.id, datetime(2026, 6, 30, 12))
+        with self.assertRaises(PeriodClosedError):
+            post_entry(
+                self.business.id,
+                datetime(2026, 6, 30),
+                'Closed period entry',
+                [
+                    {'account_id': self.accounts['1000'].id, 'debit_amount': 50, 'credit_amount': 0},
+                    {'account_id': self.accounts['4000'].id, 'debit_amount': 0, 'credit_amount': 50},
+                ],
+            )
+
+        entry = post_entry(
+            self.business.id,
+            datetime(2026, 7, 1),
+            'Open period entry',
+            [
+                {'account_id': self.accounts['1000'].id, 'debit_amount': 50, 'credit_amount': 0},
+                {'account_id': self.accounts['4000'].id, 'debit_amount': 0, 'credit_amount': 50},
+            ],
+        )
+        self.assertIsNotNone(entry.id)
+
+    def test_closed_period_rejects_direct_financial_model_changes(self):
+        from models import Purchase
+
+        close_period(self.business.id, datetime(2026, 6, 30).date())
+        db.session.commit()
+        db.session.add(Purchase(
+            business_id=self.business.id,
+            purchase_date=datetime(2026, 6, 15),
+            total_amount=100,
+        ))
+
+        with self.assertRaises(PeriodClosedError):
+            db.session.commit()
+        db.session.rollback()
+
+    def test_deferred_revenue_is_reclassified_and_recognized_idempotently(self):
+        from models import Invoice
+
+        deferred_account = ChartOfAccounts(
+            business_id=self.business.id,
+            code='2300',
+            name='Deferred Revenue',
+            type='liability',
+        )
+        invoice = Invoice(
+            business_id=self.business.id,
+            invoice_number='INV-DEFER-001',
+            invoice_date=datetime.now(timezone.utc),
+            subtotal=1000,
+            total_amount=1000,
+            status='issued',
+        )
+        db.session.add_all([deferred_account, invoice])
+        db.session.commit()
+
+        record_purchase(
+            purchase_date=datetime.now(timezone.utc),
+            supplier='Supplier X',
+            notes='Revenue schedule inventory',
+            items_data=[{'product_id': self.product.id, 'quantity': 10, 'unit_cost': 100}],
+            business_id=self.business.id,
+            created_by=self.user.id,
+        )
+        sale = record_sale(
+            sale_date=datetime.now(timezone.utc),
+            customer_name='Customer X',
+            items_data=[{'product_id': self.product.id, 'quantity': 5, 'unit_price': 200}],
+            business_id=self.business.id,
+            created_by=self.user.id,
+            invoice_id=invoice.id,
+        )
+        start_date = date.today()
+        schedule = create_revenue_schedule(
+            self.business.id,
+            invoice.id,
+            self.accounts['4000'].id,
+            deferred_account.id,
+            1000,
+            start_date,
+            start_date + timedelta(days=1),
+            created_by=self.user.id,
+        )
+
+        self.assertEqual(sale.invoice_id, invoice.id)
+        self.assertEqual(float(schedule.total_amount), 1000.0)
+        self.assertEqual(
+            float(JournalEntry.query.filter_by(
+                reference_type='RevenueDeferral',
+                reference_id=schedule.id,
+            ).first().lines[0].debit_amount),
+            1000.0,
+        )
+
+        entry = recognize_revenue(
+            schedule.id,
+            self.business.id,
+            start_date,
+            created_by=self.user.id,
+        )
+        self.assertIsNotNone(entry)
+        self.assertEqual(float(schedule.recognized_amount), 500.0)
+        self.assertEqual(schedule.status, 'active')
+        self.assertIsNone(
+            recognize_revenue(
+                schedule.id,
+                self.business.id,
+                start_date,
+                created_by=self.user.id,
+            )
+        )
+
+    def test_revenue_schedule_rejects_unposted_revenue(self):
+        from models import Invoice
+
+        deferred_account = ChartOfAccounts(
+            business_id=self.business.id,
+            code='2300',
+            name='Deferred Revenue',
+            type='liability',
+        )
+        invoice = Invoice(
+            business_id=self.business.id,
+            invoice_number='INV-NO-SALE',
+            invoice_date=datetime.now(timezone.utc),
+            subtotal=100,
+            total_amount=100,
+            status='issued',
+        )
+        db.session.add_all([deferred_account, invoice])
+        db.session.commit()
+
+        with self.assertRaises(RevenueRecognitionError):
+            create_revenue_schedule(
+                self.business.id,
+                invoice.id,
+                self.accounts['4000'].id,
+                deferred_account.id,
+                100,
+                date.today(),
+                date.today(),
+            )
 
 
 if __name__ == '__main__':

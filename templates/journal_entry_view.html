@@ -46,10 +46,26 @@
 
     <div class="d-flex justify-content-end mt-3">
         <table class="text-end">
-            <tr><td class="px-3">Total Debit:</td><td><strong>{{ '%.2f'|format(sum(l.debit_amount or 0 for l in entry.lines)) }}</strong></td></tr>
-            <tr><td class="px-3">Total Credit:</td><td><strong>{{ '%.2f'|format(sum(l.credit_amount or 0 for l in entry.lines)) }}</strong></td></tr>
+            <tr><td class="px-3">Total Debit:</td><td><strong>{{ '%.2f'|format(total_debit) }}</strong></td></tr>
+            <tr><td class="px-3">Total Credit:</td><td><strong>{{ '%.2f'|format(total_credit) }}</strong></td></tr>
         </table>
     </div>
     <p class="text-muted text-sm mt-3">Reference: Journal Entry &middot; Created by user #{{ entry.created_by }}</p>
+    {% if reversal_entry %}
+    <div class="alert alert-info mt-3">
+        Reversed by journal entry
+        <a href="{{ url_for('accounting.je_view', entry_id=reversal_entry.id) }}">#{{ reversal_entry.id }}</a>.
+        Reason: {{ entry.reversal_reason }}
+    </div>
+    {% elif not entry.is_deleted %}
+    <form method="post" action="{{ url_for('accounting.je_reverse', entry_id=entry.id) }}" class="mt-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="reversal-reason" class="form-label">Reason for reversal</label>
+        <div class="d-flex gap-2">
+            <input id="reversal-reason" name="reason" type="text" maxlength="255" required class="form-control">
+            <button type="submit" class="btn btn-outline-danger">Reverse entry</button>
+        </div>
+    </form>
+    {% endif %}
 </div>
 {% endblock %}

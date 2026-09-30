@@ -580,6 +580,81 @@ class TestJournalEntries:
         assert resp.status_code == 200
         assert b'Journal Entries' in resp.data
 
+    def test_revenue_recognition_page_renders(self, client):
+        response = client.get('/accounting/revenue-recognition')
+        assert response.status_code == 200
+        assert b'Revenue Recognition' in response.data
+
+    def test_period_close_page_and_closed_entry_response(self, client, app, business):
+        from datetime import date, timedelta
+        from app.models import db
+        from app.models.accounting import JournalEntry
+
+        page = client.get('/accounting/period-close')
+        assert page.status_code == 200
+        close_through = date.today() - timedelta(days=1)
+        closed = client.post(
+            '/accounting/period-close',
+            data={'close_through': close_through.isoformat()},
+            follow_redirects=True,
+        )
+        assert closed.status_code == 200
+        codes = self._codes(app, business)
+        rejected = client.post('/accounting/journal-entries/create', data={
+            'description': 'Closed period adjustment',
+            'entry_date': close_through.isoformat(),
+            'account_id': [str(codes['4000']), str(codes['1000'])],
+            'debit_amount': ['0', '100'],
+            'credit_amount': ['100', '0'],
+        })
+        assert rejected.status_code == 409
+        assert b'closed through' in rejected.data.lower()
+        with app.app_context():
+            assert JournalEntry.query.filter_by(
+                business_id=business.id,
+                description='Closed period adjustment',
+            ).count() == 0
+
+    def test_reverse_route_posts_auditable_correction(self, client, app, business):
+        from datetime import date, datetime
+        from app.models import db
+        from app.models.accounting import ChartOfAccounts, JournalEntry
+        from app.services.accounting_service import post_entry
+
+        with app.app_context():
+            accounts = {
+                account.code: account.id
+                for account in ChartOfAccounts.query.filter_by(
+                    business_id=business.id
+                ).all()
+            }
+            entry = post_entry(
+                business.id,
+                datetime.combine(date.today(), datetime.min.time()),
+                'Route reversal test',
+                [
+                    {'account_id': accounts['1000'], 'debit_amount': 125, 'credit_amount': 0},
+                    {'account_id': accounts['4000'], 'debit_amount': 0, 'credit_amount': 125},
+                ],
+                created_by=app.test_client_user.id,
+            )
+            entry_id = entry.id
+
+        response = client.post(
+            f'/accounting/journal-entries/{entry_id}/reverse',
+            data={'reason': 'Entry was posted in error'},
+            follow_redirects=True,
+        )
+        assert response.status_code == 200
+        assert b'original remains in the ledger' in response.data.lower()
+        with app.app_context():
+            original = db.session.get(JournalEntry, entry_id)
+            assert original.is_deleted is False
+            assert original.reversed_by_entry_id is not None
+            reversal = db.session.get(JournalEntry, original.reversed_by_entry_id)
+            assert reversal.reference_type == 'Reversal'
+            assert reversal.reference_id == original.id
+
     def test_create_balanced_je_posts(self, client, app, business):
         from app.models.accounting import JournalEntry
         from models import db
@@ -1014,4 +1089,3 @@ class TestTaxPerLineItem:
 
             total_tax_credit = sum(float(l.credit_amount) for l in tax_lines)
             assert abs(total_tax_credit - tax_amount) < 0.01
-

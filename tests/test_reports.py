@@ -3,7 +3,8 @@
 import unittest
 from datetime import datetime, timezone
 from flask import Flask
-from models import db, Product, User
+from models import db, Product, Setting, User
+from app.services.accounting_service import post_entry
 from services.fifo_service import record_purchase, record_sale, record_expense
 from app.services.reports import (
     get_income_statement,
@@ -107,6 +108,54 @@ class TestReportServices(unittest.TestCase):
         self.assertIn('gross_profit', pl)
         self.assertIn('total_expenses', pl)
         self.assertIn('net_profit', pl)
+
+    def test_income_statement_uses_business_tax_rate_and_excludes_soft_deleted_entries(self):
+        db.session.add(Setting(
+            business_id=self.business.id,
+            key='tax_rate',
+            value='10',
+        ))
+        db.session.commit()
+        post_entry(
+            self.business.id,
+            datetime(2026, 6, 1),
+            'Recognized revenue',
+            [
+                {'account_id': self.accounts['1000'].id, 'debit_amount': 1000, 'credit_amount': 0},
+                {'account_id': self.accounts['4000'].id, 'debit_amount': 0, 'credit_amount': 1000},
+            ],
+        )
+        post_entry(
+            self.business.id,
+            datetime(2026, 6, 2),
+            'Operating expense',
+            [
+                {'account_id': self.accounts['5100'].id, 'debit_amount': 200, 'credit_amount': 0},
+                {'account_id': self.accounts['1000'].id, 'debit_amount': 0, 'credit_amount': 200},
+            ],
+        )
+        deleted_entry = post_entry(
+            self.business.id,
+            datetime(2026, 6, 3),
+            'Soft-deleted revenue',
+            [
+                {'account_id': self.accounts['1000'].id, 'debit_amount': 500, 'credit_amount': 0},
+                {'account_id': self.accounts['4000'].id, 'debit_amount': 0, 'credit_amount': 500},
+            ],
+        )
+        deleted_entry.is_deleted = True
+        deleted_entry.deleted_by = self.user.id
+        deleted_entry.deleted_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+        pl = get_income_statement(self.business.id)
+
+        self.assertEqual(pl['total_revenue'], 1000.0)
+        self.assertEqual(pl['total_expenses'], 200.0)
+        self.assertEqual(pl['tax_rate'], 10.0)
+        self.assertEqual(pl['tax_amount'], 80.0)
+        self.assertTrue(pl['tax_is_estimate'])
+        self.assertIn('not calculated', pl['tax_note'])
     
     def test_balance_sheet(self):
         """Test balance sheet generation."""
@@ -291,8 +340,8 @@ class TestReportServices(unittest.TestCase):
         self.assertEqual(cb_filtered['closing_balance'], 500.0)
 
     def test_audit_log(self):
-        """Test audit trail report generation."""
-        # A purchase triggers a journal entry which writes an AuditLog row
+        """Financial business records and ledger postings appear in the audit trail."""
+        db.session.info['audit_actor_id'] = self.user.id
         record_purchase(
             purchase_date=datetime(2026, 6, 1),
             supplier='Supplier X',
@@ -301,23 +350,25 @@ class TestReportServices(unittest.TestCase):
             business_id=self.business.id,
             created_by=self.user.id,
         )
+        db.session.info.pop('audit_actor_id', None)
         
         al = get_audit_log(self.business.id)
         
         self.assertIn('entries', al)
         self.assertGreater(len(al['entries']), 0)
-        for log in al['entries']:
-            self.assertIn('timestamp', log)
-            self.assertIn('user_name', log)
-            self.assertIn('action', log)
-            self.assertIn('table_name', log)
-            self.assertEqual(log['user_name'], 'Test User')
-            self.assertEqual(log['action'], 'CREATE')
-            self.assertEqual(log['table_name'], 'journal_entries')
+        logged_tables = {log['table_name'] for log in al['entries']}
+        self.assertTrue({'purchases', 'purchase_items', 'stock_transactions', 'journal_entries'} <= logged_tables)
+        self.assertTrue(all(log['action'] == 'CREATE' for log in al['entries']))
+        journal_logs = [
+            log for log in al['entries']
+            if log['table_name'] == 'journal_entries' and log['action'] == 'CREATE'
+        ]
+        self.assertTrue(journal_logs)
+        self.assertEqual(journal_logs[0]['user_name'], 'Test User')
     
     def test_ar_aging(self):
         """Test AR aging generation."""
-        from models import Customer, Invoice
+        from models import Customer, Invoice, Receipt
         
         # Create a customer
         customer = Customer(
@@ -333,24 +384,47 @@ class TestReportServices(unittest.TestCase):
             business_id=self.business.id,
             customer_id=customer.id,
             invoice_number='INV-001',
-            invoice_date=datetime(2026, 6, 1),
-            due_date=datetime(2026, 6, 30),
+            invoice_date=datetime(2026, 8, 15),
+            due_date=datetime(2026, 8, 15),
             subtotal=1000.0,
             total_amount=1000.0,
-            status='issued',
+            status='partially_paid',
         )
         db.session.add(invoice)
+        db.session.flush()
+        db.session.add_all([
+            Receipt(
+                business_id=self.business.id,
+                customer_id=customer.id,
+                invoice_id=invoice.id,
+                receipt_date=datetime(2026, 9, 10),
+                amount=400.0,
+                payment_method='cash',
+            ),
+            Receipt(
+                business_id=self.business.id,
+                customer_id=customer.id,
+                invoice_id=invoice.id,
+                receipt_date=datetime(2026, 10, 1),
+                amount=100.0,
+                payment_method='cash',
+            ),
+        ])
         db.session.commit()
-        
-        # Get AR aging
-        ar = get_ar_aging(self.business.id)
-        
+
+        ar = get_ar_aging(self.business.id, datetime(2026, 9, 30))
+
         self.assertIn('aging_data', ar)
         self.assertIn('totals', ar)
+        self.assertEqual(ar['totals']['total_balance'], 600.0)
+        self.assertEqual(ar['totals']['days_30'], 600.0)
+        self.assertEqual(sum(ar['totals'][bucket] for bucket in (
+            'current', 'days_30', 'days_60', 'days_90'
+        )), ar['totals']['total_balance'])
     
     def test_ap_aging(self):
         """Test AP aging generation."""
-        from models import Supplier, Bill
+        from models import Supplier, Bill, Payment
         
         # Create a supplier
         supplier = Supplier(
@@ -366,20 +440,51 @@ class TestReportServices(unittest.TestCase):
             business_id=self.business.id,
             supplier_id=supplier.id,
             bill_number='BILL-001',
-            bill_date=datetime(2026, 6, 1),
-            due_date=datetime(2026, 6, 30),
+            bill_date=datetime(2026, 8, 15),
+            due_date=datetime(2026, 8, 15),
             subtotal=1000.0,
             total_amount=1000.0,
             status='received',
         )
         db.session.add(bill)
+        db.session.flush()
+        db.session.add_all([
+            Payment(
+                business_id=self.business.id,
+                supplier_id=supplier.id,
+                bill_id=bill.id,
+                payment_date=datetime(2026, 9, 10),
+                amount=300.0,
+                status='approved',
+            ),
+            Payment(
+                business_id=self.business.id,
+                supplier_id=supplier.id,
+                bill_id=bill.id,
+                payment_date=datetime(2026, 9, 10),
+                amount=100.0,
+                status='pending',
+            ),
+            Payment(
+                business_id=self.business.id,
+                supplier_id=supplier.id,
+                bill_id=bill.id,
+                payment_date=datetime(2026, 10, 1),
+                amount=100.0,
+                status='approved',
+            ),
+        ])
         db.session.commit()
-        
-        # Get AP aging
-        ap = get_ap_aging(self.business.id)
-        
+
+        ap = get_ap_aging(self.business.id, datetime(2026, 9, 30))
+
         self.assertIn('aging_data', ap)
         self.assertIn('totals', ap)
+        self.assertEqual(ap['totals']['total_balance'], 700.0)
+        self.assertEqual(ap['totals']['days_30'], 700.0)
+        self.assertEqual(sum(ap['totals'][bucket] for bucket in (
+            'current', 'days_30', 'days_60', 'days_90'
+        )), ap['totals']['total_balance'])
 
 
 if __name__ == '__main__':

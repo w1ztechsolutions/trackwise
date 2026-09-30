@@ -153,6 +153,16 @@ python verify_db.py
 
 ## Common Operational Procedures
 
+### Closing an Accounting Period
+
+1. Complete reconciliation and review the trial balance and supporting reports.
+2. As an `admin` or `accountant`, open **Accounting → Journal Entries → Period Close**.
+3. Close through the final date reviewed. The application only permits moving the close date forward.
+4. Treat the close as one-way in the UI: the application does not reopen periods. Correct errors with a reasoned journal reversal and a new entry in an open period.
+5. Take and verify a database backup before production close procedures.
+
+The close-through date is business-scoped. New financial records and edits dated on or before it are rejected. It is a posting lock, not a substitute for an independent review, statutory close, tax filing, or jurisdiction-specific approval workflow.
+
 ### Running Migrations
 
 ```bash

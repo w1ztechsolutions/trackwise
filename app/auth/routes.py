@@ -37,6 +37,15 @@ def login():
                 from flask_login import login_user
                 session.permanent = True
                 login_user(user)
+                from app.services.audit_service import record_user_action
+                record_user_action(
+                    user.business_id,
+                    user.id,
+                    'LOGIN',
+                    'authentication',
+                    record_id=user.id,
+                )
+                db.session.commit()
 
                 if user.must_change_password:
                     flash('Please change your password before continuing.', 'warning')
@@ -44,6 +53,16 @@ def login():
 
                 return redirect(url_for('dashboard.dashboard'))
 
+        from app.services.audit_service import record_user_action
+        record_user_action(
+            user.business_id if user else None,
+            user.id if user else None,
+            'LOGIN_FAILED',
+            'authentication',
+            record_id=user.id if user else None,
+            details={'email': email},
+        )
+        db.session.commit()
         flash('Invalid credentials or inactive account.', 'danger')
 
     return render_template('auth.html', show_nav=False)
@@ -74,6 +93,14 @@ def change_password():
 
         current_user.password_hash = generate_password_hash(new_password)
         current_user.must_change_password = False
+        from app.services.audit_service import record_user_action
+        record_user_action(
+            current_user.business_id,
+            current_user.id,
+            'PASSWORD_CHANGED',
+            'authentication',
+            record_id=current_user.id,
+        )
         db.session.commit()
 
         flash('Password changed successfully.', 'success')
@@ -84,6 +111,16 @@ def change_password():
 
 @auth_bp.route('/logout')
 def logout():
-    from flask_login import logout_user
+    from flask_login import current_user, logout_user
+    if current_user.is_authenticated:
+        from app.services.audit_service import record_user_action
+        record_user_action(
+            current_user.business_id,
+            current_user.id,
+            'LOGOUT',
+            'authentication',
+            record_id=current_user.id,
+        )
+        db.session.commit()
     logout_user()
     return redirect(url_for('auth.login'))

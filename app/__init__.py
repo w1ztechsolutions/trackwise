@@ -203,6 +203,8 @@ def create_app(config_object=None):
         ensure_required_user_columns()
         ensure_required_sales_columns()
         ensure_accounting_columns()
+        from app.services.audit_service import install_audit_listeners
+        install_audit_listeners()
 
     register_template_filters(app)
 
@@ -279,11 +281,24 @@ def create_app(config_object=None):
             from flask_login import current_user
             if current_user is not None and current_user.is_authenticated:
                 g.business_id = getattr(current_user, 'business_id', None)
+                _db.session.info['audit_actor_id'] = current_user.id
             else:
                 g.business_id = None
+                _db.session.info.pop('audit_actor_id', None)
         except Exception:
             _db.session.rollback()
             g.business_id = None
+            _db.session.info.pop('audit_actor_id', None)
+
+    from app.services.period_service import PeriodClosedError
+
+    @app.errorhandler(PeriodClosedError)
+    def _handle_period_close_error(error):
+        return str(error), 409
+
+    @app.teardown_request
+    def _clear_audit_actor(error):
+        _db.session.info.pop('audit_actor_id', None)
 
     @app.before_request
     def _enforce_https():

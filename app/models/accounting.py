@@ -11,6 +11,7 @@ class Business(db.Model):
     tax_id = db.Column(db.String(100), nullable=True)
     currency = db.Column(db.String(10), nullable=False, default='MWK')
     fiscal_year_start = db.Column(db.String(5), nullable=True, default='01-01')
+    last_closed_period_date = db.Column(db.Date, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     created_by_superadmin_id = db.Column(db.Integer, db.ForeignKey('super_admins.id'), nullable=True)
 
@@ -45,8 +46,21 @@ class JournalEntry(db.Model):
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
     deleted_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     deleted_at = db.Column(db.DateTime, nullable=True)
+    reversed_by_entry_id = db.Column(
+        db.Integer,
+        db.ForeignKey('journal_entries.id', ondelete='SET NULL'),
+        nullable=True,
+        unique=True,
+    )
+    reversal_reason = db.Column(db.String(255), nullable=True)
 
     lines = db.relationship('JournalLine', backref='journal_entry', cascade='all, delete-orphan')
+    reversal_entry = db.relationship(
+        'JournalEntry',
+        remote_side=[id],
+        foreign_keys=[reversed_by_entry_id],
+        uselist=False,
+    )
 
 
 class JournalLine(db.Model):
@@ -91,3 +105,28 @@ class BankStatement(db.Model):
 
     account = db.relationship('ChartOfAccounts', backref='bank_statements')
     journal_entry = db.relationship('JournalEntry', backref='bank_statement_matches')
+
+
+class RevenueRecognitionSchedule(db.Model):
+    __tablename__ = 'revenue_recognition_schedules'
+
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'), nullable=False, index=True)
+    invoice_id = db.Column(db.Integer, db.ForeignKey('invoices.id'), nullable=False, unique=True)
+    revenue_account_id = db.Column(db.Integer, db.ForeignKey('chart_of_accounts.id'), nullable=False)
+    deferred_revenue_account_id = db.Column(db.Integer, db.ForeignKey('chart_of_accounts.id'), nullable=False)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    total_amount = db.Column(db.Numeric(14, 2), nullable=False)
+    recognized_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0)
+    last_recognized_through = db.Column(db.Date, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default='active')
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    invoice = db.relationship('Invoice')
+    revenue_account = db.relationship('ChartOfAccounts', foreign_keys=[revenue_account_id])
+    deferred_revenue_account = db.relationship(
+        'ChartOfAccounts',
+        foreign_keys=[deferred_revenue_account_id],
+    )

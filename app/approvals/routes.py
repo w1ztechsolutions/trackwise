@@ -263,40 +263,6 @@ def approval_history():
     return render_template('approval_history.html', requests=completed)
 
 
-# ─── Helper: Create an approval request (called from transaction routes) ───
-
-def create_approval_request(business_id, transaction_type, transaction_id, created_by):
-    """Create an approval request for a transaction if approval workflow is configured.
-
-    Returns the ApprovalRequest if created, or None if no approval is needed.
-    """
-    config = ApprovalConfig.query.filter_by(
-        business_id=business_id,
-        transaction_type=transaction_type,
-        is_active=True,
-    ).first()
-
-    if not config:
-        return None  # No approval needed
-
-    import json
-    levels = json.loads(config.levels) if config.levels else []
-    if not levels:
-        return None  # No levels configured
-
-    req = ApprovalRequest(
-        business_id=business_id,
-        transaction_type=transaction_type,
-        transaction_id=transaction_id,
-        current_level=0,
-        status='pending',
-        created_by=created_by,
-    )
-    db.session.add(req)
-    db.session.commit()
-    return req
-
-
 def _execute_approval(req):
     """Execute the actual action when an approval request is fully approved."""
     transaction_type = req.transaction_type

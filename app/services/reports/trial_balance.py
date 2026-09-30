@@ -24,7 +24,8 @@ def get_trial_balance(business_id, as_of_date=None):
         db.func.sum(JournalLine.debit_amount).label('total_debit'),
         db.func.sum(JournalLine.credit_amount).label('total_credit'),
     ).join(JournalEntry).filter(
-        JournalEntry.business_id == business_id
+        JournalEntry.business_id == business_id,
+        JournalEntry.is_deleted.is_(False),
     )
     
     if as_of_date:

@@ -1,5 +1,10 @@
 # Architecture Decision Records
 
+## Recent decisions
+
+- [ADR-0009: Financial Audit and Period Controls](ADR-0009-financial-audit-and-period-controls.md)
+- [ADR-0010: Time-Based Revenue Recognition Schedules](ADR-0010-time-based-revenue-recognition.md)
+
 ## ADR-0001: ProductionConfig SECRET_KEY as Class Attribute
 
 **Feature:** Add `SECRET_KEY` class attribute to `ProductionConfig` in `config.py`

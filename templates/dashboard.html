@@ -69,7 +69,7 @@
     <div class="glass-card kpi-card net">
         <span class="kpi-label">Net Profit (Post-Tax)</span>
         <span class="kpi-value text-success">{{ pl.net_profit | currency }}</span>
-        <span class="kpi-meta">Tax Rate: {{ pl.tax_rate }}% (MWK {{ pl.tax_amount | currency }})</span>
+        <span class="kpi-meta">Estimated tax: {{ pl.tax_rate }}% (MWK {{ pl.tax_amount | currency }})</span>
         {% set np_trend = ((month_pl.net_profit - prev_month_pl.net_profit) / prev_month_pl.net_profit * 100) if prev_month_pl.net_profit else 0 %}
         <span class="kpi-trend {{ 'up' if np_trend >= 0 else 'down' }}">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>

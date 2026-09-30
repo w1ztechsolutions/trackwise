@@ -8,7 +8,7 @@ Follows the project's double-entry conventions:
 """
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from flask import (
     abort, flash, jsonify, redirect, render_template, request, url_for,
@@ -19,13 +19,28 @@ from app.accounting.coa_taxonomy import build_coa_tree, COA_TAXONOMY
 from flask_login import current_user, login_required
 
 from models import db
-from app.models.accounting import ChartOfAccounts, JournalEntry, JournalLine, BankStatement
+from app.models import Invoice, Sale
+from app.models.accounting import (
+    Business,
+    ChartOfAccounts,
+    JournalEntry,
+    JournalLine,
+    BankStatement,
+    RevenueRecognitionSchedule,
+)
 from app.models.approval import ApprovalConfig, ApprovalRequest
 from app.services.accounting_service import (
-    AccountingException, post_entry, post_opening_balance, verify_balances,
+    AccountingException, post_entry, post_opening_balance, reverse_entry,
+    verify_balances,
+)
+from app.services.period_service import close_period
+from app.services.revenue_recognition_service import (
+    RevenueRecognitionError,
+    create_revenue_schedule,
+    recognize_revenue,
 )
 from app.auth.decorators import role_required
-from app.approvals.routes import create_approval_request
+from app.services.approval_service import create_approval_request
 
 from . import accounting_bp
 
@@ -260,6 +275,11 @@ def je_create():
     if request.method == 'POST':
         description = request.form.get('description', '').strip()
         entry_date_raw = request.form.get('entry_date') or datetime.now(timezone.utc).date().isoformat()
+        try:
+            entry_date = datetime.fromisoformat(entry_date_raw)
+        except ValueError:
+            flash('Enter a valid journal entry date.', 'danger')
+            return redirect(url_for('accounting.je_create'))
         account_ids = request.form.getlist('account_id')
         debits = request.form.getlist('debit_amount')
         credits = request.form.getlist('credit_amount')
@@ -340,7 +360,7 @@ def je_create():
             try:
                 entry = post_entry(
                     biz_id,
-                    datetime.now(timezone.utc),
+                    entry_date,
                     description,
                     [
                         {'account_id': l['account_id'],
@@ -381,7 +401,175 @@ def je_view(entry_id):
             ChartOfAccounts.id.in_(account_ids),
         ).all()
     }
-    return render_template('journal_entry_view.html', entry=entry, account_map=account_map)
+    total_debit = sum(float(line.debit_amount or 0) for line in entry.lines)
+    total_credit = sum(float(line.credit_amount or 0) for line in entry.lines)
+    return render_template(
+        'journal_entry_view.html',
+        entry=entry,
+        account_map=account_map,
+        reversal_entry=entry.reversal_entry,
+        total_debit=total_debit,
+        total_credit=total_credit,
+    )
+
+
+@accounting_bp.route('/accounting/journal-entries/<int:entry_id>/reverse', methods=['POST'])
+@login_required
+@role_required('admin', 'accountant')
+def je_reverse(entry_id):
+    biz_id = _biz_id()
+    reason = request.form.get('reason', '').strip()
+    try:
+        reversal = reverse_entry(
+            biz_id,
+            entry_id,
+            reason,
+            created_by=current_user.id,
+        )
+    except AccountingException as error:
+        db.session.rollback()
+        flash(str(error), 'danger')
+        return redirect(url_for('accounting.je_view', entry_id=entry_id))
+
+    flash(f'Journal entry reversed with entry #{reversal.id}. The original remains in the ledger.', 'success')
+    return redirect(url_for('accounting.je_view', entry_id=entry_id))
+
+
+@accounting_bp.route('/accounting/period-close', methods=['GET', 'POST'])
+@login_required
+@role_required('admin', 'accountant')
+def period_close():
+    biz_id = _biz_id()
+    business = db.session.get(Business, biz_id)
+
+    if request.method == 'POST':
+        close_date_raw = request.form.get('close_through', '').strip()
+        try:
+            close_through = date.fromisoformat(close_date_raw)
+            close_period(biz_id, close_through)
+            db.session.commit()
+        except ValueError as error:
+            db.session.rollback()
+            flash(str(error) or 'Enter a valid close-through date.', 'danger')
+            return redirect(url_for('accounting.period_close'))
+
+        flash(f'Accounting period is now closed through {close_through.isoformat()}.', 'success')
+        return redirect(url_for('accounting.period_close'))
+
+    return render_template(
+        'period_close.html',
+        last_closed_period_date=business.last_closed_period_date,
+        today=date.today().isoformat(),
+        min_close_date=(
+            (business.last_closed_period_date + timedelta(days=1)).isoformat()
+            if business.last_closed_period_date else ''
+        ),
+    )
+
+
+@accounting_bp.route('/accounting/revenue-recognition', methods=['GET', 'POST'])
+@login_required
+@role_required('admin', 'accountant')
+def revenue_recognition():
+    biz_id = _biz_id()
+    if request.method == 'POST':
+        try:
+            schedule = create_revenue_schedule(
+                business_id=biz_id,
+                invoice_id=int(request.form.get('invoice_id', '')),
+                revenue_account_id=int(request.form.get('revenue_account_id', '')),
+                deferred_revenue_account_id=int(
+                    request.form.get('deferred_revenue_account_id', '')
+                ),
+                amount=request.form.get('amount', ''),
+                start_date=date.fromisoformat(request.form.get('start_date', '')),
+                end_date=date.fromisoformat(request.form.get('end_date', '')),
+                created_by=current_user.id,
+            )
+        except (ValueError, TypeError) as error:
+            db.session.rollback()
+            flash(str(error) or 'Enter valid schedule details.', 'danger')
+            return redirect(url_for('accounting.revenue_recognition'))
+
+        flash(f'Revenue schedule #{schedule.id} created and the amount deferred.', 'success')
+        return redirect(url_for('accounting.revenue_recognition'))
+
+    posted_invoice_ids = (
+        db.session.query(Sale.invoice_id)
+        .join(
+            JournalEntry,
+            (JournalEntry.reference_id == Sale.id)
+            & (JournalEntry.reference_type == 'Sale'),
+        )
+        .filter(
+            Sale.business_id == biz_id,
+            Sale.invoice_id.isnot(None),
+            JournalEntry.business_id == biz_id,
+            JournalEntry.is_deleted.is_(False),
+        )
+        .distinct()
+        .all()
+    )
+    scheduled_invoice_ids = db.session.query(
+        RevenueRecognitionSchedule.invoice_id
+    ).filter_by(business_id=biz_id)
+    eligible_invoices = Invoice.query.filter(
+        Invoice.business_id == biz_id,
+        Invoice.status.notin_(('draft', 'void')),
+        Invoice.id.in_([row[0] for row in posted_invoice_ids]),
+        ~Invoice.id.in_(scheduled_invoice_ids),
+    ).order_by(Invoice.invoice_date.desc()).all()
+    income_accounts = ChartOfAccounts.query.filter_by(
+        business_id=biz_id,
+        type='income',
+        is_active=True,
+    ).order_by(ChartOfAccounts.code).all()
+    liability_accounts = ChartOfAccounts.query.filter_by(
+        business_id=biz_id,
+        type='liability',
+        is_active=True,
+    ).order_by(ChartOfAccounts.code).all()
+    schedules = RevenueRecognitionSchedule.query.filter_by(
+        business_id=biz_id,
+    ).order_by(RevenueRecognitionSchedule.start_date.desc()).all()
+    return render_template(
+        'revenue_recognition.html',
+        invoices=eligible_invoices,
+        income_accounts=income_accounts,
+        liability_accounts=liability_accounts,
+        schedules=schedules,
+        today=date.today().isoformat(),
+    )
+
+
+@accounting_bp.route(
+    '/accounting/revenue-recognition/<int:schedule_id>/recognize',
+    methods=['POST'],
+)
+@login_required
+@role_required('admin', 'accountant')
+def revenue_recognition_post(schedule_id):
+    biz_id = _biz_id()
+    try:
+        through_date = date.fromisoformat(
+            request.form.get('through_date', '').strip()
+        )
+        entry = recognize_revenue(
+            schedule_id,
+            biz_id,
+            through_date,
+            created_by=current_user.id,
+        )
+    except (RevenueRecognitionError, ValueError) as error:
+        db.session.rollback()
+        flash(str(error) or 'Enter a valid recognition date.', 'danger')
+        return redirect(url_for('accounting.revenue_recognition'))
+
+    if entry is None:
+        flash('No additional revenue was due for recognition on that date.', 'info')
+    else:
+        flash(f'Revenue recognition posted as journal entry #{entry.id}.', 'success')
+    return redirect(url_for('accounting.revenue_recognition'))
 
 
 # ─── Bank Reconciliation ────────────────────────────────────────────────────

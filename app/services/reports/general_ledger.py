@@ -28,7 +28,8 @@ def get_general_ledger(business_id, account_id=None, start_date=None, end_date=N
     ).join(JournalEntry).join(
         ChartOfAccounts, JournalLine.account_id == ChartOfAccounts.id
     ).filter(
-        JournalEntry.business_id == business_id
+        JournalEntry.business_id == business_id,
+        JournalEntry.is_deleted.is_(False),
     )
     
     if account_id:

@@ -125,9 +125,10 @@
         
         <!-- Taxes -->
         <div class="pl-row pl-divider-double">
-            <span class="label">Income Tax Provision <span class="text-xs text-muted">({{ pl.tax_rate }}%)</span></span>
+            <span class="label">Estimated Income Tax <span class="text-xs text-muted">({{ pl.tax_rate }}%)</span></span>
             <span class="value text-danger">({{ pl.tax_amount | currency }})</span>
         </div>
+        <p class="text-muted text-sm">{{ pl.tax_note }}</p>
         
         <!-- Net Profit -->
         <div class="pl-total-row">
