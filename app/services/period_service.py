@@ -41,3 +41,15 @@ def close_period(business_id, close_through):
         raise ValueError("The close-through date must be later than the current close date")
 
     business.last_closed_period_date = close_through
+
+
+def reopen_period(business_id):
+    business = Business.query.filter_by(id=business_id).with_for_update().first()
+    if business is None:
+        raise ValueError("Business not found")
+    if business.last_closed_period_date is None:
+        raise ValueError("There is no closed accounting period to reopen")
+
+    reopened_through = business.last_closed_period_date
+    business.last_closed_period_date = None
+    return reopened_through

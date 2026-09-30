@@ -27,6 +27,20 @@
         No accounting period has been closed.
         {% endif %}
     </p>
+    {% if last_closed_period_date and can_reopen_period %}
+    <form method="post" action="{{ url_for('accounting.period_reopen') }}" class="period-reopen-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="period-reopen-notice">
+            Reopening removes the current close lock through {{ last_closed_period_date.isoformat() }}.
+            Only administrators can do this, and the action is recorded in the audit log.
+        </div>
+        <label class="period-reopen-confirm">
+            <input type="checkbox" name="confirm_reopen" value="yes" required>
+            <span>I confirm that this period should be reopened.</span>
+        </label>
+        <button type="submit" class="period-reopen-button">Reopen closed period</button>
+    </form>
+    {% endif %}
     <form method="post" action="{{ url_for('accounting.period_close') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label for="close-through" class="form-label">Close through</label>
@@ -44,8 +58,9 @@
         </div>
     </form>
     <p class="text-muted mt-3">
-        This action is one-way in the application. Transactions dated on or before the close date
-        cannot be created or edited; post correcting entries in an open period instead.
+        Transactions dated on or before the close date cannot be created or edited. Only an
+        administrator can reopen the period; reopening clears the current close date. Close it
+        again after any corrections are complete.
     </p>
 </div>
 {% endblock %}

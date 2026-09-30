@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Demo Business Exists{% endblock %}
+{% block content %}
+<section class="demo-page" aria-labelledby="demo-title">
+    <div class="demo-card">
+        <div class="demo-eyebrow">
+            <span class="demo-status-dot" aria-hidden="true"></span>
+            Workspace found
+        </div>
+        <header class="demo-header">
+            <h1 id="demo-title">This demo workspace exists</h1>
+            <p><strong>{{ business_name }}</strong> is ready to explore.</p>
+        </header>
+
+        <div class="demo-selection">
+            <span class="demo-selection-label">Your selected role</span>
+            <strong>{{ role_label }}</strong>
+        </div>
+
+        <div class="demo-notice" role="note">
+            <span class="demo-notice-icon" aria-hidden="true">i</span>
+            <p><strong>This workspace is shared</strong><br>Proceeding creates a new demo user. Other visitors can see or change its data. Do not use real or confidential information.</p>
+        </div>
+
+        <div class="demo-actions">
+            <form method="POST" action="{{ url_for('auth.demo_proceed') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="demo-submit">Proceed to workspace <span aria-hidden="true">→</span></button>
+            </form>
+            <form method="POST" action="{{ url_for('auth.demo_change_business') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="demo-secondary">Choose another business</button>
+            </form>
+        </div>
+        <footer class="demo-footer">
+            <a href="{{ url_for('auth.login') }}">Back to sign in</a>
+        </footer>
+    </div>
+</section>
+{% endblock %}

@@ -11,16 +11,16 @@
     --border-glass: rgba(255, 255, 255, 0.12);
 }
 html.theme-light {
-    --bg: #ffffff;
+    --bg: #f1f5f9;
     --text: #0f172a;
-    --muted: #94a3b8;
+    --muted: #64748b;
     --card: #ffffff;
-    --card-border: #e2e8f0;
+    --card-border: #dbe3ef;
     --sidebar-bg: #f8fafc;
     --text-dark: #33415a;
     --text-main: #0f172a;
-    --text-muted: #94a3b8;
-    --border-glass: #e2e8f0;
+    --text-muted: #64748b;
+    --border-glass: #dbe3ef;
     color-scheme: light;
 }
 :focus-visible {

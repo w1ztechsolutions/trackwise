@@ -7,7 +7,7 @@ so they are forced to set their own password on first login.
 
 import json
 
-from flask import flash, redirect, render_template, request, url_for
+from flask import abort, flash, redirect, render_template, request, session as flask_session, url_for
 from flask_login import current_user, login_required
 from werkzeug.security import generate_password_hash
 
@@ -26,6 +26,10 @@ db = _db
 @permission_required('manage_settings')
 def create_user():
     from app.models import User
+    from app.database import DATABASE_CONTEXT_KEY, DEMO_CONTEXT
+
+    if flask_session.get(DATABASE_CONTEXT_KEY) == DEMO_CONTEXT:
+        abort(404)
 
     if current_user.role != 'admin':
         flash('Only administrators can create new users.', 'danger')
@@ -90,6 +94,8 @@ def create_user():
 @auth_bp.route('/users')
 @login_required
 def user_management():
+    from app.database import DATABASE_CONTEXT_KEY, DEMO_CONTEXT
+
     if current_user.role != 'admin':
         flash('Only administrators can access user management.', 'danger')
         return redirect(url_for('dashboard.dashboard'))
@@ -100,7 +106,12 @@ def user_management():
         return redirect(url_for('dashboard.dashboard'))
 
     users = User.query.filter_by(business_id=biz_id).order_by(User.role, User.email).all()
-    return render_template('user_management.html', users=users)
+    can_create_users = flask_session.get(DATABASE_CONTEXT_KEY) != DEMO_CONTEXT
+    return render_template(
+        'user_management.html',
+        users=users,
+        can_create_users=can_create_users,
+    )
 
 
 @auth_bp.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])

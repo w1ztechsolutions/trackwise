@@ -33,7 +33,7 @@ from app.services.accounting_service import (
     AccountingException, post_entry, post_opening_balance, reverse_entry,
     verify_balances,
 )
-from app.services.period_service import close_period
+from app.services.period_service import close_period, reopen_period
 from app.services.revenue_recognition_service import (
     RevenueRecognitionError,
     create_revenue_schedule,
@@ -459,12 +459,37 @@ def period_close():
     return render_template(
         'period_close.html',
         last_closed_period_date=business.last_closed_period_date,
+        can_reopen_period=current_user.role == 'admin',
         today=date.today().isoformat(),
         min_close_date=(
             (business.last_closed_period_date + timedelta(days=1)).isoformat()
             if business.last_closed_period_date else ''
         ),
     )
+
+
+@accounting_bp.route('/accounting/period-close/reopen', methods=['POST'])
+@login_required
+@role_required('admin')
+def period_reopen():
+    biz_id = _biz_id()
+    if request.form.get('confirm_reopen') != 'yes':
+        flash('Confirm that you want to reopen the closed period.', 'danger')
+        return redirect(url_for('accounting.period_close'))
+
+    try:
+        reopened_through = reopen_period(biz_id)
+        db.session.commit()
+    except ValueError as error:
+        db.session.rollback()
+        flash(str(error), 'danger')
+        return redirect(url_for('accounting.period_close'))
+
+    flash(
+        f'Accounting period closed through {reopened_through.isoformat()} has been reopened.',
+        'success',
+    )
+    return redirect(url_for('accounting.period_close'))
 
 
 @accounting_bp.route('/accounting/revenue-recognition', methods=['GET', 'POST'])

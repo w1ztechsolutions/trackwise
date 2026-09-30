@@ -60,6 +60,7 @@ TrackWise sets the following security headers on all responses:
 - Audit logs record financially significant ORM creates/updates/deletes, journal lines, approval actions, and authentication events (`AuditLog` model). Password hashes and bank account numbers are excluded from snapshots.
 - Soft-delete support exists for `JournalEntry` (`is_deleted`, `deleted_by`, `deleted_at`).
 - No credit card data is stored; Stripe handles all payment processing.
+- Demo access is disabled by default. When enabled, anyone who can reach `/demo` can create or join a named workspace and select any built-in role. All demo data resides on `DEMO_DATABASE_URL`; keep it on a separate, disposable database and never enter real or confidential data.
 
 ### Known Security Considerations
 - Celery tasks run synchronously in serverless mode; avoid processing sensitive data in synchronous request paths when possible.
@@ -67,6 +68,12 @@ TrackWise sets the following security headers on all responses:
 - The `/api/products` endpoint is authenticated but does not support API key auth; for integrations, consider adding token-based authentication.
 
 ### Security Updates
+
+**2026-09-30 — Isolated demo role testing**
+- Added a public demo business flow behind the opt-in `DEMO_MODE_ENABLED` setting, backed by `DEMO_DATABASE_URL`.
+- Visitors select a role; each is assigned a random, undisclosed internal user. Existing business names require an explicit proceed action and share mutable demo data.
+- Normal password login stays on `DATABASE_URL`; demo user lookups and app requests stay on the demo engine selected by the signed session context.
+- Configure a distinct isolated Neon project/branch for demo and set `DEMO_MODE_ENABLED=false` to disable public demo access.
 
 **2026-09-30 — Financial audit coverage**
 - Added transactional audit events for financial records and audit events for login, logout, and password changes.

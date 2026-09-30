@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Try the Demo{% endblock %}
+{% block content %}
+<section class="demo-page" aria-labelledby="demo-title">
+    <div class="demo-card">
+        <div class="demo-eyebrow">
+            <span class="demo-status-dot" aria-hidden="true"></span>
+            Interactive product demo
+        </div>
+        <header class="demo-header">
+            <h1 id="demo-title">Explore TrackWise</h1>
+            <p>Choose a business workspace and role to explore the app.</p>
+        </header>
+
+        <form class="demo-form" method="POST" action="{{ url_for('auth.demo_entry') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="demo-field">
+                <label class="form-label" for="business_name">Business name</label>
+                <input
+                    type="text"
+                    id="business_name"
+                    name="business_name"
+                    maxlength="200"
+                    required
+                    class="form-control"
+                    autocomplete="organization"
+                    placeholder="e.g. Acme Supplies"
+                    value="{{ business_name }}"
+                    autofocus
+                >
+                <p class="demo-field-help">Use a name your team can recognize. Existing names open the shared workspace.</p>
+            </div>
+            <div class="demo-field">
+                <label class="form-label" for="role">Role to test</label>
+                <select id="role" name="role" required class="form-control">
+                    {% for role, label in demo_roles %}
+                    <option value="{{ role }}" {{ 'selected' if role == selected_role else '' }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="demo-notice" role="note">
+                <span class="demo-notice-icon" aria-hidden="true">i</span>
+                <p><strong>Shared demo environment</strong><br>Other visitors may see or change demo data. Do not enter real or confidential information.</p>
+            </div>
+
+            <button type="submit" class="demo-submit">Continue to demo <span aria-hidden="true">→</span></button>
+        </form>
+        <footer class="demo-footer">
+            <a href="{{ url_for('auth.login') }}">Back to sign in</a>
+        </footer>
+    </div>
+</section>
+{% endblock %}

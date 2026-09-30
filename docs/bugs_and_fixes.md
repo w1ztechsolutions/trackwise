@@ -508,6 +508,227 @@ Allocate linked receipts and approved bill payments dated on or before the repor
 
 ---
 
+## Bug 22: Fresh Demo Database Could Not Follow the Legacy Migration Chain
+
+**Date:** 2026-09-30
+**Severity:** High (demo database cannot be initialized)
+**Environment:** Fresh PostgreSQL demo database
+
+**Symptom:**
+
+The migration chain failed on a clean demo database. The legacy migration expected a `uq_settings_key` constraint name that was not present, then failed with `relation "material_usages" does not exist`.
+
+**Root cause:**
+
+The historical migration assumes a database created with a particular PostgreSQL-generated constraint name and assumes `material_usages` exists, although no migration in the chain creates that table. The migration is already part of the deployed history and must not be edited in place.
+
+**Fix:**
+
+Added a demo-only bootstrap factory and command. It verifies the target is distinct from production, refuses non-empty or unmapped schemas, creates the current ORM metadata on an empty demo database, and stamps the current Alembic head(s). Subsequent demo upgrades can use Alembic through the same demo-only factory.
+
+**Files changed:**
+
+- `app/__init__.py`
+- `.env.example`
+- `DEPLOY_VERCEL.md`
+- `docs/MIGRATION_2026-09_demo_workspace_database.md`
+- `docs/ENVIRONMENT.md`
+- `docs/OPERATIONS.md`
+- `README.md`
+- `CHANGELOG.md`
+- `docs/DATABASE.md`
+- `docs/adr/ADR-0012-fresh-demo-database-bootstrap.md`
+
+---
+
+## Bug 23: Demo Pages Inherited App Navigation and Bootstrap-Only Styling
+
+**Date:** 2026-09-30
+**Severity:** Medium
+**Environment:** All, especially mobile browsers
+
+**Symptom:**
+
+The demo forms displayed the signed-in application navigation, which could obscure the form on mobile. Warning and action layout also relied on Bootstrap utility and alert classes.
+
+**Root cause:**
+
+The demo page render paths did not disable the shared app navigation, and the templates used external Bootstrap styles that were blocked by invalid integrity hashes.
+
+**Fix:**
+
+Made both demo screens standalone by hiding application navigation and replaced Bootstrap-dependent layout pieces with responsive, locally styled components.
+
+**Files changed:**
+
+- `app/auth/routes.py`
+- `templates/demo_entry.html`
+- `templates/demo_business_exists.html`
+- `static/css/style.css`
+- `tests/test_demo_accounts.py`
+
+---
+
+## Bug 25: Chart of Accounts Dialogs Rendered Inline
+
+**Date:** 2026-09-30
+**Severity:** High (account management UI unusable)
+**Environment:** All browsers loading the shared Bootstrap layout
+
+**Symptom:**
+
+The Add Account, Edit Account, Opening Balance, and starter-account picker dialogs appeared as page content, including at the bottom of the Chart of Accounts page, instead of opening only after their buttons were clicked.
+
+**Root cause:**
+
+The Bootstrap 5.3.0 stylesheet and bundle URLs in the shared base template had incorrect Subresource Integrity hashes. Browsers rejected both assets, so modal hiding, layout, and click behavior were unavailable.
+
+**Fix:**
+
+Replaced the two incorrect hashes with hashes verified against the exact pinned CDN assets. Renamed the starter-account action and dialog title to make the button-triggered workflow clear. Made the picker scrollable and full-screen on small screens so its account list remains usable on mobile.
+
+**Files changed:**
+
+- `templates/base.html`
+- `templates/chart_of_accounts.html`
+- `templates/coa_seeder_modal.html`
+- `CHANGELOG.md`
+
+---
+
+## Bug 26: Starter Account Picker Controls Had Low Contrast in Dark Mode
+
+**Date:** 2026-09-30
+**Severity:** Medium (reduced usability)
+**Environment:** Chart of Accounts starter-account picker in dark mode
+
+**Symptom:**
+
+Gray subcategory buttons and account details were difficult to distinguish from the dark modal background.
+
+**Root cause:**
+
+The picker relied on Bootstrap's muted outline-secondary styling and generic muted text colors, which had insufficient contrast against the dark modal surface.
+
+**Fix:**
+
+Added picker-scoped dark-theme colors for subcategory controls, account labels, account codes, checkboxes, and the selected-accounts preview. Added explicit light-theme colors to preserve readability when switching themes.
+
+**Files changed:**
+
+- `static/css/style.css`
+- `CHANGELOG.md`
+
+---
+
+## Bug 27: Purchases Page Failed to Render
+
+**Date:** 2026-09-30
+**Severity:** High (purchases workflow unavailable)
+**Environment:** Purchases page template
+
+**Symptom:**
+
+Opening `/purchases` raised a Jinja `TemplateSyntaxError` for an unexpected `endblock`.
+
+**Root cause:**
+
+The template closed its `scripts` block and then contained an extra `endblock` tag.
+
+**Fix:**
+
+Removed the unmatched closing tag so the Purchases page renders normally.
+
+**Files changed:**
+
+- `templates/purchases.html`
+- `CHANGELOG.md`
+
+---
+
+## Bug 28: Light Theme Pages Had Low Contrast and Dashboard Chart Did Not Load
+
+**Date:** 2026-09-30
+**Severity:** Medium (reduced readability and missing dashboard visualization)
+**Environment:** Light theme on Chart of Accounts, Bank Reconciliation, and Dashboard
+
+**Symptom:**
+
+Muted text, status badges, card boundaries, and table headers were difficult to read against the white page background. The dashboard chart was blank because the browser rejected the pinned Chart.js script.
+
+**Root cause:**
+
+The light-theme palette used low-contrast gray and semantic colors, while the page background and cards were both white. Chart.js had an invalid Subresource Integrity hash, and the dashboard's chart script ran before its deferred Chart.js dependency.
+
+**Fix:**
+
+Introduced a soft slate page background with white cards, increased muted text and border contrast, and added readable light-theme status badge colors. Corrected the Chart.js integrity hash, deferred the dashboard chart script so it runs after its dependency, and made chart labels and grid lines respond to light/dark theme changes.
+
+**Files changed:**
+
+- `templates/base.html`
+- `templates/dashboard.html`
+- `static/css/critical.css`
+- `static/css/style.css`
+- `static/js/dashboard.js`
+- `CHANGELOG.md`
+
+---
+
+## Bug 29: Light Theme Flashed Dark During Page Navigation
+
+**Date:** 2026-09-30
+**Severity:** Medium (visual disruption during navigation)
+**Environment:** Pages using the shared base template
+
+**Symptom:**
+
+When light mode was selected, navigating to another page briefly displayed the dark theme before switching to light.
+
+**Root cause:**
+
+The saved theme was read by `main.js` at the end of the document, after stylesheets and initial page rendering had already started.
+
+**Fix:**
+
+Initialize the stored or system-preferred theme in the document head before stylesheets load. The page-end theme controller now synchronizes the toggle state with that early choice and only persists a choice when the user changes it.
+
+**Files changed:**
+
+- `templates/base.html`
+- `static/js/main.js`
+- `CHANGELOG.md`
+
+---
+
+## Bug 30: Inventory, Sales, and Payments Templates Failed to Render
+
+**Date:** 2026-09-30
+**Severity:** High (core operational routes unavailable)
+**Environment:** Inventory, Sales, and Payments pages in demo and production sessions
+
+**Symptom:**
+
+Opening `/inventory`, `/sales`, or `/payments` raised a Jinja `TemplateSyntaxError` instead of rendering the page.
+
+**Root cause:**
+
+Each template contained an extra `{% endblock %}` after its `scripts` block had already been closed.
+
+**Fix:**
+
+Removed the unmatched block terminators and added a demo-database regression test that opens all three pages after entering a demo workspace.
+
+**Files changed:**
+
+- `templates/inventory.html`
+- `templates/sales.html`
+- `templates/payments.html`
+- `tests/test_demo_accounts.py`
+- `CHANGELOG.md`
+
+---
+
 ## Bug 16: Posted Journal Entries Had No Reversal Workflow
 
 **Date:** 2026-09-30 | **Severity:** Critical (financial history integrity) | **Environment:** All
@@ -542,7 +763,7 @@ Post a separately identified, balanced counter-entry with a required reason, lin
 
 **Symptom:**
 
-Transactions dated in an already-reviewed accounting period could be posted or edited without an explicit reopen operation.
+Transactions dated in an already-reviewed accounting period could be posted or edited without an explicit reopen operation. Previously, closed periods could not be reopened through the application.
 
 **Root cause:**
 
@@ -550,7 +771,7 @@ The business had no close-through date or shared write guard for closed periods.
 
 **Fix:**
 
-Add a business-scoped close-through date, permit admins/accountants to advance it through the period-close page, and reject financial writes dated on or before it. Corrections should use a reversal and a new entry in an open period; the UI does not reopen closed periods.
+Add a business-scoped close-through date, permit admins/accountants to advance it through the period-close page, and reject financial writes dated on or before it. Add a separate reopen action restricted to admins, require explicit confirmation, and retain audit logging of the business close-date change.
 
 **Files changed:**
 
@@ -561,6 +782,38 @@ Add a business-scoped close-through date, permit admins/accountants to advance i
 - `templates/period_close.html`
 - `tests/test_accounting.py`
 - `tests/test_routes.py`
+
+**Updated behavior:** Only an administrator may reopen a closed period. The action clears the close-through date and creates an audit-log entry. Accountants may still close and advance the close date but cannot reopen it.
+
+---
+
+## Bug 24: Demo User Management Exposed Unneeded User Creation
+
+**Date:** 2026-09-30
+**Severity:** Low
+**Environment:** Demo sessions
+
+**Symptom:**
+
+Demo administrators could open the manual **Create User** page, even though the demo is for exploring application roles rather than testing user provisioning.
+
+**Root cause:**
+
+The user creation route and link were available to any administrator, without checking whether the signed session was routed to the demo database.
+
+**Fix:**
+
+Hide manual user-creation links in demo user management and return 404 for direct GET and POST requests to `/users/create` during demo sessions. Role selection at demo entry still generates the internal user needed to explore each role. Production user management remains unchanged.
+
+**Files changed:**
+
+- `app/auth/register_routes.py`
+- `templates/user_management.html`
+- `tests/test_demo_accounts.py`
+- `docs/MIGRATION_2026-09_demo_workspace_database.md`
+- `docs/ENVIRONMENT.md`
+- `docs/adr/ADR-0011-isolated-role-based-demo-access.md`
+- `CHANGELOG.md`
 
 ---
 

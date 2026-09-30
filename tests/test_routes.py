@@ -498,7 +498,20 @@ class TestAccessibility:
     def test_theme_css_variables_present(self, client):
         resp = client.get('/dashboard')
         assert resp.status_code == 200
-        assert b'html.theme-light' in resp.data
+        css = client.get('/static/css/critical.css')
+        assert css.status_code == 200
+        assert b'html.theme-light' in css.data
+
+    def test_saved_theme_initializes_before_stylesheets(self, client):
+        resp = client.get('/dashboard')
+        assert resp.status_code == 200
+        body = resp.data
+        script_start = body.index(b'<script nonce="') + len(b'<script nonce="')
+        nonce = body[script_start:body.index(b'"', script_start)].decode()
+        assert f"'nonce-{nonce}'" in resp.headers['Content-Security-Policy']
+        theme_init = body.index(b"localStorage.getItem('theme')")
+        stylesheet = body.index(b'css/critical.css')
+        assert theme_init < stylesheet
 
 
 class TestCOAManager:
@@ -614,6 +627,77 @@ class TestJournalEntries:
                 business_id=business.id,
                 description='Closed period adjustment',
             ).count() == 0
+
+    def test_only_admin_can_reopen_closed_period(self, client, app, business):
+        from datetime import date, timedelta
+        from flask import g
+        from app.models import AuditLog, Business, User, db
+        import json
+
+        app.config['LOGIN_DISABLED'] = False
+        close_through = date.today() - timedelta(days=1)
+        with app.app_context():
+            accountant = User(
+                business_id=business.id,
+                email='accountant-period-test@example.com',
+                password_hash='pbkdf2:sha256:600000$dummy',
+                role='accountant',
+                is_active=True,
+            )
+            db.session.add(accountant)
+            db.session.commit()
+            accountant_id = accountant.id
+
+        closed = client.post(
+            '/accounting/period-close',
+            data={'close_through': close_through.isoformat()},
+        )
+        assert closed.status_code == 302
+
+        with client.session_transaction() as session:
+            session['_user_id'] = str(accountant_id)
+            session['_fresh'] = True
+        g.pop('_login_user', None)
+        accountant_page = client.get('/accounting/period-close')
+        assert accountant_page.status_code == 200
+        assert close_through.isoformat().encode() in accountant_page.data
+        assert b'action="/accounting/period-close/reopen"' not in accountant_page.data
+        forbidden = client.post(
+            '/accounting/period-close/reopen',
+            data={'confirm_reopen': 'yes'},
+        )
+        assert forbidden.status_code == 403
+
+        with client.session_transaction() as session:
+            session['_user_id'] = str(app.test_client_user.id)
+            session['_fresh'] = True
+        g.pop('_login_user', None)
+        admin_page = client.get('/accounting/period-close')
+        assert b'Reopen closed period' in admin_page.data
+        unconfirmed = client.post('/accounting/period-close/reopen')
+        assert unconfirmed.status_code == 302
+        with app.app_context():
+            assert db.session.get(type(business), business.id).last_closed_period_date == close_through
+
+        reopened = client.post(
+            '/accounting/period-close/reopen',
+            data={'confirm_reopen': 'yes'},
+            follow_redirects=True,
+        )
+        assert reopened.status_code == 200
+        assert b'has been reopened' in reopened.data
+        with app.app_context():
+            refreshed_business = db.session.get(Business, business.id)
+            assert refreshed_business.last_closed_period_date is None
+            audit = AuditLog.query.filter_by(
+                table_name='businesses',
+                record_id=business.id,
+                action='UPDATE',
+            ).order_by(AuditLog.id.desc()).first()
+            assert audit is not None
+            assert audit.user_id == app.test_client_user.id
+            assert 'last_closed_period_date' in json.loads(audit.old_values)
+            assert json.loads(audit.new_values)['last_closed_period_date'] is None
 
     def test_reverse_route_posts_auditable_correction(self, client, app, business):
         from datetime import date, datetime

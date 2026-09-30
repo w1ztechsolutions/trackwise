@@ -97,6 +97,13 @@ def _get_pool_options(is_neon: bool = False) -> dict:
 class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 300}
+    DEMO_MODE_ENABLED = os.environ.get("DEMO_MODE_ENABLED", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    DEMO_DATABASE_URL = os.environ.get("DEMO_DATABASE_URL")
     REMEMBER_COOKIE_DURATION = timedelta(days=14)
     PERMANENT_SESSION_LIFETIME = timedelta(hours=5)
     SESSION_REFRESH_EACH_REQUEST = True

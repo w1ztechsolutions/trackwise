@@ -153,13 +153,25 @@ python verify_db.py
 
 ## Common Operational Procedures
 
+### Configuring a Separate Neon Demo Database
+
+1. Create a separate Neon project or branch exclusively for demo data. Set `DEMO_DATABASE_URL` to its connection string and retain `DATABASE_URL` for production; never paste either URL into logs or chat.
+2. Set `DEMO_MODE_ENABLED=true` and restart/redeploy. Startup fails closed when the flag is on but the demo URL is missing or exactly matches the production URL.
+3. Run `flask db upgrade` for production. For a new, empty demo database, use `flask --app 'app:create_demo_migration_app' demo-db-bootstrap`. The bootstrap verifies the target is separate, contains no application rows, and has no unexpected tables before creating the ORM schema and stamping Alembic head(s).
+4. For subsequent demo schema changes, review the pending migrations and run `flask --app 'app:create_demo_migration_app' db upgrade`. Never point the normal app's `flask db upgrade` at the demo database.
+5. Open `/demo`, enter a business name, and select a role. New names create a demo business; a matching normalized name prompts the visitor to proceed into the shared business or choose another name.
+6. Proceeding creates a new random internal user for the selected role. Credentials are not displayed. All users of that business share its data, which may be changed or reset.
+7. Regular `/login` credentials always use the production database. Each demo session has a signed database-context marker so application queries for that session remain on the demo database; logout clears the marker.
+8. Disable demo mode to remove public access. Existing demo businesses remain only in the demo database.
+
 ### Closing an Accounting Period
 
 1. Complete reconciliation and review the trial balance and supporting reports.
 2. As an `admin` or `accountant`, open **Accounting → Journal Entries → Period Close**.
 3. Close through the final date reviewed. The application only permits moving the close date forward.
-4. Treat the close as one-way in the UI: the application does not reopen periods. Correct errors with a reasoned journal reversal and a new entry in an open period.
-5. Take and verify a database backup before production close procedures.
+4. If corrections in the closed period are required, only an `admin` can reopen it. Confirm the action on the Period Close page; the event is recorded in the audit log.
+5. Complete and review corrections promptly, then close the period again. Alternatively, correct posted entries with a reasoned journal reversal and a new entry in an open period.
+6. Take and verify a database backup before production close procedures.
 
 The close-through date is business-scoped. New financial records and edits dated on or before it are rejected. It is a posting lock, not a substitute for an independent review, statutory close, tax filing, or jurisdiction-specific approval workflow.
 

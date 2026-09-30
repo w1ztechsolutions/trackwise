@@ -8,6 +8,7 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_wtf import CSRFProtect
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
 
 try:
     from flask_limiter import Limiter
@@ -54,7 +55,12 @@ for _env_path in [
         load_dotenv(_env_path, override=True)
 
 from app.models import db as _db
-from config import DevelopmentConfig, ProductionConfig, TestingConfig
+from config import (
+    DevelopmentConfig,
+    ProductionConfig,
+    TestingConfig,
+    _normalize_database_uri,
+)
 from .template_filters import register_template_filters
 
 # Shared database handle so app-level startup checks can safely inspect and repair
@@ -193,7 +199,37 @@ def create_app(config_object=None):
     except OSError:
         pass
 
+    demo_database_uri = app.config.get("DEMO_DATABASE_URL")
+    normalized_demo_uri = None
+    if app.config.get("DEMO_MODE_ENABLED"):
+        if not demo_database_uri:
+            raise RuntimeError(
+                "DEMO_MODE_ENABLED requires DEMO_DATABASE_URL to point to an isolated demo database."
+            )
+        normalized_demo_uri = _normalize_database_uri(demo_database_uri)
+        production_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+        from app.database import database_identity
+        if database_identity(normalized_demo_uri) == database_identity(production_uri):
+            raise RuntimeError(
+                "DEMO_DATABASE_URL must identify a different database endpoint and name from DATABASE_URL."
+            )
+
     _db.init_app(app)
+    if normalized_demo_uri:
+        demo_options = {"pool_pre_ping": True, "pool_recycle": 120}
+        if "neon.tech" in normalized_demo_uri:
+            demo_options.update({
+                "pool_size": 2,
+                "max_overflow": 3,
+                "pool_timeout": 30,
+                "connect_args": {"connect_timeout": 10},
+            })
+        app.extensions["trackwise_demo_engine"] = create_engine(
+            normalized_demo_uri,
+            **demo_options,
+        )
+    from app.database import install_database_routing
+    install_database_routing()
     migrate.init_app(app, _db)
     login_manager.init_app(app)
     csrf.init_app(app)
@@ -355,5 +391,94 @@ def create_app(config_object=None):
         if error:
             _db.session.rollback()
         _db.session.remove()
+
+    return app
+
+
+def create_demo_migration_app():
+    """Create a CLI-only app whose primary database is the isolated demo DB."""
+    demo_database_uri = DevelopmentConfig.DEMO_DATABASE_URL
+    if not demo_database_uri:
+        raise RuntimeError(
+            "DEMO_DATABASE_URL must be configured before bootstrapping the demo database."
+        )
+
+    normalized_demo_uri = _normalize_database_uri(demo_database_uri)
+    production_uri = DevelopmentConfig.SQLALCHEMY_DATABASE_URI
+    from app.database import database_identity
+
+    if database_identity(normalized_demo_uri) == database_identity(production_uri):
+        raise RuntimeError(
+            "Refusing demo bootstrap because DEMO_DATABASE_URL identifies the production database."
+        )
+
+    class DemoMigrationConfig:
+        SQLALCHEMY_DATABASE_URI = normalized_demo_uri
+        SQLALCHEMY_ENGINE_OPTIONS = DevelopmentConfig.SQLALCHEMY_ENGINE_OPTIONS
+        DEMO_MODE_ENABLED = False
+        DEMO_DATABASE_URL = demo_database_uri
+
+    app = create_app(DemoMigrationConfig)
+
+    @app.cli.command("demo-db-bootstrap")
+    def demo_database_bootstrap_command():
+        from alembic.migration import MigrationContext
+        from alembic.script import ScriptDirectory
+        from flask_migrate import stamp
+        from sqlalchemy import inspect, text
+
+        if database_identity(
+            _db.engine.url.render_as_string(hide_password=True)
+        ) != database_identity(normalized_demo_uri):
+            raise click.ClickException(
+                "Refusing demo bootstrap because the active database is not DEMO_DATABASE_URL."
+            )
+
+        inspector = inspect(_db.engine)
+        existing_tables = set(inspector.get_table_names())
+        mapped_tables = set(_db.metadata.tables)
+        unexpected_tables = existing_tables - mapped_tables - {"alembic_version"}
+        if unexpected_tables:
+            raise click.ClickException(
+                "Refusing bootstrap because the demo database contains unmapped tables: "
+                + ", ".join(sorted(unexpected_tables))
+            )
+
+        quote = _db.engine.dialect.identifier_preparer.quote
+        nonempty_tables = []
+        with _db.engine.connect() as connection:
+            for table_name in sorted(existing_tables & mapped_tables):
+                count = connection.execute(
+                    text(f"SELECT count(*) FROM {quote(table_name)}")
+                ).scalar_one()
+                if count:
+                    nonempty_tables.append(table_name)
+        if nonempty_tables:
+            raise click.ClickException(
+                "Refusing bootstrap because demo application data already exists in: "
+                + ", ".join(nonempty_tables)
+            )
+
+        migrations_dir = os.path.join(_PROJECT_ROOT, "..", "migrations")
+        _db.drop_all()
+        _db.create_all()
+        stamp(directory=migrations_dir, revision="heads")
+
+        with _db.engine.connect() as connection:
+            current_heads = set(MigrationContext.configure(connection).get_current_heads())
+            actual_tables = set(inspect(connection).get_table_names())
+        expected_heads = set(ScriptDirectory(migrations_dir).get_heads())
+        missing_tables = mapped_tables - actual_tables
+        if current_heads != expected_heads or missing_tables:
+            raise click.ClickException(
+                "Demo bootstrap verification failed: "
+                f"heads_match={current_heads == expected_heads}, "
+                f"missing_tables={', '.join(sorted(missing_tables)) or '(none)'}."
+            )
+
+        click.echo(
+            "Demo schema created from ORM metadata and stamped at Alembic head(s): "
+            + ", ".join(sorted(current_heads))
+        )
 
     return app

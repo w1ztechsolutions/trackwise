@@ -84,26 +84,23 @@ if (toggleBtn) {
     const label = btn.querySelector('#themeLabel');
     const html = document.documentElement;
 
-    const prefersLight = () => window.matchMedia('(prefers-color-scheme: light)').matches;
-
     function applyTheme(theme) {
         const isLight = theme === 'light';
         html.classList.toggle('theme-light', isLight);
         if (label) label.textContent = isLight ? 'Light Mode' : 'Dark Mode';
         btn.setAttribute('aria-pressed', String(isLight));
-        localStorage.setItem('theme', theme);
     }
 
-    function resolveTheme() {
-        const saved = localStorage.getItem('theme');
-        if (saved === 'light' || saved === 'dark') return saved;
-        return prefersLight() ? 'light' : 'dark';
-    }
-
-    applyTheme(resolveTheme());
+    applyTheme(html.classList.contains('theme-light') ? 'light' : 'dark');
 
     btn.addEventListener('click', () => {
-        applyTheme(html.classList.contains('theme-light') ? 'dark' : 'light');
+        const theme = html.classList.contains('theme-light') ? 'dark' : 'light';
+        applyTheme(theme);
+        try {
+            localStorage.setItem('theme', theme);
+        } catch {
+            // The selected theme remains active for the current page.
+        }
     });
 })();
 

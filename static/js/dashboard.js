@@ -9,7 +9,7 @@
     const ctx = document.getElementById('salesExpensesChart');
     if (!ctx) return;
 
-    new Chart(ctx, {
+    const chart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: chartLabels,
@@ -41,7 +41,7 @@
                 legend: {
                     position: 'top',
                     labels: {
-                        color: '#9ca3af',
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim(),
                         font: {
                             family: 'Outfit',
                             size: 12
@@ -52,19 +52,23 @@
             scales: {
                 x: {
                     grid: {
-                        color: 'rgba(255, 255, 255, 0.03)'
+                        color: document.documentElement.classList.contains('theme-light')
+                            ? 'rgba(15, 23, 42, 0.08)'
+                            : 'rgba(255, 255, 255, 0.08)'
                     },
                     ticks: {
-                        color: '#9ca3af',
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim(),
                         font: { family: 'Outfit' }
                     }
                 },
                 y: {
                     grid: {
-                        color: 'rgba(255, 255, 255, 0.03)'
+                        color: document.documentElement.classList.contains('theme-light')
+                            ? 'rgba(15, 23, 42, 0.08)'
+                            : 'rgba(255, 255, 255, 0.08)'
                     },
                     ticks: {
-                        color: '#9ca3af',
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim(),
                         font: { family: 'Outfit' },
                         callback: function(value) {
                             return 'MWK ' + value.toLocaleString();
@@ -74,4 +78,16 @@
             }
         }
     });
+
+    new MutationObserver(() => {
+        const isLight = document.documentElement.classList.contains('theme-light');
+        const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
+        const gridColor = isLight ? 'rgba(15, 23, 42, 0.08)' : 'rgba(255, 255, 255, 0.08)';
+        chart.options.plugins.legend.labels.color = textColor;
+        chart.options.scales.x.ticks.color = textColor;
+        chart.options.scales.y.ticks.color = textColor;
+        chart.options.scales.x.grid.color = gridColor;
+        chart.options.scales.y.grid.color = gridColor;
+        chart.update('none');
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 })();

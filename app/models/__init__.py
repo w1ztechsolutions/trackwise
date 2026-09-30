@@ -31,6 +31,7 @@ from .inventory import (
 )
 from .accounting import (
     Business,
+    DemoWorkspace,
     ChartOfAccounts,
     JournalEntry,
     JournalLine,

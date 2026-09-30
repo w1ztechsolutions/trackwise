@@ -15,7 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Journal entry reversal workflow that posts a balanced counter-entry and retains the original entry
 - Business-scoped period close through date with guards against writes to closed periods
 - Time-based straight-line revenue deferral schedules for posted invoice sales
+- Opt-in demo signup using a dedicated database, visitor-selected role, and generated internal user; repeat business names offer proceed-or-change flow
+- Per-request ORM database routing keeps demo sessions on `DEMO_DATABASE_URL` and standard password login on `DATABASE_URL`
+- `flask --app 'app:create_demo_migration_app' demo-db-bootstrap` for safely creating the current schema on an empty isolated demo database
+- `.env.example` and `DEPLOY_VERCEL.md` guidance for the separate demo database configuration
+- `demo_workspaces` registry with a unique normalized business name to prevent duplicate demo workspaces
 - `docs/MIGRATION_2026-09_financial_controls.md` — rollout and migration guidance for accounting controls
+- `docs/MIGRATION_2026-09_demo_workspace_database.md` — separate Neon demo database setup and isolation behavior
 - `AGENT.md` — AI documentation enforcement rules for bug fixes, features, and architecture changes
 - `SECURITY.md` — Security policy and deployment best practices
 - `docs/OPERATIONS.md` — Operations runbook for utility scripts and common procedures
@@ -40,6 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Periods can be reopened by administrators only; the action requires confirmation and is audit-logged
+- Manual user creation is unavailable in demo sessions; demo users are generated only by role selection in the demo entry flow
+- Demo entry and duplicate-workspace pages now use a standalone responsive layout, local styles, and no application navigation
+- Demo database bootstrap now uses ORM metadata and stamps Alembic heads through a demo-only app factory, avoiding production startup side effects and a legacy migration chain that is not fresh-install compatible
 - AR/AP aging now subtracts linked receipts and approved bill payments as of the report date
 - Income statement and dashboard tax figures are labelled as estimates and use the current business's configured rate
 - Financial reports and ledger balance checks exclude soft-deleted journal entries
@@ -52,6 +62,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Removed extra Jinja block terminators that prevented the Inventory, Sales, and Payments pages from rendering in demo and production sessions (see Bug 30)
+- Saved or system-preferred light mode is now applied before page stylesheets load, preventing a dark-theme flash during navigation (see Bug 29)
+- Light-theme pages now use higher-contrast muted text, borders, status badges, and chart colors; the Dashboard chart's Chart.js asset integrity is corrected and updates its colors when the theme changes (see Bug 28)
+- Removed an unmatched template block that prevented the Purchases page from rendering (see Bug 27)
+- Starter-account picker controls, account details, and selected-account preview now have higher contrast in dark mode, with explicit readable colors in light mode (see Bug 26)
+- Bootstrap CSS/JavaScript integrity hashes now match pinned CDN assets so Chart of Accounts dialogs open from their buttons instead of rendering inline; the starter-account picker is scrollable and full-screen on small screens (see Bug 25)
+- Fresh demo database setup no longer fails on legacy migration assumptions about `uq_settings_key` and the absent `material_usages` table (see Bug 22)
 - Audit coverage now records financial record create/update/delete operations and relevant login, logout, password, and approval changes (see Bug 14)
 - Journal entries can be corrected by posting a reasoned reversal instead of deleting history (see Bug 16)
 - AR/AP aging no longer reports gross invoice/bill amounts after linked payments (see Bug 15)
@@ -65,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Demo role switching is hidden and unavailable unless explicitly enabled; staging setup requires an intentional seed command and must not target production
 - Audit event coverage includes authentication and permission-related user changes; ORM changes to existing audit records are rejected
 - Added `SECURITY.md` with vulnerability reporting process and deployment security best practices
 - CSP hardened: removed `'unsafe-inline'` from `script-src`, added per-request nonces, and added `object-src 'none'`

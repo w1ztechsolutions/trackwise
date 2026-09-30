@@ -225,5 +225,5 @@
     "expenses": {{ chart_expenses | tojson }}
 }
 </script>
-<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
 {% endblock %}

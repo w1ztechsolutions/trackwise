@@ -281,6 +281,9 @@ trackwise/
 
 - `GET /login` — Login page
 - `POST /login` — Authenticate user
+- `GET|POST /demo` — Create or enter a demo business and choose a role; uses `DEMO_DATABASE_URL` only
+- `POST /demo/proceed` — Create a demo user for a selected existing demo business
+- `POST /demo/change-business` — Discard the pending selection and choose another demo business
 - `GET /logout` — Logout
 - `GET /register` — Registration (onboarding) page
 - `POST /register` — Create business + admin user
@@ -331,10 +334,13 @@ trackwise/
 
 - `POST /accounting/journal-entries/<entry_id>/reverse` — Post a reasoned counter-entry without deleting the original
 - `GET|POST /accounting/period-close` — Close a business's accounting period through a date
+- `POST /accounting/period-close/reopen` — Reopen a closed period (administrator only; confirmation required and audit-logged)
 - `GET|POST /accounting/revenue-recognition` — Create time-based deferred revenue schedules
 - `POST /accounting/revenue-recognition/<schedule_id>/recognize` — Post earned revenue through a date
 
 See [the accounting-controls migration guide](docs/MIGRATION_2026-09_financial_controls.md) before deployment.
+
+For public demo access on a separate Neon database, configure `DEMO_DATABASE_URL`, bootstrap its empty schema with `flask --app 'app:create_demo_migration_app' demo-db-bootstrap`, and set `DEMO_MODE_ENABLED=true`. Demo logins stay on the demo database; regular credentials are always checked against `DATABASE_URL`. See [the demo database guide](docs/MIGRATION_2026-09_demo_workspace_database.md).
 
 ### Settings
 

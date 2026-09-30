@@ -6,6 +6,16 @@ This document provides a reference for the TrackWise PostgreSQL database schema.
 
 ---
 
+## Schema Initialization
+
+The production database is upgraded with the normal Alembic procedure. A new, empty demo database must be initialized with:
+
+```bash
+flask --app 'app:create_demo_migration_app' demo-db-bootstrap
+```
+
+This demo-only factory connects its primary SQLAlchemy engine to `DEMO_DATABASE_URL`, refuses to bootstrap if application data or unmapped tables exist, creates the current ORM metadata, and stamps the current Alembic head(s). Do not use the normal application factory to initialize the demo database: its startup compatibility checks target the configured primary database. See the [demo database migration guide](MIGRATION_2026-09_demo_workspace_database.md).
+
 ## Core Tables
 
 ### `businesses`
@@ -24,6 +34,21 @@ The tenant root. Every record belongs to a single business.
 | `created_by_superadmin_id` | INTEGER | Yes | — | FK to `super_admins.id` |
 
 **Relationships:** One-to-many with `users`, `chart_of_accounts`, `journal_entries`, `products`, `sales`, `purchases`, `invoices`, `bills`, `payments`, `production_batches`, `subscriptions`, `financial_categories`, `line_items`, `staff`, `warehouses`, `stock_movements`, `bank_statements`.
+
+---
+
+### `demo_workspaces`
+
+Registry of demo-only business names. The table is maintained on production schema for migration consistency, but demo code accesses it only through the isolated demo database engine.
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | INTEGER | No | Auto | Primary key |
+| `business_id` | INTEGER | No | — | Unique FK to `businesses.id`, cascade-delete |
+| `normalized_name` | VARCHAR(200) | No | — | Unique case-folded name used for exact duplicate matching |
+| `created_at` | TIMESTAMP | No | UTC now | Registry creation timestamp |
+
+**Constraints:** `UNIQUE(business_id)`, `UNIQUE(normalized_name)`.
 
 ---
 

@@ -11,6 +11,8 @@ This document describes all environment variables used by TrackWise, their purpo
 | `FLASK_ENV` | Yes | `development` | Environment mode: `development`, `production`, or `testing`. |
 | `SECRET_KEY` | Yes | Random (dev) | Flask secret key for session signing. Must be set explicitly in production. Generate with `python -c "import secrets; print(secrets.token_hex(32))"`. |
 | `INSTANCE_PATH` | No | Auto | Path for Flask instance folder (SQLite DB, session files). On Vercel, set to `/tmp/instance`. |
+| `DEMO_MODE_ENABLED` | No | `false` | Set to `true` to expose demo business signup and role selection; requires a separate `DEMO_DATABASE_URL`. |
+| `DEMO_DATABASE_URL` | When demo is enabled | None | Connection string for an isolated demo-only database. Must not be the production database. |
 
 ---
 
@@ -84,6 +86,19 @@ This document describes all environment variables used by TrackWise, their purpo
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `FLASK_APP` | No | Auto | Not required. TrackWise uses the application factory pattern (`app:create_app`). `flask run` works without it. |
+
+### Demo Role Testing
+
+`DEMO_MODE_ENABLED=true` exposes a demo workspace flow. Visitors enter a business name and select one of the six built-in roles. Configure `DEMO_DATABASE_URL` to a separate database first; startup rejects URLs that identify the same endpoint and database name (including Neon pooler aliases). Standard password login always uses the production database, while demo sessions and their application queries stay on the demo database.
+
+Upgrade production normally, then bootstrap a new, empty demo database through the isolated factory:
+
+```bash
+flask db upgrade
+flask --app 'app:create_demo_migration_app' demo-db-bootstrap
+```
+
+The bootstrap creates the current ORM schema and stamps Alembic head(s); it refuses non-empty or unexpected databases. Do not run the legacy migration chain directly against a fresh demo database; see [the demo database migration guide](MIGRATION_2026-09_demo_workspace_database.md). Each visitor receives a random internal demo user for their selected role; those internal identities are created by the demo flow, while manual user creation is disabled in demo sessions. A case-insensitive business-name match (after trimming and collapsing whitespace) offers **Proceed** into the existing shared workspace or **Choose another business name**. Credentials are not displayed. Anyone reaching the enabled demo flow can create or join a workspace, so demo data is public/shared and must not include real or confidential information.
 
 ---
 

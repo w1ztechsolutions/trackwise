@@ -16,6 +16,24 @@ class Business(db.Model):
     created_by_superadmin_id = db.Column(db.Integer, db.ForeignKey('super_admins.id'), nullable=True)
 
 
+class DemoWorkspace(db.Model):
+    __tablename__ = 'demo_workspaces'
+
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(
+        db.Integer,
+        db.ForeignKey('businesses.id', ondelete='CASCADE'),
+        nullable=False,
+        unique=True,
+    )
+    normalized_name = db.Column(db.String(200), nullable=False, unique=True)
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
 class ChartOfAccounts(db.Model):
     __tablename__ = 'chart_of_accounts'
 

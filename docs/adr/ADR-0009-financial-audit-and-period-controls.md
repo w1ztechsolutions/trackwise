@@ -7,6 +7,7 @@
 - Financial activity needs an actor-attributed history that commits or rolls back with the business transaction.
 - A reversal is a traceable counter-entry; deleting or rewriting a posted entry would obscure the original accounting record.
 - A business close-through date gives the application a common cutoff for rejecting back-dated postings and edits.
+- Administrators may explicitly reopen a closed period; the close-date change is captured by the transactional audit log. Accountants may close periods but cannot reopen them.
 - Audit snapshots must omit authentication secrets and bank account numbers.
 
 **Strengths:**
@@ -21,4 +22,5 @@
 - Add audit calls individually to every route — rejected because writes from services, background jobs, or future routes could bypass them.
 - Mutate or soft-delete the original entry when correcting it — rejected because this loses clear posted-history semantics.
 - Enforce close dates only in the manual journal form — rejected because it misses other financial transaction paths.
+- Make period close permanently irreversible — rejected because administrators need a controlled, auditable way to make corrections in an already-closed period.
 - Permit direct edits to audit rows — rejected; the application makes them append-only. Database administrators with direct SQL privileges remain trusted and can bypass this application control.
