@@ -150,6 +150,114 @@ def test_demo_inventory_sales_and_payments_pages_load(app, client):
         assert heading in response.data
 
 
+def test_demo_data_seed_is_scoped_to_the_active_demo_business(app, client, business):
+    from app.models import Expense, Purchase, Sale
+
+    demo_engine = _enable_demo_database(app)
+    with app.app_context():
+        db.session.add(Product(
+            business_id=business.id,
+            sku="PRODUCTION-PRESERVE",
+            name="Production-only product",
+            default_selling_price=1,
+        ))
+        db.session.commit()
+
+    entered = client.post(
+        "/demo",
+        data={"business_name": "Seed Target Demo", "role": "admin"},
+    )
+    assert entered.status_code == 302
+    with Session(demo_engine) as demo_session:
+        target = demo_session.query(DemoWorkspace).filter_by(
+            normalized_name="seed target demo"
+        ).one()
+        other_business = Business(name="Other Demo Business", currency="MWK")
+        demo_session.add(other_business)
+        demo_session.flush()
+        demo_session.add(DemoWorkspace(
+            business_id=other_business.id,
+            normalized_name="other demo business",
+        ))
+        demo_session.add(Product(
+            business_id=other_business.id,
+            sku="OTHER-PRESERVE",
+            name="Other-business product",
+            default_selling_price=1,
+        ))
+        demo_session.commit()
+        target_business_id = target.business_id
+        other_business_id = other_business.id
+
+    response = client.post(
+        "/settings",
+        data={"action": "seed_data"},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Demo business and transactions seeded successfully!" in response.data
+    repeated_seed = client.post(
+        "/settings",
+        data={"action": "seed_data"},
+        follow_redirects=True,
+    )
+    assert b"Demo business and transactions seeded successfully!" in repeated_seed.data
+    with Session(demo_engine) as demo_session:
+        seeded_products = (
+            demo_session.query(Product)
+            .filter_by(business_id=target_business_id)
+            .all()
+        )
+        assert {product.name for product in seeded_products} == {
+            "Malawi Sun Soap",
+            "Thyolo Gold Tea (250g)",
+            "Mzuzu Ground Coffee (500g)",
+            "Illovo White Sugar (1kg)",
+        }
+        assert all(product.business_id == target_business_id for product in seeded_products)
+        assert demo_session.query(Purchase).filter_by(business_id=target_business_id).count() == 3
+        assert demo_session.query(Sale).filter_by(business_id=target_business_id).count() == 3
+        assert demo_session.query(Expense).filter_by(business_id=target_business_id).count() == 5
+        assert demo_session.query(Product).filter_by(
+            business_id=other_business_id,
+            sku="OTHER-PRESERVE",
+        ).one_or_none() is not None
+
+    existing_workspace = client.post(
+        "/demo",
+        data={"business_name": "Other Demo Business", "role": "admin"},
+    )
+    assert existing_workspace.status_code == 200
+    assert b"Other Demo Business" in existing_workspace.data
+    entered_other = client.post("/demo/proceed", follow_redirects=False)
+    assert entered_other.status_code == 302
+    other_seed = client.post(
+        "/settings",
+        data={"action": "seed_data"},
+        follow_redirects=True,
+    )
+    assert b"Demo business and transactions seeded successfully!" in other_seed.data
+
+    with Session(demo_engine) as demo_session:
+        target_products = demo_session.query(Product).filter_by(
+            business_id=target_business_id,
+        ).all()
+        other_products = demo_session.query(Product).filter_by(
+            business_id=other_business_id,
+        ).all()
+        assert len(target_products) == len(other_products) == 4
+        assert {product.sku for product in target_products}.isdisjoint(
+            {product.sku for product in other_products}
+        )
+
+    with app.app_context():
+        assert db.session.query(Product).filter_by(
+            business_id=business.id,
+            sku="PRODUCTION-PRESERVE",
+        ).one_or_none() is not None
+
+
 def test_demo_admin_cannot_create_additional_users(app, client):
     demo_engine = _enable_demo_database(app)
 

@@ -9,32 +9,42 @@ from . import settings_bp
 from app.auth.decorators import role_required
 
 
-def seed_demo_data():
+def seed_demo_data(business_id, created_by):
     """Seed sample data to show how the app works."""
-    # Delete existing records to prevent clutter/duplicates
     from app.models import db
 
-    db.session.query(StockTransaction).delete()
-    db.session.query(PurchaseItem).delete()
-    db.session.query(Purchase).delete()
-    db.session.query(SaleItem).delete()
-    db.session.query(Sale).delete()
-    db.session.query(Expense).delete()
-    db.session.query(Product).delete()
+    if business_id is None:
+        raise ValueError("An active business is required to seed demonstration data.")
+
+    for model in (StockTransaction, PurchaseItem, Purchase, SaleItem, Sale, Expense, Product):
+        db.session.query(model).filter_by(business_id=business_id).delete(
+            synchronize_session=False
+        )
     db.session.commit()
 
-    # Seed Products
-    p1 = Product(sku='SOAP-001', name='Malawi Sun Soap', description='Vibrant local moisturizing soap.', low_stock_threshold=10, default_selling_price=1500.0)
-    p2 = Product(sku='TEA-002', name='Thyolo Gold Tea (250g)', description='Premium handpicked black tea from Thyolo.', low_stock_threshold=15, default_selling_price=2800.0)
-    p3 = Product(sku='COF-003', name='Mzuzu Ground Coffee (500g)', description='Rich aromatic medium-roast coffee.', low_stock_threshold=5, default_selling_price=8500.0)
-    p4 = Product(sku='SUG-004', name='Illovo White Sugar (1kg)', description='Fine granulated sugar.', low_stock_threshold=20, default_selling_price=2200.0)
+    products = (
+        ("SOAP-001", "Malawi Sun Soap", "Vibrant local moisturizing soap.", 10, 1500.0),
+        ("TEA-002", "Thyolo Gold Tea (250g)", "Premium handpicked black tea from Thyolo.", 15, 2800.0),
+        ("COF-003", "Mzuzu Ground Coffee (500g)", "Rich aromatic medium-roast coffee.", 5, 8500.0),
+        ("SUG-004", "Illovo White Sugar (1kg)", "Fine granulated sugar.", 20, 2200.0),
+    )
+    seeded_products = [
+        Product(
+            business_id=business_id,
+            sku=f"DEMO-{business_id}-{sku}",
+            name=name,
+            description=description,
+            low_stock_threshold=threshold,
+            default_selling_price=price,
+        )
+        for sku, name, description, threshold, price in products
+    ]
 
-    from app.models import db
-
-    db.session.add_all([p1, p2, p3, p4])
+    db.session.add_all(seeded_products)
     db.session.commit()
+    p1, p2, p3, p4 = seeded_products
 
-    set_tax_rate(20.0)
+    set_tax_rate(20.0, business_id=business_id)
 
     today = datetime.now()
 
@@ -50,8 +60,8 @@ def seed_demo_data():
             {'product_id': p1.id, 'quantity': 100, 'unit_cost': 900.0},
             {'product_id': p4.id, 'quantity': 150, 'unit_cost': 1400.0}
         ],
-        business_id=None,
-        created_by=None,
+        business_id=business_id,
+        created_by=created_by,
     )
 
     p_date2 = today - timedelta(days=3)
@@ -63,8 +73,8 @@ def seed_demo_data():
             {'product_id': p2.id, 'quantity': 50, 'unit_cost': 1800.0},
             {'product_id': p3.id, 'quantity': 25, 'unit_cost': 5500.0}
         ],
-        business_id=None,
-        created_by=None,
+        business_id=business_id,
+        created_by=created_by,
     )
 
     p_date3 = today - timedelta(days=2)
@@ -75,8 +85,8 @@ def seed_demo_data():
         items_data=[
             {'product_id': p1.id, 'quantity': 50, 'unit_cost': 1050.0}
         ],
-        business_id=None,
-        created_by=None,
+        business_id=business_id,
+        created_by=created_by,
     )
 
     # Sales
@@ -88,8 +98,8 @@ def seed_demo_data():
             {'product_id': p1.id, 'quantity': 30, 'unit_price': 1500.0},
             {'product_id': p4.id, 'quantity': 50, 'unit_price': 2200.0}
         ],
-        business_id=None,
-        created_by=None,
+        business_id=business_id,
+        created_by=created_by,
     )
 
     s_date2 = today - timedelta(days=2)
@@ -101,8 +111,8 @@ def seed_demo_data():
             {'product_id': p3.id, 'quantity': 8, 'unit_price': 8500.0},
             {'product_id': p4.id, 'quantity': 60, 'unit_price': 2200.0}
         ],
-        business_id=None,
-        created_by=None,
+        business_id=business_id,
+        created_by=created_by,
     )
 
     s_date3 = today - timedelta(days=1)
@@ -112,16 +122,16 @@ def seed_demo_data():
         items_data=[
             {'product_id': p1.id, 'quantity': 80, 'unit_price': 1500.0}
         ],
-        business_id=None,
-        created_by=None,
+        business_id=business_id,
+        created_by=created_by,
     )
 
     # Expenses
-    record_expense(today - timedelta(days=4), "Rent", "Office rent for June", 120000.0, business_id=None, created_by=None)
-    record_expense(today - timedelta(days=3), "Utilities", "ESCOM Pre-paid token", 35000.0, business_id=None, created_by=None)
-    record_expense(today - timedelta(days=2), "Utilities", "Airtel Office Fiber", 25000.0, business_id=None, created_by=None)
-    record_expense(today - timedelta(days=1), "Salaries", "Wages for shop clerk", 80000.0, business_id=None, created_by=None)
-    record_expense(today, "Marketing", "Facebook localized advertising", 15000.0, business_id=None, created_by=None)
+    record_expense(today - timedelta(days=4), "Rent", "Office rent for June", 120000.0, business_id=business_id, created_by=created_by)
+    record_expense(today - timedelta(days=3), "Utilities", "ESCOM Pre-paid token", 35000.0, business_id=business_id, created_by=created_by)
+    record_expense(today - timedelta(days=2), "Utilities", "Airtel Office Fiber", 25000.0, business_id=business_id, created_by=created_by)
+    record_expense(today - timedelta(days=1), "Salaries", "Wages for shop clerk", 80000.0, business_id=business_id, created_by=created_by)
+    record_expense(today, "Marketing", "Facebook localized advertising", 15000.0, business_id=business_id, created_by=created_by)
 
 
 @settings_bp.route('/settings', methods=['GET', 'POST'])
@@ -144,7 +154,7 @@ def settings():
 
         elif action == 'seed_data':
             try:
-                seed_demo_data()
+                seed_demo_data(business_id=biz_id, created_by=current_user.id)
                 flash('Demo business and transactions seeded successfully!', 'success')
             except Exception as e:
                 from app.models import db
@@ -155,4 +165,3 @@ def settings():
 
     tax_rate = get_tax_rate(business_id=biz_id)
     return render_template('settings.html', tax_rate=tax_rate)
-

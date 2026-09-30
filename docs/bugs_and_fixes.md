@@ -729,6 +729,32 @@ Removed the unmatched block terminators and added a demo-database regression tes
 
 ---
 
+## Bug 31: Demo Data Seeding Omitted the Active Business
+
+**Date:** 2026-09-30
+**Severity:** High (demo data setup unavailable)
+**Environment:** Settings page in demo workspaces
+
+**Symptom:**
+
+Choosing Seed Demonstration Data failed with a database `NotNullViolation` because products were inserted with `business_id = NULL`.
+
+**Root cause:**
+
+The seed helper created products without a business ID and passed `None` to the purchase, sales, and expense services. It also deleted records globally, rather than limiting the reset to the selected workspace.
+
+**Fix:**
+
+Pass the authenticated user's business and ID through the seed helper and all accounting transaction services. Scope reset deletes and tax settings to that business, and include the business ID in seeded product SKUs because product SKUs are globally unique.
+
+**Files changed:**
+
+- `app/settings/routes.py`
+- `tests/test_demo_accounts.py`
+- `CHANGELOG.md`
+
+---
+
 ## Bug 16: Posted Journal Entries Had No Reversal Workflow
 
 **Date:** 2026-09-30 | **Severity:** Critical (financial history integrity) | **Environment:** All

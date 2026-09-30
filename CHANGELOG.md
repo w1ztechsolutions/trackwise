@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Demo data seeding now assigns the active business to sample products and transactions, scopes cleanup/tax settings per workspace, and uses workspace-unique SKUs (see Bug 31)
 - Removed extra Jinja block terminators that prevented the Inventory, Sales, and Payments pages from rendering in demo and production sessions (see Bug 30)
 - Saved or system-preferred light mode is now applied before page stylesheets load, preventing a dark-theme flash during navigation (see Bug 29)
 - Light-theme pages now use higher-contrast muted text, borders, status badges, and chart colors; the Dashboard chart's Chart.js asset integrity is corrected and updates its colors when the theme changes (see Bug 28)
