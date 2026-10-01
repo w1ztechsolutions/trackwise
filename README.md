@@ -321,6 +321,8 @@ trackwise/
 - `GET /reports/cashbook`
 - `GET /reports/ar-aging`
 - `GET /reports/ap-aging`
+- `GET /reports/audit-log`
+- `GET /reports/<report>/export.xlsx` — Download the selected financial report as an XLSX workbook, preserving report filters and exporting all rows
 
 ### Bank Reconciliation
 

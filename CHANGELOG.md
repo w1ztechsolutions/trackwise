@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- XLSX downloads for income statement, balance sheet, cash flow, trial balance, general ledger, cashbook, AR/AP aging, and audit trail reports
+- Transaction audit coverage for business demo-workspace registry and subscription records, excluding stored payment-provider identifiers
+- Audited ORM records can no longer be changed through bulk update/delete statements that bypass per-record audit events
 - Transaction-level audit events for accounting, sales, purchasing, inventory movements, approvals, and user authentication actions
 - Journal entry reversal workflow that posts a balanced counter-entry and retains the original entry
 - Business-scoped period close through date with guards against writes to closed periods

@@ -250,6 +250,48 @@ class TestReportsRoutes:
             assert audit.user_id == app.test_client_user.id
             assert audit.actor_email == app.test_client_user.email
 
+    @pytest.mark.parametrize(('report_slug', 'expected_header'), [
+        ('income-statement', 'Section'),
+        ('balance-sheet', 'Section'),
+        ('cash-flow', 'Section'),
+        ('trial-balance', 'Account Code'),
+        ('general-ledger', 'Date'),
+        ('cashbook', 'Date'),
+        ('ar-aging', 'Customer'),
+        ('ap-aging', 'Supplier'),
+        ('audit-log', 'Date / Time'),
+    ])
+    def test_standard_reports_export_complete_xlsx(self, client, report_slug, expected_header):
+        from io import BytesIO
+        from zipfile import ZipFile
+        from xml.etree import ElementTree
+
+        response = client.get(
+            f'/reports/{report_slug}/export.xlsx'
+            '?start_date=2026-01-01&end_date=2026-12-31&as_of_date=2026-12-31'
+        )
+        assert response.status_code == 200
+        assert response.mimetype == (
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+        with ZipFile(BytesIO(response.data)) as workbook:
+            assert workbook.testzip() is None
+            sheet = ElementTree.fromstring(workbook.read('xl/worksheets/sheet1.xml'))
+            sheet_data = next(node for node in sheet if node.tag.endswith('}sheetData'))
+            first_row = sheet_data[0]
+            header_cells = [
+                text.text
+                for cell in first_row
+                for text in cell.iter()
+                if text.tag.endswith('}t')
+            ]
+            assert header_cells[0] == expected_header
+
+    def test_unknown_report_export_returns_not_found(self, client):
+        response = client.get('/reports/not-a-report/export.xlsx')
+        assert response.status_code == 404
+
 
 class TestReceiptRoutes:
     def test_invoice_receipt_page_loads(self, client, app, business):

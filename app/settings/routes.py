@@ -17,9 +17,8 @@ def seed_demo_data(business_id, created_by):
         raise ValueError("An active business is required to seed demonstration data.")
 
     for model in (StockTransaction, PurchaseItem, Purchase, SaleItem, Sale, Expense, Product):
-        db.session.query(model).filter_by(business_id=business_id).delete(
-            synchronize_session=False
-        )
+        for record in db.session.query(model).filter_by(business_id=business_id).all():
+            db.session.delete(record)
     db.session.commit()
 
     products = (

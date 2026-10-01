@@ -11,6 +11,7 @@ AUDITED_TABLES = {
     "businesses",
     "branches",
     "cost_centers",
+    "demo_workspaces",
     "chart_of_accounts",
     "products",
     "warehouses",
@@ -39,6 +40,7 @@ AUDITED_TABLES = {
     "approval_actions",
     "approval_configs",
     "users",
+    "subscriptions",
     "revenue_recognition_schedules",
     "settings",
     "financial_categories",
@@ -70,6 +72,10 @@ PERIOD_DATE_FIELDS = {
 
 class AuditLogImmutableError(Exception):
     """Raised when application code attempts to alter an existing audit log."""
+
+
+class AuditedBulkMutationError(Exception):
+    """Raised when bulk ORM DML would bypass per-record audit events."""
 
 
 def _guard_closed_periods(session, _flush_context, _instances):
@@ -316,12 +322,14 @@ def _audit_after_flush(session, _flush_context):
 
 def _guard_audit_bulk_mutation(execute_state):
     statement_table = getattr(execute_state.statement, "table", None)
-    if (
-        (execute_state.is_update or execute_state.is_delete)
-        and statement_table is not None
-        and statement_table.name == "audit_logs"
-    ):
+    if not (execute_state.is_update or execute_state.is_delete) or statement_table is None:
+        return
+    if statement_table.name == "audit_logs":
         raise AuditLogImmutableError("Audit log records cannot be changed or deleted")
+    if statement_table.name in AUDITED_TABLES:
+        raise AuditedBulkMutationError(
+            "Bulk changes to audited records are disabled; load and mutate ORM records individually."
+        )
 
 
 def install_audit_listeners():

@@ -16,8 +16,20 @@ from app.services.revenue_recognition_service import (
     create_revenue_schedule,
     recognize_revenue,
 )
-from app.services.audit_service import AuditLogImmutableError, record_user_action
-from app.models.accounting import Business, ChartOfAccounts, JournalEntry, JournalLine, AuditLog
+from app.services.audit_service import (
+    AuditLogImmutableError,
+    AuditedBulkMutationError,
+    record_user_action,
+)
+from app.models.accounting import (
+    Business,
+    ChartOfAccounts,
+    DemoWorkspace,
+    JournalEntry,
+    JournalLine,
+    AuditLog,
+)
+from app.models.inventory import Plan, Subscription
 
 
 class TestAccountingEngine(unittest.TestCase):
@@ -252,6 +264,49 @@ class TestAccountingEngine(unittest.TestCase):
         self.assertEqual(updated.actor_name, 'Original name')
         db.session.info.pop('audit_actor_id', None)
 
+    def test_business_workspace_and_subscription_changes_are_audited(self):
+        db.session.info['audit_actor_id'] = self.user.id
+        plan = Plan(name='Audit plan', price=10, max_users=5)
+        db.session.add(plan)
+        db.session.flush()
+        workspace = DemoWorkspace(
+            business_id=self.business.id,
+            normalized_name='audit-workspace',
+        )
+        subscription = Subscription(
+            business_id=self.business.id,
+            plan_id=plan.id,
+            stripe_subscription_id='stripe-secret',
+        )
+        db.session.add_all([workspace, subscription])
+        db.session.commit()
+
+        workspace_audit = AuditLog.query.filter_by(
+            table_name='demo_workspaces',
+            record_id=workspace.id,
+            action='CREATE',
+        ).one()
+        subscription_audit = AuditLog.query.filter_by(
+            table_name='subscriptions',
+            record_id=subscription.id,
+            action='CREATE',
+        ).one()
+        self.assertEqual(workspace_audit.business_id, self.business.id)
+        self.assertEqual(subscription_audit.business_id, self.business.id)
+        self.assertEqual(subscription_audit.user_id, self.user.id)
+        self.assertNotIn('stripe_subscription_id', subscription_audit.new_values)
+
+        subscription.status = 'cancelled'
+        db.session.commit()
+        subscription_update = AuditLog.query.filter_by(
+            table_name='subscriptions',
+            record_id=subscription.id,
+            action='UPDATE',
+        ).one()
+        self.assertEqual(subscription_update.old_values, '{"status": "active"}')
+        self.assertEqual(subscription_update.new_values, '{"status": "cancelled"}')
+        db.session.info.pop('audit_actor_id', None)
+
     def test_bulk_audit_log_mutations_are_rejected(self):
         record_user_action(
             self.business.id,
@@ -270,6 +325,17 @@ class TestAccountingEngine(unittest.TestCase):
         with self.assertRaises(AuditLogImmutableError):
             AuditLog.query.filter_by(id=audit.id).delete()
         db.session.rollback()
+
+    def test_bulk_mutations_of_audited_records_are_rejected(self):
+        with self.assertRaises(AuditedBulkMutationError):
+            Product.query.filter_by(id=self.product.id).update({'name': 'Unlogged'})
+        db.session.rollback()
+
+        with self.assertRaises(AuditedBulkMutationError):
+            Product.query.filter_by(id=self.product.id).delete()
+        db.session.rollback()
+
+        self.assertEqual(db.session.get(Product, self.product.id).name, 'Widget')
 
     def test_reversal_posts_opposite_lines_and_preserves_original(self):
         entry = post_entry(

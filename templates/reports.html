@@ -9,6 +9,12 @@
         <p>Generate financial statements and view account balances</p>
     </div>
 </div>
+{% if report_type != 'expense_budget_variance' %}
+<div class="d-flex justify-content-end mb-3">
+    <a class="btn-secondary d-inline-flex align-items-center justify-content-center h-46"
+    href="{{ url_for('reports.export_report_xlsx', report_type=report_type.replace('_', '-'), start_date=request.args.get('start_date'), end_date=request.args.get('end_date'), as_of_date=request.args.get('as_of_date'), account_id=request.args.get('account_id'), branch_id=request.args.get('branch_id'), cost_center_id=request.args.get('cost_center_id'), action=request.args.get('action')) }}">Export Excel</a>
+</div>
+{% endif %}
 
 <!-- Report Navigation Dropdown -->
 <div class="glass-card mb-4">

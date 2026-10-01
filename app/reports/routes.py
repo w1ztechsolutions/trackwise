@@ -23,6 +23,7 @@ from app.services.reports import (
     set_expense_budget,
 )
 from app.services.reports.xlsx_export import create_xlsx
+from app.services.reports.xlsx_export import build_report_rows, create_xlsx
 
 from . import reports_bp
 
@@ -485,6 +486,84 @@ def _budget_period(value):
         return datetime.strptime(value, '%Y-%m').date().replace(day=1)
     except ValueError as error:
         raise ValueError('Budget period must use YYYY-MM format.') from error
+
+def _export_report_date(parameter, end_of_day=False):
+    value = request.args.get(parameter)
+    if not value:
+        return None
+    parsed = datetime.strptime(value, '%Y-%m-%d')
+    if end_of_day:
+        parsed += timedelta(days=1) - timedelta(seconds=1)
+    return parsed
+
+
+@reports_bp.route('/reports/<report_type>/export.xlsx')
+@login_required
+@audit_report_access('report_export', action='REPORT_EXPORT')
+def export_report_xlsx(report_type):
+    """Export an unpaginated, tenant-scoped financial report workbook."""
+    business_id = current_user.business_id
+    start_date = _export_report_date('start_date', end_of_day=False)
+    end_date = _export_report_date('end_date', end_of_day=True)
+    as_of_date = _export_report_date('as_of_date')
+
+    if report_type == 'income-statement':
+        report_key = 'income_statement'
+        report = get_income_statement(business_id, start_date, end_date)
+    elif report_type == 'balance-sheet':
+        report_key = 'balance_sheet'
+        report = get_balance_sheet(business_id, as_of_date)
+    elif report_type == 'cash-flow':
+        report_key = 'cash_flow'
+        report = get_cash_flow(business_id, start_date, end_date)
+    elif report_type == 'trial-balance':
+        report_key = 'trial_balance'
+        _, _, branch_id, cost_center_id = _report_dimensions(business_id)
+        report = get_trial_balance(
+            business_id,
+            as_of_date,
+            branch_id=branch_id,
+            cost_center_id=cost_center_id,
+        )
+    elif report_type == 'general-ledger':
+        report_key = 'general_ledger'
+        _, _, branch_id, cost_center_id = _report_dimensions(business_id)
+        report = get_general_ledger(
+            business_id,
+            request.args.get('account_id', type=int),
+            start_date,
+            end_date,
+            branch_id=branch_id,
+            cost_center_id=cost_center_id,
+        )
+    elif report_type == 'cashbook':
+        report_key = 'cashbook'
+        report = get_cashbook(business_id, start_date, end_date)
+    elif report_type == 'ar-aging':
+        report_key = 'ar_aging'
+        report = get_ar_aging(business_id, as_of_date)
+    elif report_type == 'ap-aging':
+        report_key = 'ap_aging'
+        report = get_ap_aging(business_id, as_of_date)
+    elif report_type == 'audit-log':
+        report_key = 'audit_log'
+        report = get_audit_log(
+            business_id,
+            start_date,
+            end_date,
+            request.args.get('action'),
+        )
+    else:
+        abort(404)
+
+    rows = build_report_rows(report_key, report)
+    filename = f'trackwise-{report_type}.xlsx'
+    return send_file(
+        create_xlsx(rows, sheet_name=report_type.replace('-', ' ').title()),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename,
+    )
 
 
 @reports_bp.route('/reports/expense-budget-variance', methods=['GET', 'POST'])
