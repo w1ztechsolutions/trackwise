@@ -111,6 +111,27 @@ class Config:
     SESSION_COOKIE_SAMESITE = 'Lax'
     SUPERADMIN_SESSION_LIFETIME = timedelta(hours=1)
 
+    # Uploads: reject oversized requests before buffering (413).
+    MAX_CONTENT_LENGTH = int(os.environ.get("UPLOAD_MAX_BYTES", 10 * 1024 * 1024))
+
+    # Email verification (standard SMTP; credentials come from the environment).
+    SMTP_HOST = os.environ.get("SMTP_HOST") or None
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+    SMTP_USER = os.environ.get("SMTP_USER") or None
+    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD") or None
+    SMTP_FROM = os.environ.get("SMTP_FROM") or None
+    BASE_URL = os.environ.get("BASE_URL") or None
+    EMAIL_VERIFICATION_FORCED = os.environ.get("EMAIL_VERIFICATION_REQUIRED", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    EMAIL_TOKEN_MAX_AGE = int(os.environ.get("EMAIL_TOKEN_MAX_AGE", 24 * 60 * 60))
+
+    # Stripe webhook signing secret (webhook deliveries are rejected without it).
+    STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET") or None
+
 
 class DevelopmentConfig(Config):
     DEBUG = True

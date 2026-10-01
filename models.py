@@ -331,6 +331,7 @@ class User(db.Model, UserMixin):
     role = db.Column(db.String(20), nullable=False, default='viewer')
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     must_change_password = db.Column(db.Boolean, nullable=False, default=False)
+    email_verified = db.Column(db.Boolean, nullable=False, default=False)
     custom_tasks = db.Column(db.Text, nullable=True)
 
     def set_password(self, password: str) -> None:

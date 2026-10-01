@@ -45,6 +45,7 @@ from .accounting import (
     Budget,
     BudgetLineItem,
     PurchaseReturn,
+    ProcessedStripeEvent,
 )
 from .user import User
 from .superadmin import SuperAdmin

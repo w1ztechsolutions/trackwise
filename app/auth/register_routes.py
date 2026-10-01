@@ -82,10 +82,20 @@ def create_user():
             is_active=True,
             must_change_password=True,
         )
+        from app.services.email_service import email_verification_required, send_verification_email
+
+        user.email_verified = not email_verification_required()
         db.session.add(user)
         db.session.commit()
 
-        flash(f'User "{name}" ({role}) created successfully. They must change password on first login.', 'success')
+        if not user.email_verified:
+            sent, _ = send_verification_email(user)
+            if sent:
+                flash(f'User "{name}" ({role}) created successfully. A verification email was sent to them; they must change password on first login.', 'success')
+            else:
+                flash(f'User "{name}" ({role}) created successfully, but the verification email could not be sent — they can request a new link at login. They must change password on first login.', 'warning')
+        else:
+            flash(f'User "{name}" ({role}) created successfully. They must change password on first login.', 'success')
         return redirect(url_for('auth.user_management'))
 
     return render_template('create_user.html')

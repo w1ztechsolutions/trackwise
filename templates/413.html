@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Upload too large{% endblock %}
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Upload too large</h1>
+        <p>The file you tried to upload exceeds the maximum allowed size.</p>
+    </div>
+</div>
+
+<div class="glass-card" style="max-width: 500px;">
+    <p>
+        Please reduce the file size (for example by removing unnecessary columns or rows)
+        and try again. The maximum upload size is 10&nbsp;MB.
+    </p>
+    <a href="{{ request.referrer or url_for('dashboard.dashboard') }}" class="btn btn-primary">Go back</a>
+</div>
+{% endblock %}

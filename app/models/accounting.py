@@ -395,3 +395,20 @@ class PurchaseReturn(db.Model):
         ),
         db.CheckConstraint('amount > 0', name='ck_purchase_return_amount'),
     )
+
+
+class ProcessedStripeEvent(db.Model):
+    """Idempotency ledger for Stripe webhook deliveries.
+
+    Stripe retries webhook deliveries until they receive a 2xx response, and a
+    compromised or buggy consumer must not apply the same event twice. The
+    unique ``event_id`` is the ledger: a replayed delivery fails the insert and
+    is answered with a success response carrying ``duplicate: true``.
+    """
+
+    __tablename__ = 'processed_stripe_events'
+
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.String(255), nullable=False, unique=True, index=True)
+    type = db.Column(db.String(100), nullable=True)
+    received_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))

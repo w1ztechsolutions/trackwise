@@ -2,7 +2,7 @@ import secrets
 import click
 import importlib
 import os
-from flask import Flask, g, request, redirect
+from flask import Flask, g, jsonify, render_template, request, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
@@ -27,6 +27,11 @@ except ImportError:  # pragma: no cover
             return None
 
         def limit(self, *args, **kwargs):
+            def decorator(func):
+                return func
+            return decorator
+
+        def exempt(self, *args, **kwargs):
             def decorator(func):
                 return func
             return decorator
@@ -161,6 +166,66 @@ def ensure_accounting_columns():
         db.session.rollback()
 
 
+_COLUMN_REPAIRS = {
+    "users": {
+        "name": "VARCHAR(120)",
+        "must_change_password": "BOOLEAN NOT NULL DEFAULT FALSE",
+        "custom_tasks": "TEXT",
+        "role": "VARCHAR(20) NOT NULL DEFAULT 'viewer'",
+        "is_active": "BOOLEAN NOT NULL DEFAULT TRUE",
+        # Existing accounts are grandfathered as verified so a deployment that
+        # adds SMTP later does not lock them out; brand-new users get the
+        # ORM-level default (False) and must verify before logging in.
+        "email_verified": "BOOLEAN NOT NULL DEFAULT TRUE",
+    },
+    # Stale Neon/Postgres schemas drifted behind the ORM and made every audited
+    # write fail; these snapshot columns exist in the model (ADR-0009).
+    "audit_logs": {
+        "actor_name": "VARCHAR(120)",
+        "actor_email": "VARCHAR(120)",
+    },
+    "import_runs": {
+        "actor_name": "VARCHAR(120)",
+        "actor_email": "VARCHAR(120)",
+    },
+}
+
+
+def apply_column_repairs(engine):
+    """Add columns present in the ORM metadata but missing from a drifted schema."""
+    from sqlalchemy import inspect, text
+
+    try:
+        inspector = inspect(engine)
+        existing_tables = set(inspector.get_table_names())
+    except Exception:
+        return
+
+    for table_name, columns in _COLUMN_REPAIRS.items():
+        if table_name not in existing_tables:
+            continue
+        try:
+            existing_columns = {column["name"] for column in inspector.get_columns(table_name)}
+            for column_name, column_def in columns.items():
+                if column_name in existing_columns:
+                    continue
+                with engine.begin() as connection:
+                    connection.execute(
+                        text(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {column_name} {column_def}")
+                    )
+        except Exception:
+            logger_ = __import__("logging").getLogger(__name__)
+            logger_.warning("Column repair for %s failed", table_name, exc_info=True)
+
+
+def ensure_missing_tables(engine=None):
+    """Create any tables the metadata defines but the database lacks (checkfirst)."""
+    if engine is None:
+        _db.metadata.create_all(db.engine)
+    else:
+        _db.metadata.create_all(engine)
+
+
 def create_app(config_object=None):
     app = Flask(
         __name__,
@@ -244,6 +309,20 @@ def create_app(config_object=None):
         ensure_required_user_columns()
         ensure_required_sales_columns()
         ensure_accounting_columns()
+        ensure_missing_tables()
+        apply_column_repairs(db.engine)
+
+        # The demo database is a separate engine; keep its schema current too.
+        demo_engine = app.extensions.get("trackwise_demo_engine")
+        if demo_engine is not None:
+            ensure_missing_tables(demo_engine)
+            apply_column_repairs(demo_engine)
+
+        # Postgres-only: no-op on SQLite, so development behavior is unchanged.
+        from app.services.rls_service import ensure_rls_policies, install_rls_context
+        if env != "testing":
+            ensure_rls_policies(app)
+        install_rls_context()
 
     register_template_filters(app)
 
@@ -255,6 +334,7 @@ def create_app(config_object=None):
     from .reports import reports_bp as _reports_bp
     from .settings import settings_bp as _settings_bp
     from .api import api_bp as _api_bp
+    from .api.webhooks import register_stripe_webhook
     from .auth import auth_bp as _auth_bp
     from .production import production_bp as _production_bp
     from .superadmin import superadmin_bp as _superadmin_bp
@@ -271,6 +351,7 @@ def create_app(config_object=None):
     app.register_blueprint(_reports_bp)
     app.register_blueprint(_settings_bp)
     app.register_blueprint(_api_bp)
+    register_stripe_webhook(app)
     app.register_blueprint(_production_bp)
     app.register_blueprint(_superadmin_bp)
     app.register_blueprint(_approvals_bp)
@@ -280,6 +361,7 @@ def create_app(config_object=None):
     app.url_map.strict_slashes = False
 
     @app.route('/health')
+    @limiter.exempt
     def health_check():
         from flask import jsonify
         import time
@@ -320,22 +402,42 @@ def create_app(config_object=None):
     def _set_business_context():
         try:
             from flask_login import current_user
+            from app.services.rls_service import set_rls_context
+
             if current_user is not None and current_user.is_authenticated:
                 g.business_id = getattr(current_user, 'business_id', None)
                 _db.session.info['audit_actor_id'] = current_user.id
+                set_rls_context(_db.session, g.business_id)
             else:
                 g.business_id = None
                 _db.session.info.pop('audit_actor_id', None)
+                set_rls_context(_db.session, None)
         except Exception:
             _db.session.rollback()
             g.business_id = None
             _db.session.info.pop('audit_actor_id', None)
+            set_rls_context(_db.session, None)
 
     from app.services.period_service import PeriodClosedError
 
     @app.errorhandler(PeriodClosedError)
     def _handle_period_close_error(error):
         return str(error), 409
+
+    @app.errorhandler(413)
+    def _handle_upload_too_large(error):
+        if request.accept_mimetypes.best == 'application/json' or request.path.startswith('/api'):
+            return jsonify({'error': 'Uploaded file exceeds the maximum allowed size.'}), 413
+        return render_template('413.html', show_nav=False), 413
+
+    @app.before_request
+    def _reject_oversized_uploads():
+        # Flask only enforces MAX_CONTENT_LENGTH when the body is parsed; reject
+        # oversized uploads from the declared Content-Length before buffering.
+        max_bytes = app.config.get('MAX_CONTENT_LENGTH')
+        if max_bytes and request.content_length and request.content_length > max_bytes:
+            from werkzeug.exceptions import RequestEntityTooLarge
+            raise RequestEntityTooLarge()
 
     @app.teardown_request
     def _clear_audit_actor(error):

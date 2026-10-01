@@ -46,6 +46,24 @@ def login():
                 valid_password = False
 
             if valid_password:
+                from app.services.email_service import email_verification_required
+
+                if email_verification_required() and not user.email_verified:
+                    from app.services.audit_service import record_user_action
+                    record_user_action(
+                        user.business_id,
+                        user.id,
+                        'LOGIN_UNVERIFIED',
+                        'authentication',
+                        record_id=user.id,
+                    )
+                    db.session.commit()
+                    return render_template(
+                        'verify_email_notice.html',
+                        show_nav=False,
+                        email=user.email,
+                    ), 403
+
                 from flask_login import login_user
                 session.permanent = True
                 login_user(user)
