@@ -250,6 +250,35 @@ class TestReportsRoutes:
             assert audit.user_id == app.test_client_user.id
             assert audit.actor_email == app.test_client_user.email
 
+    def test_audit_report_access_skips_a_failed_view(self, app):
+        from flask import abort
+        from flask_login import login_required
+
+        from app.models import AuditLog, db
+        from app.reports.routes import audit_report_access
+
+        endpoint = 'test_aborting_report'
+
+        @app.route(f'/_test/{endpoint}')
+        @login_required
+        @audit_report_access('aborting_report')
+        def aborting_report():
+            abort(404)
+
+        client = app.test_client()
+        with client.session_transaction() as sess:
+            sess['_user_id'] = str(app.test_client_user.id)
+
+        response = client.get(f'/_test/{endpoint}')
+        assert response.status_code == 404
+
+        with app.app_context():
+            assert AuditLog.query.filter_by(
+                table_name='reports',
+                action='REPORT_VIEW',
+            ).count() == 0
+            db.session.rollback()
+
     @pytest.mark.parametrize(('report_slug', 'expected_header'), [
         ('income-statement', 'Section'),
         ('balance-sheet', 'Section'),

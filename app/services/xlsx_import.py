@@ -137,16 +137,39 @@ def _read_worksheet(file_stream, sheet_index=0):
     for row in sheet.findall(f'{{{_MAIN_NS}}}sheetData/{{{_MAIN_NS}}}row'):
         values = {}
         highest = -1
-        for cell in row.findall(f'{{{_MAIN_NS}}}c'):
-            position = _column_index(cell.get('r') or '')
-            values[position] = _cell_value(cell, shared_strings)
-            highest = max(highest, position)
+        for position, cell in enumerate(row.findall(f'{{{_MAIN_NS}}}c')):
+            reference = cell.get('r')
+            index = _column_index(reference) if reference else position
+            if index < 0:
+                index = position
+            values[index] = _cell_value(cell, shared_strings)
+            highest = max(highest, index)
         rows.append([values.get(index, '') for index in range(highest + 1)])
 
     if not rows:
         return []
     width = max(len(row) for row in rows)
     return [row + [''] * (width - len(row)) for row in rows]
+
+
+def _disambiguate_headers(headers):
+    """Return header names made unique by suffixing repeats with ``(2)``, ``(3)``, ...
+
+    First occurrences keep their original name; later repeats of the same name are
+    suffixed so that a repeated header such as ``Amount`` / ``Amount`` yields
+    distinct record keys instead of one silently overwriting the other.
+    """
+    seen = {}
+    unique = []
+    for header in headers:
+        if not header:
+            unique.append(header)
+            continue
+        key = header.casefold()
+        count = seen.get(key, 0) + 1
+        seen[key] = count
+        unique.append(header if count == 1 else f'{header} ({count})')
+    return unique
 
 
 def parse_xlsx_file(file_storage, sheet_index=0):
@@ -179,7 +202,7 @@ def parse_xlsx_file(file_storage, sheet_index=0):
     if not rows:
         return sheet_names, []
 
-    headers = [str(value).strip() for value in rows[0]]
+    headers = _disambiguate_headers([str(value).strip() for value in rows[0]])
     records = []
     for row in rows[1:]:
         if not any(str(value).strip() for value in row):
@@ -195,8 +218,27 @@ def normalize_text(value):
     return '' if value is None else str(value).strip()
 
 
-def parse_date(value):
-    """Parse a cell into a date, tolerating Excel serials and ISO strings."""
+UNAMBIGUOUS_DATE_PATTERNS = ('%Y-%m-%d', '%Y/%m/%d')
+MDY_DATE_PATTERNS = ('%m/%d/%Y', '%d-%m-%Y', '%m-%d-%Y')
+DMY_DATE_PATTERNS = ('%d/%m/%Y', '%d-%m-%Y', '%m-%d-%Y')
+
+
+def _serial_to_date(number):
+    """Convert an Excel serial number to a date, returning None when out of range."""
+    try:
+        return EXCEL_EPOCH + timedelta(days=int(number))
+    except (OverflowError, ValueError):
+        return None
+
+
+def parse_date(value, date_order='MDY'):
+    """Parse a cell into a date, tolerating Excel serials and ISO strings.
+
+    ``date_order`` selects how ambiguous numeric dates are read: ``'MDY'`` tries
+    month-first patterns before day-first ones, ``'DMY'`` the reverse. Unambiguous
+    ISO forms are attempted first regardless of the setting. Unknown values fall
+    back to ``'MDY'``.
+    """
     if value in (None, ''):
         return None
     if isinstance(value, datetime):
@@ -204,21 +246,24 @@ def parse_date(value):
     if isinstance(value, date):
         return value
     if isinstance(value, Decimal):
-        return EXCEL_EPOCH + timedelta(days=int(value))
+        return _serial_to_date(value)
+
+    order = str(date_order or '').strip().upper()
+    if order not in {'MDY', 'DMY'}:
+        order = 'MDY'
+
     text = str(value).strip()
     if not text:
         return None
-    for pattern in ('%Y-%m-%d', '%Y/%m/%d', '%d/%m/%Y', '%m/%d/%Y', '%d-%m-%Y'):
+    patterns = UNAMBIGUOUS_DATE_PATTERNS + (MDY_DATE_PATTERNS if order == 'MDY' else DMY_DATE_PATTERNS)
+    for pattern in patterns:
         try:
             return datetime.strptime(text[:10], pattern).date()
         except ValueError:
             continue
     number = _coerce_number(text)
     if number is not None:
-        try:
-            return EXCEL_EPOCH + timedelta(days=int(number))
-        except (OverflowError, ValueError):
-            return None
+        return _serial_to_date(number)
     return None
 
 

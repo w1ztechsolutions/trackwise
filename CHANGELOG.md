@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `import_runs` table recording every spreadsheet import attempt: file, entity, column mapping, date order, staged/completed lifecycle, row counts, imported and duplicate counts, and the full rejected-row list
+- Rejected-row download at `GET /imports/<int:run_id>/errors`, returning the complete list of rows an import rejected as an XLSX scoped to the owning business
+- `imports` blueprint (`app/imports/`)
+- Import wizard date-order selector, defaulted from the device locale and overridable, with the first date in the file shown as a hint
+- Import wizard column mapping offers an explicit "Ignore this field" choice, distinct from auto-detect
+- `purge_stale_staged_runs()` housekeeping for abandoned staged imports
+- `docs/adr/ADR-0013-import-run-records-and-server-side-row-staging.md`
+- `docs/MIGRATION_2026-10_import_runs.md` — rollout and migration guidance for staged spreadsheet imports
 - XLSX downloads for income statement, balance sheet, cash flow, trial balance, general ledger, cashbook, AR/AP aging, and audit trail reports
 - Transaction audit coverage for business demo-workspace registry and subscription records, excluding stored payment-provider identifiers
 - Audited ORM records can no longer be changed through bulk update/delete statements that bypass per-record audit events
@@ -49,6 +57,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Spreadsheet imports are staged server-side: the wizard now carries an `import_run_id` instead of posting the parsed rows back as a client-supplied JSON payload, and a mapping request still carrying `payload` is refused with a re-upload message
+- Import wizard column mapping auto-detects fields by their known aliases when the user makes no explicit choice, with an explicit "Ignore this field" opt-out
+- Ambiguous import dates are read using a per-import date order stored on the import run, defaulting from the device locale
+- Import attempts are audited on failure as well as on success, as `IMPORT_<ENTITY>_FAILED` alongside `IMPORT_<ENTITY>`, each committed with the import run in the same transaction as the data
+- Budget variance import records its own outcome instead of relying on the report-access decorator, and report views returning 4xx/5xx are no longer audited
+- Import result summaries flash up to ten rejected rows and link to a download of the complete list
+- Staged import rows are purged when the run completes; only counts, the column mapping, and the error list are retained
+- Audit listeners are installed on the session class created by the application's database handle instead of the global `sqlalchemy.orm.Session`, and no longer as a module-import side effect
 - Periods can be reopened by administrators only; the action requires confirmation and is audit-logged
 - Manual user creation is unavailable in demo sessions; demo users are generated only by role selection in the demo entry flow
 - Demo entry and duplicate-workspace pages now use a standalone responsive layout, local styles, and no application navigation
@@ -65,6 +81,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Valid `.xlsx` workbooks whose cells omit the `r` reference attribute no longer import zero rows and report "no data rows"
+- Repeated column headers no longer overwrite each other; repeats are disambiguated as `Amount`, `Amount (2)`, and so on
+- Out-of-range numeric cells in a date column return no date instead of raising an unhandled `OverflowError`
+- Clearing a column mapping no longer disables alias detection; an explicit ignore sentinel preserves the ability to opt a field out
+- A single-line journal group is now reported as an error instead of a silent "Imported 0 rows"
+- Ambiguous import dates follow the selected date order rather than always being read month-first
+- Rejected import rows beyond the first few flashes are no longer discarded; the full list is downloadable
+- A failed budget import no longer writes a `BUDGET_IMPORT` audit row asserting an import that never happened
+- Failed spreadsheet imports now leave an audit trace
+- `audit_service` and `import_service` no longer import the database handle through the top-level `models` shim
+- Audit listeners no longer apply to every session in the process, which had broken four inventory tests (see Bug 43)
+- FIFO inventory tests now reuse the shared seeded business/COA fixtures and scope valuation and P&L reads by `business_id` (see Bug 43)
 - Demo data seeding now assigns the active business to sample products and transactions, scopes cleanup/tax settings per workspace, and uses workspace-unique SKUs (see Bug 31)
 - Removed extra Jinja block terminators that prevented the Inventory, Sales, and Payments pages from rendering in demo and production sessions (see Bug 30)
 - Saved or system-preferred light mode is now applied before page stylesheets load, preventing a dark-theme flash during navigation (see Bug 29)

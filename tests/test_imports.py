@@ -1,14 +1,27 @@
+from decimal import Decimal
 from io import BytesIO
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 
-from app.models import BankStatement, ChartOfAccounts, JournalEntry, JournalLine, db
+from app.models import (
+    AuditLog,
+    BankStatement,
+    ChartOfAccounts,
+    ImportRun,
+    JournalEntry,
+    JournalLine,
+    db,
+)
 from app.services.import_service import (
+    BANK_STATEMENT_COLUMNS,
+    IGNORE_FIELD,
     ImportValidationError,
     import_bank_statements,
     import_customers,
     import_journal_entries,
     import_suppliers,
+    resolve_columns,
 )
 from app.services.reports.xlsx_export import create_xlsx
 from app.services.xlsx_import import (
@@ -33,11 +46,75 @@ def _workbook(rows, sheet_name='Sheet1'):
     return create_xlsx(rows, sheet_name=sheet_name).getvalue()
 
 
+_MAIN_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+
+
+def _raw_workbook(sheet_data, sheet_name='Sheet1'):
+    """Build a workbook whose worksheet XML is supplied verbatim.
+
+    Needed to reproduce workbooks whose cells omit the ``r`` reference attribute,
+    which no normal writer produces.
+    """
+    output = BytesIO()
+    with ZipFile(output, 'w', ZIP_DEFLATED) as workbook:
+        workbook.writestr('[Content_Types].xml', (
+            '<?xml version="1.0"?>'
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            '</Types>'
+        ))
+        workbook.writestr('_rels/.rels', (
+            '<?xml version="1.0"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
+            'Target="xl/workbook.xml"/>'
+            '</Relationships>'
+        ))
+        workbook.writestr('xl/workbook.xml', (
+            '<?xml version="1.0"?>'
+            f'<workbook xmlns="{_MAIN_NS}" '
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            f'<sheets><sheet name="{sheet_name}" sheetId="1" r:id="rId1"/></sheets>'
+            '</workbook>'
+        ))
+        workbook.writestr('xl/_rels/workbook.xml.rels', (
+            '<?xml version="1.0"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
+            'Target="worksheets/sheet1.xml"/>'
+            '</Relationships>'
+        ))
+        workbook.writestr(
+            'xl/worksheets/sheet1.xml',
+            f'<?xml version="1.0"?><worksheet xmlns="{_MAIN_NS}"><sheetData>{sheet_data}</sheetData></worksheet>',
+        )
+    return output.getvalue()
+
+
+def _inline_cell(reference, text):
+    """A worksheet cell; ``reference`` of ``None`` omits the ``r`` attribute."""
+    attributes = '' if reference is None else f' r="{reference}"'
+    return f'<c{attributes} t="inlineStr"><is><t>{text}</t></is></c>'
+
+
 def _bank_account(business):
     return ChartOfAccounts.query.filter_by(
         business_id=business.id,
         code='1000',
     ).one()
+
+
+def _staged_run(entity):
+    """Return the most recent staged import run for an entity."""
+    return ImportRun.query.filter_by(
+        entity=entity,
+        status='staged',
+    ).order_by(ImportRun.id.desc()).first()
 
 
 def test_parse_xlsx_reads_headers_and_rows(app):
@@ -252,15 +329,9 @@ def test_supplier_import_route_flow(client, business, app):
 
         assert Supplier.query.count() == 0
 
-        import json as json_module
-
-        payload = json_module.dumps([
-            {'Supplier Name': 'Gamma Ltd', 'E-mail': 'hello@gamma.test', 'Phone': '999', 'Address': 'Domasi'},
-            {'Supplier Name': 'Delta Ltd', 'E-mail': 'ap@delta.test', 'Phone': '888', 'Address': 'Blantyre'},
-        ])
         response = client.post('/purchases/import/suppliers', data={
             'mapping': '1',
-            'payload': payload,
+            'import_run_id': str(_staged_run('suppliers').id),
             'map_name': 'Supplier Name',
             'map_email': 'E-mail',
             'map_phone': 'Phone',
@@ -286,7 +357,7 @@ def test_customer_import_route_flow(client, business, app):
 
         response = client.post('/sales/import/customers', data={
             'mapping': '1',
-            'payload': '[{"Name": "Iris Ltd", "Email": "iris@test"}]',
+            'import_run_id': str(_staged_run('customers').id),
             'map_name': 'Name',
             'map_email': 'Email',
         }, follow_redirects=True)
@@ -311,12 +382,7 @@ def test_journal_entry_import_route_flow(client, business, app):
 
         response = client.post('/accounting/import/journal-entries', data={
             'mapping': '1',
-            'payload': (
-                '[{"Date": "2026-09-01", "Description": "Imported entry", '
-                '"Account Code": "5200", "Debit": 90, "Credit": 0},'
-                '{"Date": "2026-09-01", "Description": "Imported entry", '
-                '"Account Code": "1000", "Debit": 0, "Credit": 90}]'
-            ),
+            'import_run_id': str(_staged_run('journal_entries').id),
             'map_date': 'Date',
             'map_description': 'Description',
             'map_account_code': 'Account Code',
@@ -345,7 +411,7 @@ def test_bank_statement_import_route_accepts_xlsx(client, business, app):
         response = client.post('/accounting/bank-reconciliation/import', data={
             'mapping': '1',
             'account_id': str(account.id),
-            'payload': '[{"Date": "2026-09-05", "Description": "Banked receipt", "Amount": 320, "Reference": "REF9"}]',
+            'import_run_id': str(_staged_run('bank_statements').id),
             'map_date': 'Date',
             'map_description': 'Description',
             'map_amount': 'Amount',
@@ -361,3 +427,420 @@ def test_bank_statement_import_page_offers_file_upload(client):
     assert response.status_code == 200
     assert b'Upload Excel workbook' in response.data
     assert b'name="file"' in response.data
+
+
+# --- E1: worksheet cells without an ``r`` reference -------------------------
+
+
+def test_parse_xlsx_keeps_rows_whose_cells_omit_the_reference_attribute(app):
+    with app.app_context():
+        sheet_data = (
+            f'<row r="1">{_inline_cell("A1", "Date")}{_inline_cell("B1", "Amount")}</row>'
+            f'<row r="2">{_inline_cell("A2", "2026-09-01")}{_inline_cell("B2", "1250")}</row>'
+            f'<row r="3">{_inline_cell(None, "2026-09-02")}{_inline_cell(None, "99")}</row>'
+        )
+        upload = _Upload(_raw_workbook(sheet_data))
+        _, rows = parse_xlsx_file(upload)
+
+        assert len(rows) == 2
+        assert rows[0] == {'Date': '2026-09-01', 'Amount': '1250'}
+        assert rows[1] == {'Date': '2026-09-02', 'Amount': '99'}
+
+
+def test_bank_statement_import_reads_workbook_without_cell_references(app, business):
+    with app.app_context():
+        account = _bank_account(business)
+        sheet_data = (
+            f'<row r="1">{_inline_cell("A1", "Date")}{_inline_cell("B1", "Amount")}</row>'
+            f'<row r="2">{_inline_cell(None, "2026-09-08")}{_inline_cell(None, "640")}</row>'
+        )
+        _, rows = parse_xlsx_file(_Upload(_raw_workbook(sheet_data)))
+        result = import_bank_statements(business.id, account.id, rows)
+        db.session.commit()
+
+        assert result['imported'] == 1
+        assert BankStatement.query.filter_by(business_id=business.id).count() == 1
+
+
+# --- E2: duplicate header names ---------------------------------------------
+
+
+def test_duplicate_headers_keep_distinct_keys_and_values(app):
+    with app.app_context():
+        upload = _Upload(_workbook([
+            ['Name', 'Amount', 'Amount'],
+            ['Acme', 100, 250],
+        ]))
+        _, rows = parse_xlsx_file(upload)
+
+        assert len(rows) == 1
+        assert rows[0]['Name'] == 'Acme'
+        assert parse_decimal(rows[0]['Amount']) == 100
+        assert parse_decimal(rows[0]['Amount (2)']) == 250
+
+
+def test_triple_headers_are_numbered_without_collisions(app):
+    with app.app_context():
+        upload = _Upload(_workbook([
+            ['Date', 'Date', 'Date'],
+            ['2026-01-01', '2026-01-02', '2026-01-03'],
+        ]))
+        _, rows = parse_xlsx_file(upload)
+
+        assert set(rows[0]) == {'Date', 'Date (2)', 'Date (3)'}
+
+
+def test_duplicate_amount_headers_do_not_break_bank_import(app, business):
+    with app.app_context():
+        account = _bank_account(business)
+        rows = [{'Date': '2026-09-09', 'Description': 'Split', 'Amount': 10, 'Amount (2)': 20}]
+        result = import_bank_statements(business.id, account.id, rows)
+        db.session.commit()
+
+        assert result['imported'] == 1
+        statement = BankStatement.query.filter_by(business_id=business.id).one()
+        assert float(statement.amount) == 10
+
+
+# --- E3: out-of-range Excel serials ----------------------------------------
+
+
+def test_parse_date_returns_none_for_out_of_range_serials(app):
+    with app.app_context():
+        assert parse_date(Decimal('1e30')) is None
+        assert parse_date(Decimal('-1e30')) is None
+        assert parse_date(Decimal('45000')) is not None
+
+
+# --- E4: alias fallback and the explicit ignore sentinel --------------------
+
+
+def test_partial_column_map_still_alias_resolves_other_fields(app):
+    with app.app_context():
+        rows = [{'Txn date': '2026-09-10', 'Value': '300', 'Narrative': 'Deposit'}]
+        resolved = resolve_columns(rows, {'date': 'Txn date'}, BANK_STATEMENT_COLUMNS)
+
+        assert resolved['date'] == 'Txn date'
+        assert resolved['amount'] == 'Value'
+        assert resolved['description'] == 'Narrative'
+
+
+def test_ignore_sentinel_suppresses_alias_fallback(app):
+    with app.app_context():
+        rows = [{'Date': '2026-09-10', 'Amount': '300', 'Reference': 'R1'}]
+        resolved = resolve_columns(
+            rows, {'reference': IGNORE_FIELD}, BANK_STATEMENT_COLUMNS,
+        )
+
+        assert 'reference' not in resolved
+        assert resolved['date'] == 'Date'
+
+
+def test_empty_column_map_value_falls_back_to_aliases(app, business):
+    with app.app_context():
+        account = _bank_account(business)
+        rows = [{'Date': '2026-09-11', 'Amount': 75, 'Reference': 'R2'}]
+        result = import_bank_statements(business.id, account.id, rows, {'reference': ''})
+        db.session.commit()
+
+        assert result['imported'] == 1
+        statement = BankStatement.query.filter_by(business_id=business.id).one()
+        assert statement.reference == 'R2'
+
+
+def test_ignored_reference_column_disables_deduplication(app, business):
+    with app.app_context():
+        account = _bank_account(business)
+        rows = [{'Date': '2026-09-12', 'Amount': 10, 'Reference': 'R3'}]
+        result = import_bank_statements(
+            business.id, account.id, rows, {'reference': IGNORE_FIELD},
+        )
+        db.session.commit()
+
+        assert result['imported'] == 1
+        second = import_bank_statements(
+            business.id, account.id, rows, {'reference': IGNORE_FIELD},
+        )
+        db.session.commit()
+        assert second['imported'] == 1
+        assert second['duplicates'] == 0
+
+
+# --- E5: single-line journal groups -----------------------------------------
+
+
+def test_single_line_journal_group_reports_an_error(app, business):
+    with app.app_context():
+        rows = [
+            {'Date': '2026-09-13', 'Description': 'Lone line', 'Account Code': '5200', 'Debit': 40, 'Credit': 0},
+        ]
+        result = import_journal_entries(business.id, rows)
+        db.session.commit()
+
+        assert result['imported'] == 0
+        assert len(result['errors']) == 1
+        assert 'Lone line' in result['errors'][0]
+        assert 'two' in result['errors'][0]
+        assert JournalEntry.query.filter_by(reference_type='JournalEntry').count() == 0
+
+
+# --- E6: locale-driven date order -------------------------------------------
+
+
+def test_parse_date_honours_the_selected_date_order(app):
+    with app.app_context():
+        assert str(parse_date('01/02/2026', 'MDY')) == '2026-01-02'
+        assert str(parse_date('01/02/2026', 'DMY')) == '2026-02-01'
+        assert str(parse_date('01/02/2026')) == '2026-01-02'
+        assert str(parse_date('01/02/2026', 'nonsense')) == '2026-01-02'
+
+
+def test_parse_date_reads_unambiguous_forms_under_both_orders(app):
+    with app.app_context():
+        assert str(parse_date('2026-02-03', 'DMY')) == '2026-02-03'
+        assert str(parse_date('2026/02/03', 'DMY')) == '2026-02-03'
+
+
+def test_bank_import_applies_the_date_order_from_the_run(app, business):
+    with app.app_context():
+        account = _bank_account(business)
+        rows = [{'Date': '03/04/2026', 'Amount': 50}]
+        result = import_bank_statements(business.id, account.id, rows, None, 'DMY')
+        db.session.commit()
+
+        assert result['imported'] == 1
+        statement = BankStatement.query.filter_by(business_id=business.id).one()
+        assert str(statement.statement_date.date()) == '2026-04-03'
+
+
+def test_bank_import_route_honours_the_date_order_select(client, business, app):
+    with app.app_context():
+        account = _bank_account(business)
+        workbook = _workbook([
+            ['Date', 'Description', 'Amount'],
+            ['03/04/2026', 'Ambiguous receipt', 60],
+        ])
+        client.post('/accounting/bank-reconciliation/import', data={
+            'file': (BytesIO(workbook), 'ambiguous.xlsx'),
+        }, content_type='multipart/form-data')
+
+        response = client.post('/accounting/bank-reconciliation/import', data={
+            'mapping': '1',
+            'account_id': str(account.id),
+            'import_run_id': str(_staged_run('bank_statements').id),
+            'date_order': 'dmy',
+            'map_date': 'Date',
+            'map_description': 'Description',
+            'map_amount': 'Amount',
+        }, follow_redirects=True)
+        assert response.status_code == 200
+
+        statement = BankStatement.query.filter_by(business_id=business.id).one()
+        assert str(statement.statement_date.date()) == '2026-04-03'
+
+
+# --- E7: client-supplied payloads are refused -------------------------------
+
+
+@pytest.mark.parametrize('endpoint,entity', [
+    ('/accounting/bank-reconciliation/import', 'bank_statements'),
+    ('/accounting/import/journal-entries', 'journal_entries'),
+    ('/sales/import/customers', 'customers'),
+    ('/purchases/import/suppliers', 'suppliers'),
+])
+def test_mapping_step_rejects_a_client_supplied_payload(client, business, app, endpoint, entity):
+    with app.app_context():
+        workbook = _workbook([['Name', 'Date', 'Amount'], ['Injected', '2026-09-01', 1]])
+        client.post(endpoint, data={
+            'file': (BytesIO(workbook), 'rows.xlsx'),
+        }, content_type='multipart/form-data')
+
+        response = client.post(endpoint, data={
+            'mapping': '1',
+            'payload': '[{"Name": "Injected", "Date": "2026-09-01", "Amount": 1}]',
+            'map_name': 'Name',
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        assert b'expired' in response.data
+
+        assert Customer.query.count() == 0
+        assert Supplier.query.count() == 0
+        assert BankStatement.query.count() == 0
+        assert JournalEntry.query.count() == 0
+        assert _staged_run(entity) is not None
+
+
+def test_mapping_step_ignores_an_unknown_run_id(client, app):
+    response = client.post('/sales/import/customers', data={
+        'mapping': '1',
+        'import_run_id': '999999',
+        'map_name': 'Name',
+    })
+    assert response.status_code == 404
+
+
+# --- A2: every importer is audited, on success and on failure ---------------
+
+
+def _import_audit(action):
+    return AuditLog.query.filter_by(action=action).order_by(AuditLog.id.desc()).first()
+
+
+def test_successful_imports_are_audited_with_filename_and_counts(client, business, app):
+    with app.app_context():
+        account = _bank_account(business)
+
+        client.post('/accounting/bank-reconciliation/import', data={
+            'file': (BytesIO(_workbook([
+                ['Date', 'Description', 'Amount'],
+                ['2026-09-14', 'Audited receipt', 120],
+            ])), 'audited-statement.xlsx'),
+        }, content_type='multipart/form-data')
+        client.post('/accounting/bank-reconciliation/import', data={
+            'mapping': '1',
+            'account_id': str(account.id),
+            'import_run_id': str(_staged_run('bank_statements').id),
+            'map_date': 'Date',
+            'map_description': 'Description',
+            'map_amount': 'Amount',
+        }, follow_redirects=True)
+
+        client.post('/sales/import/customers', data={
+            'file': (BytesIO(_workbook([['Name'], ['Audited Customer']])), 'audited-customers.xlsx'),
+        }, content_type='multipart/form-data')
+        client.post('/sales/import/customers', data={
+            'mapping': '1',
+            'import_run_id': str(_staged_run('customers').id),
+            'map_name': 'Name',
+        }, follow_redirects=True)
+
+        client.post('/purchases/import/suppliers', data={
+            'file': (BytesIO(_workbook([['Name'], ['Audited Supplier']])), 'audited-suppliers.xlsx'),
+        }, content_type='multipart/form-data')
+        client.post('/purchases/import/suppliers', data={
+            'mapping': '1',
+            'import_run_id': str(_staged_run('suppliers').id),
+            'map_name': 'Name',
+        }, follow_redirects=True)
+
+        client.post('/accounting/import/journal-entries', data={
+            'file': (BytesIO(_workbook([
+                ['Date', 'Description', 'Account Code', 'Debit', 'Credit'],
+                ['2026-09-14', 'Audited entry', '5200', 45, 0],
+                ['2026-09-14', 'Audited entry', '1000', 0, 45],
+            ])), 'audited-entries.xlsx'),
+        }, content_type='multipart/form-data')
+        client.post('/accounting/import/journal-entries', data={
+            'mapping': '1',
+            'import_run_id': str(_staged_run('journal_entries').id),
+            'map_date': 'Date',
+            'map_description': 'Description',
+            'map_account_code': 'Account Code',
+            'map_debit': 'Debit',
+            'map_credit': 'Credit',
+        }, follow_redirects=True)
+
+        expected = {
+            'IMPORT_BANK_STATEMENTS': ('audited-statement.xlsx', 1, 1),
+            'IMPORT_CUSTOMERS': ('audited-customers.xlsx', 1, 1),
+            'IMPORT_SUPPLIERS': ('audited-suppliers.xlsx', 1, 1),
+            'IMPORT_JOURNAL_ENTRIES': ('audited-entries.xlsx', 1, 2),
+        }
+        for action, (filename, imported, row_count) in expected.items():
+            audit = _import_audit(action)
+            assert audit is not None, action
+            import json
+            details = json.loads(audit.new_values)
+            assert details['filename'] == filename
+            assert details['imported'] == imported
+            assert details['row_count'] == row_count
+            assert details['duplicates'] == 0
+            assert details['error_count'] == 0
+            assert audit.table_name == 'import_runs'
+
+        assert _import_audit('IMPORT_CUSTOMERS_FAILED') is None
+
+
+def test_failed_imports_are_audited_and_leave_no_partial_data(client, business, app):
+    with app.app_context():
+        # Ignoring the account-code column leaves a required field unmapped, so
+        # the import raises before any entry is written.
+        client.post('/accounting/import/journal-entries', data={
+            'file': (BytesIO(_workbook([
+                ['Date', 'Description', 'Account Code', 'Debit', 'Credit'],
+                ['2026-09-15', 'Broken entry', '5200', 30, 0],
+                ['2026-09-15', 'Broken entry', '1000', 0, 30],
+            ])), 'broken.xlsx'),
+        }, content_type='multipart/form-data')
+        run = _staged_run('journal_entries')
+
+        response = client.post('/accounting/import/journal-entries', data={
+            'mapping': '1',
+            'import_run_id': str(run.id),
+            'map_date': 'Date',
+            'map_description': 'Description',
+            'map_account_code': IGNORE_FIELD,
+            'map_debit': 'Debit',
+            'map_credit': 'Credit',
+        }, follow_redirects=True)
+        assert response.status_code == 200
+
+        import json
+        audit = _import_audit('IMPORT_JOURNAL_ENTRIES_FAILED')
+        assert audit is not None
+        details = json.loads(audit.new_values)
+        assert details['filename'] == 'broken.xlsx'
+        assert details['error']
+
+        run = db.session.get(ImportRun, run.id)
+        assert run.status == 'failed'
+        assert run.staged_rows is None
+        assert run.imported_count == 0
+        assert run.error_count == 1
+        assert JournalEntry.query.filter_by(reference_type='JournalEntry').count() == 0
+        assert _import_audit('IMPORT_JOURNAL_ENTRIES') is None
+
+
+def test_committed_import_run_purges_staged_rows(client, business, app):
+    with app.app_context():
+        client.post('/sales/import/customers', data={
+            'file': (BytesIO(_workbook([['Name'], ['Purged Customer']])), 'purge.xlsx'),
+        }, content_type='multipart/form-data')
+        run_id = _staged_run('customers').id
+
+        client.post('/sales/import/customers', data={
+            'mapping': '1',
+            'import_run_id': str(run_id),
+            'map_name': 'Name',
+        }, follow_redirects=True)
+
+        run = db.session.get(ImportRun, run_id)
+        assert run.status == 'committed'
+        assert run.staged_rows is None
+        assert run.imported_count == 1
+        assert run.row_count == 1
+        assert run.completed_at is not None
+
+
+def test_import_result_offers_the_rejected_rows_download(client, business, app):
+    with app.app_context():
+        account = _bank_account(business)
+        client.post('/accounting/bank-reconciliation/import', data={
+            'file': (BytesIO(_workbook([
+                ['Date', 'Description', 'Amount'],
+                ['2026-09-16', 'Good receipt', 100],
+                ['not-a-date', 'Bad receipt', 55],
+            ])), 'partial.xlsx'),
+        }, content_type='multipart/form-data')
+
+        response = client.post('/accounting/bank-reconciliation/import', data={
+            'mapping': '1',
+            'account_id': str(account.id),
+            'import_run_id': str(_staged_run('bank_statements').id),
+            'map_date': 'Date',
+            'map_description': 'Description',
+            'map_amount': 'Amount',
+        }, follow_redirects=True)
+        assert response.status_code == 200
+        assert b'rejected-rows.xlsx' in response.data
+        assert BankStatement.query.filter_by(business_id=business.id).count() == 1

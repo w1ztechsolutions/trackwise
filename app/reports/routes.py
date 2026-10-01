@@ -8,6 +8,7 @@ from flask_login import current_user, login_required
 
 from app.models import Product, Setting, db
 from app.models.accounting import Branch, ChartOfAccounts, CostCenter
+from app.models import ImportRun
 from services.fifo_service import get_inventory_valuation, get_profit_loss
 from app.services.reports import (
     get_income_statement,
@@ -32,6 +33,13 @@ from app.services.budget_service import (
 )
 from app.services.purchase_return_service import get_expenditure_returns
 from app.services.xlsx_import import XlsxParseError, parse_xlsx_file
+from app.services.import_run_service import (
+    STAGED_STATUS,
+    complete_import,
+    fail_import,
+    normalize_date_order,
+)
+from app.services.audit_service import record_user_action
 from app.services.reports.xlsx_export import build_report_rows, create_xlsx
 from app.auth.decorators import role_required
 from models import Supplier
@@ -61,12 +69,20 @@ def _report_dimensions(business_id):
 
 
 def audit_report_access(report_type, action=None):
-    """Record successful report views in the caller's transaction."""
+    """Record successful report views in the caller's transaction.
+
+    A view that returns a 4xx/5xx response is not audited: aborting views must
+    not leave behind an audit row suggesting the report was served.
+    """
 
     def decorate(view):
         @wraps(view)
         def wrapped(*args, **kwargs):
             response = view(*args, **kwargs)
+            status_code = getattr(response, 'status_code', 200)
+            if status_code >= 400:
+                return response
+
             from app.services.audit_service import record_user_action
 
             record_user_action(
@@ -846,23 +862,35 @@ def budget_variance_template():
 @reports_bp.route('/reports/budget-variance/import', methods=['POST'])
 @login_required
 @role_required('admin', 'accountant')
-@audit_report_access('budget_variance_import', action='BUDGET_IMPORT')
 def budget_variance_import():
     business_id = current_user.business_id
     upload = request.files.get('file')
     name = request.form.get('name', '').strip()
     period_start_raw = request.form.get('period_start', '').strip()
     period_end_raw = request.form.get('period_end', '').strip()
+    filename = getattr(upload, 'filename', None)
+
+    run = ImportRun(
+        business_id=business_id,
+        user_id=current_user.id,
+        entity='budgets',
+        filename=filename,
+        status='staged',
+        date_order=normalize_date_order(request.form.get('date_order')),
+    )
+    db.session.add(run)
+    db.session.flush()
 
     try:
         grouped = _budget_import_rows(upload, business_id)
+        run.row_count = len(grouped['revenue']) + len(grouped['expense'])
         period_start = date.fromisoformat(period_start_raw) if period_start_raw else None
         period_end = date.fromisoformat(period_end_raw) if period_end_raw else period_start
         if period_start is None:
             raise XlsxParseError('Enter the budget period before importing.')
 
         created = []
-        for index, budget_type in enumerate(('expense', 'revenue')):
+        for budget_type in ('expense', 'revenue'):
             lines = grouped[budget_type]
             if not lines:
                 continue
@@ -874,19 +902,56 @@ def budget_variance_import():
                 period_end,
                 lines,
                 created_by=current_user.id,
-                commit=index == 1,
+                commit=False,
             ))
+        total_lines = sum(len(budget.lines) for budget in created)
     except (XlsxParseError, BudgetError, ValueError) as error:
         db.session.rollback()
+        _record_failed_import_run(business_id, current_user.id, filename, 'budgets', error)
+        db.session.commit()
         flash(str(error) or 'The budget file could not be imported.', 'danger')
     else:
+        record_user_action(
+            business_id,
+            current_user.id,
+            'BUDGET_IMPORT',
+            'import_runs',
+            run.id,
+            {
+                'filename': filename,
+                'row_count': run.row_count,
+                'imported': total_lines,
+                'budgets': len(created),
+            },
+        )
+        complete_import(run, {'imported': total_lines, 'duplicates': 0, 'errors': []})
+        db.session.commit()
         flash(
-            f"Imported {sum(len(b.lines) for b in created)} budget line(s) "
-            f'across {len(created)} budget(s).',
+            f"Imported {total_lines} budget line(s) across {len(created)} budget(s).",
             'success',
         )
 
     return redirect(url_for('reports.budget_variance'))
+
+
+def _record_failed_import_run(business_id, user_id, filename, entity, error):
+    """Open and immediately close a failed run for an import that never staged rows.
+
+    Budget imports have no mapping step, so there is no staged run to close. The
+    outcome still needs an auditable record, so the run is created directly.
+    """
+    run = ImportRun(
+        business_id=business_id,
+        user_id=user_id,
+        entity=entity,
+        filename=filename,
+        status=STAGED_STATUS,
+        date_order='MDY',
+    )
+    db.session.add(run)
+    db.session.flush()
+    fail_import(business_id, user_id, run.id, 'BUDGET_IMPORT_FAILED', error)
+    return run
 
 
 @reports_bp.route('/reports/budget-variance/export.xlsx')

@@ -156,6 +156,41 @@ class AuditLog(db.Model):
     timestamp = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
+class ImportRun(db.Model):
+    """Lifecycle record for one spreadsheet import (ADR-0013)."""
+
+    __tablename__ = 'import_runs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(
+        db.Integer,
+        db.ForeignKey('businesses.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    actor_name = db.Column(db.String(120), nullable=True)
+    actor_email = db.Column(db.String(120), nullable=True)
+    entity = db.Column(db.String(50), nullable=False)
+    filename = db.Column(db.String(255), nullable=True)
+    status = db.Column(db.String(20), nullable=False, default='staged')
+    column_map = db.Column(db.Text, nullable=True)
+    date_order = db.Column(db.String(3), nullable=True)
+    account_id = db.Column(db.Integer, db.ForeignKey('chart_of_accounts.id'), nullable=True)
+    row_count = db.Column(db.Integer, nullable=False, default=0)
+    imported_count = db.Column(db.Integer, nullable=False, default=0)
+    duplicate_count = db.Column(db.Integer, nullable=False, default=0)
+    error_count = db.Column(db.Integer, nullable=False, default=0)
+    errors = db.Column(db.Text, nullable=True)
+    staged_rows = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    __table_args__ = (
+        db.Index('ix_import_runs_business_status', 'business_id', 'status'),
+    )
+
+
 class BankStatement(db.Model):
     __tablename__ = 'bank_statements'
 

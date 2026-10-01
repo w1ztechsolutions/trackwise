@@ -49,6 +49,16 @@ from app.services.import_service import (
     import_journal_entries,
 )
 from app.services.xlsx_import import XlsxParseError, parse_xlsx_file
+from app.services.import_run_service import (
+    commit_import,
+    fail_import,
+    flash_import_result,
+    load_staged,
+    normalize_date_order,
+    purge_stale_staged_runs,
+    stage_import,
+    staged_records,
+)
 from app.auth.decorators import role_required
 from app.services.approval_service import create_approval_request
 
@@ -938,9 +948,10 @@ def _resolve_bank_account(biz_id, account_id):
 
 
 def _bank_statement_import_preview(biz_id, accounts):
-    """Parse an uploaded statement workbook and render the column mapping step."""
+    """Stage an uploaded statement workbook and render the column mapping step."""
+    upload = request.files.get('file')
     try:
-        sheet_names, rows = parse_xlsx_file(request.files.get('file'))
+        sheet_names, rows = parse_xlsx_file(upload)
     except XlsxParseError as error:
         flash(str(error), 'danger')
         return redirect(url_for('accounting.bank_statement_import'))
@@ -949,13 +960,24 @@ def _bank_statement_import_preview(biz_id, accounts):
         flash('That workbook does not contain any data rows.', 'danger')
         return redirect(url_for('accounting.bank_statement_import'))
 
+    purge_stale_staged_runs()
+    run = stage_import(
+        biz_id,
+        current_user.id,
+        entity='bank_statements',
+        filename=getattr(upload, 'filename', None),
+        rows=rows,
+        date_order=request.form.get('date_order') or 'MDY',
+    )
+    db.session.commit()
+
     return render_template(
         'import_wizard.html',
         title='Map Bank Statement Columns',
         entity='bank statements',
         sheet_names=sheet_names,
         rows=rows,
-        payload=json.dumps(rows, default=str),
+        import_run_id=run.id,
         headers=list(rows[0].keys()),
         suggested=BANK_STATEMENT_COLUMNS,
         preview=rows[:10],
@@ -966,47 +988,57 @@ def _bank_statement_import_preview(biz_id, accounts):
     )
 
 
+def _rejected_client_payload(default_endpoint):
+    """Refuse a mapping POST that still carries the old client-side payload."""
+    if not request.form.get('payload'):
+        return None
+    flash(
+        'This import session has expired. Upload the workbook again and map the columns.',
+        'danger',
+    )
+    return redirect(url_for(default_endpoint))
+
+
+def _mapping_from_form(fields):
+    """Collect explicit column choices, including the ``__ignore__`` opt-out."""
+    return {
+        field: request.form.get(f'map_{field}', '')
+        for field in fields
+        if request.form.get(f'map_{field}', '')
+    }
+
+
 def _bank_statement_import_process(biz_id):
-    """Apply a user-confirmed column mapping and import the statement rows."""
+    """Apply a user-confirmed column mapping and import the staged statement rows."""
+    expired = _rejected_client_payload('accounting.bank_statement_import')
+    if expired is not None:
+        return expired
+
+    run = load_staged(biz_id, request.form.get('import_run_id'))
+    run_id = run.id
+
     account = _resolve_bank_account(biz_id, request.form.get('account_id', '').strip())
     if account is None:
         return redirect(url_for('accounting.bank_statement_import'))
 
-    payload = request.form.get('payload', '')
-    try:
-        rows = json.loads(payload) if payload else []
-    except (TypeError, ValueError):
-        flash('The uploaded file could not be read. Upload it again.', 'danger')
-        return redirect(url_for('accounting.bank_statement_import'))
-
-    mapping = {
-        field: request.form.get(f'map_{field}', '')
-        for field in BANK_STATEMENT_COLUMNS
-        if request.form.get(f'map_{field}', '')
-    }
+    run.date_order = normalize_date_order(request.form.get('date_order') or run.date_order)
+    mapping = _mapping_from_form(BANK_STATEMENT_COLUMNS)
 
     try:
-        result = import_bank_statements(biz_id, account.id, rows, mapping)
+        result = import_bank_statements(
+            biz_id, account.id, staged_records(run), mapping, run.date_order,
+        )
+        commit_import(biz_id, current_user.id, run, 'IMPORT_BANK_STATEMENTS', result)
         db.session.commit()
     except (ImportValidationError, AccountingException) as error:
         db.session.rollback()
+        fail_import(biz_id, current_user.id, run_id, 'IMPORT_BANK_STATEMENTS_FAILED', error)
+        db.session.commit()
         flash(str(error), 'danger')
         return redirect(url_for('accounting.bank_statement_import'))
 
-    _flash_import_result('Bank statement', result)
+    flash_import_result('Bank statement', result, run)
     return redirect(url_for('accounting.bank_statements', account_id=account.id))
-
-
-def _flash_import_result(label, result):
-    message = (
-        f'Imported {result["imported"]} {label.lower()} row(s); '
-        f'{result["duplicates"]} duplicate(s) skipped.'
-    )
-    if result['errors']:
-        message += f' {len(result["errors"])} row(s) had errors.'
-    flash(message, 'success' if result['imported'] else 'warning')
-    for error in result['errors'][:5]:
-        flash(error, 'warning')
 
 
 @accounting_bp.route('/accounting/import/journal-entries', methods=['GET', 'POST'])
@@ -1017,21 +1049,34 @@ def import_journal_entries_route():
     biz_id = _biz_id()
 
     if request.method == 'POST' and request.files.get('file'):
+        upload = request.files.get('file')
         try:
-            sheet_names, rows = parse_xlsx_file(request.files.get('file'))
+            sheet_names, rows = parse_xlsx_file(upload)
         except XlsxParseError as error:
             flash(str(error), 'danger')
             return redirect(url_for('accounting.import_journal_entries_route'))
         if not rows:
             flash('That workbook does not contain any data rows.', 'danger')
             return redirect(url_for('accounting.import_journal_entries_route'))
+
+        purge_stale_staged_runs()
+        run = stage_import(
+            biz_id,
+            current_user.id,
+            entity='journal_entries',
+            filename=getattr(upload, 'filename', None),
+            rows=rows,
+            date_order=request.form.get('date_order') or 'MDY',
+        )
+        db.session.commit()
+
         return render_template(
             'import_wizard.html',
             title='Map Journal Entry Columns',
             entity='journal entries',
             sheet_names=sheet_names,
             rows=rows,
-            payload=json.dumps(rows, default=str),
+            import_run_id=run.id,
             headers=list(rows[0].keys()),
             suggested=JOURNAL_COLUMNS,
             preview=rows[:10],
@@ -1041,28 +1086,29 @@ def import_journal_entries_route():
         )
 
     if request.method == 'POST' and request.form.get('mapping'):
-        payload = request.form.get('payload', '')
-        try:
-            rows = json.loads(payload) if payload else []
-        except (TypeError, ValueError):
-            flash('The uploaded file could not be read. Upload it again.', 'danger')
-            return redirect(url_for('accounting.import_journal_entries_route'))
+        expired = _rejected_client_payload('accounting.import_journal_entries_route')
+        if expired is not None:
+            return expired
 
-        mapping = {
-            field: request.form.get(f'map_{field}', '')
-            for field in JOURNAL_COLUMNS
-            if request.form.get(f'map_{field}', '')
-        }
+        run = load_staged(biz_id, request.form.get('import_run_id'))
+        run_id = run.id
+        run.date_order = normalize_date_order(request.form.get('date_order') or run.date_order)
+        mapping = _mapping_from_form(JOURNAL_COLUMNS)
+
         try:
             result = import_journal_entries(
-                biz_id, rows, mapping, created_by=current_user.id,
+                biz_id, staged_records(run), mapping,
+                created_by=current_user.id, date_order=run.date_order,
             )
+            commit_import(biz_id, current_user.id, run, 'IMPORT_JOURNAL_ENTRIES', result)
             db.session.commit()
         except (ImportValidationError, AccountingException) as error:
             db.session.rollback()
+            fail_import(biz_id, current_user.id, run_id, 'IMPORT_JOURNAL_ENTRIES_FAILED', error)
+            db.session.commit()
             flash(str(error), 'danger')
         else:
-            _flash_import_result('Journal entry', result)
+            flash_import_result('Journal entry', result, run)
         return redirect(url_for('accounting.je_list'))
 
     return render_template(
@@ -1071,7 +1117,7 @@ def import_journal_entries_route():
         entity='journal entries',
         sheet_names=[],
         rows=[],
-        payload='',
+        import_run_id=None,
         headers=[],
         suggested=JOURNAL_COLUMNS,
         preview=[],

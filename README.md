@@ -239,6 +239,8 @@ trackwise/
 │   ├── accounting/              # Chart of Accounts & manual journal entries
 │   │   ├── routes.py
 │   │   └── templates/
+│   ├── imports/                 # Rejected-row downloads for completed imports
+│   │   └── routes.py
 │   ├── tasks/                   # Celery tasks
 │   │   ├── __init__.py
 │   │   └── report_tasks.py
@@ -339,6 +341,17 @@ trackwise/
 - `POST /accounting/period-close/reopen` — Reopen a closed period (administrator only; confirmation required and audit-logged)
 - `GET|POST /accounting/revenue-recognition` — Create time-based deferred revenue schedules
 - `POST /accounting/revenue-recognition/<schedule_id>/recognize` — Post earned revenue through a date
+
+### Spreadsheet Imports
+
+- `GET|POST /accounting/bank-reconciliation/import` — Upload an `.xlsx` bank statement workbook, map its columns, and import
+- `GET|POST /accounting/import/journal-entries` — Upload an `.xlsx` journal workbook, map its columns, and import
+- `GET|POST /sales/import/customers` — Upload an `.xlsx` customer workbook, map its columns, and import
+- `GET|POST /purchases/import/suppliers` — Upload an `.xlsx` supplier workbook, map its columns, and import
+- `POST /reports/budget-variance/import` — Import a budget workbook (fixed column set; no mapping step)
+- `GET /imports/<int:run_id>/errors` — Download every row an import rejected as an XLSX, scoped to the owning business
+
+Uploaded workbooks must be `.xlsx`. Each import is recorded in `import_runs` with its file, column mapping, date order, counts, and rejected rows; see [ADR-0013](docs/adr/ADR-0013-import-run-records-and-server-side-row-staging.md). Before deploying, follow [the import staging migration guide](docs/MIGRATION_2026-10_import_runs.md).
 
 See [the accounting-controls migration guide](docs/MIGRATION_2026-09_financial_controls.md) before deployment.
 

@@ -4,8 +4,24 @@ from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
-db = SQLAlchemy()
 
+class AuditedSQLAlchemy(SQLAlchemy):
+    """SQLAlchemy handle whose sessions are always audited.
+
+    The audit listeners are attached to the scoped session this handle owns rather
+    than to ``sqlalchemy.orm.Session`` itself, so they no longer apply to every
+    session in the process. Installing them here means every application that
+    initializes the shared handle is audited, including the app factory.
+    """
+
+    def init_app(self, app):
+        super().init_app(app)
+        from app.services.audit_service import install_audit_listeners
+
+        install_audit_listeners(self.session)
+
+
+db = AuditedSQLAlchemy()
 
 class Product(db.Model):
     __tablename__ = 'products'

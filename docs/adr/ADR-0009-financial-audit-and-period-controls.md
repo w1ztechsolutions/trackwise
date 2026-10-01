@@ -18,6 +18,8 @@
 - Journal corrections preserve the original entry and identify the reversing entry and reason.
 - Period-close enforcement is shared across ORM writes rather than being limited to one UI form.
 - Existing audit records cannot be updated or deleted through the application ORM, including bulk ORM DML.
+- Audit listeners bind to the session class owned by the application's `db` handle (not the global `sqlalchemy.orm.Session`), so standalone test sessions are unaffected unless the handle initializes them.
+- Inventory/valuation/P&L test reads are scoped by `business_id` to preserve multi-tenant isolation.
 - Audit snapshots cover transaction, inventory, production, approval, account configuration, and user records; report reads and exports are explicit user-action events.
 
 **Alternatives considered:**

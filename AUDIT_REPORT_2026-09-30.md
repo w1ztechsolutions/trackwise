@@ -404,7 +404,7 @@ Flask-WTF CSRF enabled on all POST/PUT/DELETE routes ✅
 
 - **Models:** [app/models/](/app/models/) — Well-organized submodules (accounting.py, inventory.py, approval.py)
 - **Services:** [app/services/](/app/services/) — Business logic (accounting_service, inventory_service, reports/)
-- **Routes:** [app/{module}/routes.py](#) — HTTP handlers per blueprint
+- **Routes:** [app/{module}/routes.py](app/#) — HTTP handlers per blueprint
 - **Database:** Migrations tracked in [migrations/versions/](/migrations/versions/) — Alembic-managed
 
 ### ✅ SQLAlchemy ORM Best Practices
@@ -462,7 +462,7 @@ Flask-WTF CSRF enabled on all POST/PUT/DELETE routes ✅
 ### Xero Compatibility
 
 | Feature | TrackWise | Status |
-|---------|-----------|--------|
+| --------- | ----------- | -------- |
 | API-first architecture | ⚠️ Partial | REST API present but limited |
 | Real-time sync | ⚠️ No | Web-based only, no desktop sync |
 | GST/VAT multi-jurisdiction | ❌ No | Single tax rate |
@@ -473,7 +473,7 @@ Flask-WTF CSRF enabled on all POST/PUT/DELETE routes ✅
 ### Zoho Books Compatibility
 
 | Feature | TrackWise | Status |
-|---------|-----------|--------|
+| --------- | ----------- | -------- |
 | Role-based permissions | ✅ Yes | admin, accountant, cashier, storekeeper, viewer |
 | Approval workflows | ✅ Yes | Multi-level approval |
 | Subscription billing | ✅ Yes | Plan/Subscription models |
@@ -484,7 +484,7 @@ Flask-WTF CSRF enabled on all POST/PUT/DELETE routes ✅
 ### Sage Compatibility
 
 | Feature | TrackWise | Status |
-|---------|-----------|--------|
+| --------- | ----------- | -------- |
 | Manual journal entries | ✅ Yes | Full support |
 | Accruals/Deferrals | ⚠️ Partial | No deferred revenue recognition |
 | Cost centers | ⚠️ No | Future enhancement |
@@ -497,7 +497,7 @@ Flask-WTF CSRF enabled on all POST/PUT/DELETE routes ✅
 ### 🔴 CRITICAL (Implement immediately)
 
 | ID | Issue | Effort | Impact |
-|----|----|--------|--------|
+| ---- | ---- | -------- | -------- |
 | C1 | Audit trail not enforced for all transactions | HIGH | Regulatory non-compliance |
 | C2 | AR/AP aging ignores payments | MEDIUM | Misleading financial reports |
 | C3 | No entry reversal framework | MEDIUM | Audit trail integrity |
@@ -506,7 +506,7 @@ Flask-WTF CSRF enabled on all POST/PUT/DELETE routes ✅
 ### 🟠 HIGH (Implement in next 2 quarters)
 
 | ID | Issue | Effort | Impact |
-|----|--------|--------|--------|
+| ---- | -------- | -------- | -------- |
 | H1 | No period close/reconciliation lock | MEDIUM | Compliance gap (SOX/IFRS) |
 | H2 | Tax calculation oversimplified | MEDIUM | Financial accuracy |
 | H3 | No deferred revenue recognition (IFRS 15) | HIGH | For subscription-heavy businesses |
@@ -515,7 +515,7 @@ Flask-WTF CSRF enabled on all POST/PUT/DELETE routes ✅
 ### 🟡 MEDIUM (Implement in backlog)
 
 | ID | Issue | Effort | Impact |
-|----|----|--------|--------|
+| ---- | ---- | -------- | -------- |
 | M1 | Missing cost center support | MEDIUM | Departmental reporting |
 | M2 | No expense budget tracking | LOW | For planning/forecasting |
 | M3 | Limited export formats (PDF only, no Excel) | LOW | User convenience |
@@ -523,7 +523,7 @@ Flask-WTF CSRF enabled on all POST/PUT/DELETE routes ✅
 ### ⚪ LOW (Nice-to-have)
 
 | ID | Issue | Effort | Impact |
-|----|----|--------|--------|
+| ---- | ---- | -------- | -------- |
 | L1 | Python version pinning in requirements.txt | LOW | CI/CD clarity |
 | L2 | Refactor circular imports | LOW | Code maintainability |
 

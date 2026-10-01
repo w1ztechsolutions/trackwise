@@ -1,118 +1,77 @@
-import unittest
 from datetime import datetime, timezone
-from flask import Flask
-from models import db, Product, StockTransaction, Purchase, Sale, Expense, Setting, Invoice
+
+from models import db, Product, StockTransaction, Invoice, Setting
 from services.fifo_service import (
     record_purchase, record_sale, record_expense,
-    get_profit_loss, get_inventory_valuation, set_tax_rate, get_tax_rate,
+    get_profit_loss, get_inventory_valuation, set_tax_rate,
     InventoryException
 )
-from app.models.accounting import Business, ChartOfAccounts
 
 
-def _seed_business_and_accounts():
-    business = Business(name='Test Business', currency='MWK')
-    db.session.add(business)
-    db.session.flush()
-
-    accounts = [
-        ('1000', 'Cash', 'asset'),
-        ('1100', 'Bank', 'asset'),
-        ('1200', 'Accounts Receivable', 'asset'),
-        ('1400', 'Inventory', 'asset'),
-        ('2100', 'Accounts Payable', 'liability'),
-        ('4000', 'Sales Revenue', 'income'),
-        ('5000', 'Cost of Goods Sold', 'expense'),
-        ('5100', 'Rent Expense', 'expense'),
-        ('5200', 'Utilities Expense', 'expense'),
-        ('5300', 'Salaries Expense', 'expense'),
-        ('5900', 'Other Expenses', 'expense'),
-    ]
-    for code, name, type_ in accounts:
-        db.session.add(ChartOfAccounts(business_id=business.id, code=code, name=name, type=type_, is_active=True))
+def _set_tax_rate(business):
+    """Ensure a default tax rate exists for the seeded business."""
+    for setting in Setting.query.filter_by(business_id=business.id).all():
+        db.session.delete(setting)
     db.session.commit()
-    return business
+    set_tax_rate(30.0, business_id=business.id)
 
 
-class TestFIFOService(unittest.TestCase):
-    
-    def setUp(self):
-        # Create an in-memory database Flask application for testing
-        self.app = Flask(__name__)
-        self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-        self.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-        self.app.config['SECRET_KEY'] = 'test'
-        db.init_app(self.app)
-        
-        # Create tables and load context
-        self.app_context = self.app.app_context()
-        self.app_context.push()
-        db.create_all()
-        
-        # Seed business and chart of accounts
-        self.business = _seed_business_and_accounts()
-        
-        # Ensure default tax rate setting exists
-        Setting.query.delete()
-        db.session.commit()
-        set_tax_rate(30.0, business_id=self.business.id)
-
-    def tearDown(self):
-        db.session.remove()
-        db.drop_all()
-        self.app_context.pop()
-
-    def test_product_creation(self):
-        p = Product(sku='PROD001', name='Test Product', default_selling_price=200.0, business_id=self.business.id)
+def test_product_creation(app, business):
+    with app.app_context():
+        p = Product(sku='PROD001', name='Test Product', default_selling_price=200.0, business_id=business.id)
         db.session.add(p)
         db.session.commit()
-        
+
         retrieved = Product.query.filter_by(sku='PROD001').first()
-        self.assertIsNotNone(retrieved)
-        self.assertEqual(retrieved.name, 'Test Product')
-        self.assertEqual(retrieved.quantity_in_stock, 0)
+        assert retrieved is not None
+        assert retrieved.name == 'Test Product'
+        assert retrieved.quantity_in_stock == 0
 
-    def test_fifo_inventory_and_p_l(self):
+
+def test_fifo_inventory_and_p_l(app, business):
+    with app.app_context():
+        _set_tax_rate(business)
+
         # 1. Create a product
-        p = Product(sku='LAP001', name='Laptop', default_selling_price=200.0, business_id=self.business.id)
+        p = Product(sku='LAP001', name='Laptop', default_selling_price=200.0, business_id=business.id)
         db.session.add(p)
         db.session.commit()
-        
+
         # 2. Record first purchase: 10 units at MWK 100 each
         record_purchase(
             purchase_date=datetime(2026, 6, 1, 10, 0, 0),
             supplier="Supplier A",
             notes="Initial stock",
             items_data=[{'product_id': p.id, 'quantity': 10, 'unit_cost': 100.0}],
-            business_id=self.business.id,
+            business_id=business.id,
         )
-        
+
         # Verify product quantity
         p = db.session.get(Product, p.id)
-        self.assertEqual(p.quantity_in_stock, 10)
-        
+        assert p.quantity_in_stock == 10
+
         # Verify FIFO layer is recorded
         tx1 = StockTransaction.query.filter_by(transaction_type='PURCHASE').first()
-        self.assertEqual(tx1.remaining_quantity, 10)
-        self.assertEqual(tx1.unit_cost, 100.0)
-        
+        assert tx1.remaining_quantity == 10
+        assert tx1.unit_cost == 100.0
+
         # 3. Record second purchase: 10 units at MWK 120 each
         record_purchase(
             purchase_date=datetime(2026, 6, 2, 10, 0, 0),
             supplier="Supplier B",
             notes="Restock batch 2",
             items_data=[{'product_id': p.id, 'quantity': 10, 'unit_cost': 120.0}],
-            business_id=self.business.id,
+            business_id=business.id,
         )
-        
+
         # Verify product quantity is now 20
         p = db.session.get(Product, p.id)
-        self.assertEqual(p.quantity_in_stock, 20)
-        
+        assert p.quantity_in_stock == 20
+
         # Verify database valuation
-        val = get_inventory_valuation()
-        self.assertEqual(val['total_valuation'], 10 * 100.0 + 10 * 120.0) # 2200.0
-        
+        val = get_inventory_valuation(business_id=business.id)
+        assert val['total_valuation'] == 10 * 100.0 + 10 * 120.0  # 2200.0
+
         # 4. Record a sale: 12 units at MWK 200 each
         # Under FIFO, this should consume:
         # - 10 units from batch 1 (cost MWK 100 each)
@@ -123,39 +82,39 @@ class TestFIFOService(unittest.TestCase):
             sale_date=datetime(2026, 6, 3, 15, 0, 0),
             customer_name="Customer X",
             items_data=[{'product_id': p.id, 'quantity': 12, 'unit_price': 200.0}],
-            business_id=self.business.id,
+            business_id=business.id,
         )
-        
+
         # Verify product stock level dropped to 8
         p = db.session.get(Product, p.id)
-        self.assertEqual(p.quantity_in_stock, 8)
-        
+        assert p.quantity_in_stock == 8
+
         # Verify sale stats
-        self.assertEqual(sale.total_revenue, 2400.0)
-        self.assertEqual(sale.total_cogs, 1240.0)
-        
+        assert sale.total_revenue == 2400.0
+        assert sale.total_cogs == 1240.0
+
         # Verify FIFO layer remaining quantities
         layers = StockTransaction.query.filter(
             StockTransaction.product_id == p.id,
             StockTransaction.quantity > 0
         ).order_by(StockTransaction.timestamp.asc()).all()
-        
-        self.assertEqual(layers[0].remaining_quantity, 0) # first batch completely consumed
-        self.assertEqual(layers[1].remaining_quantity, 8) # second batch has 8 units remaining
-        
+
+        assert layers[0].remaining_quantity == 0  # first batch completely consumed
+        assert layers[1].remaining_quantity == 8  # second batch has 8 units remaining
+
         # Verify inventory valuation is now: 8 units * MWK 120 = MWK 960.0
-        val = get_inventory_valuation()
-        self.assertEqual(val['total_valuation'], 960.0)
-        
+        val = get_inventory_valuation(business_id=business.id)
+        assert val['total_valuation'] == 960.0
+
         # 5. Record an operating expense: MWK 160 for internet
         record_expense(
             expense_date=datetime(2026, 6, 4, 10, 0, 0),
             category="Utilities",
             description="Office Internet",
             amount=160.0,
-            business_id=self.business.id,
+            business_id=business.id,
         )
-        
+
         # 6. Verify P&L calculations
         # Sales: 2400.0
         # COGS: 1240.0
@@ -164,18 +123,22 @@ class TestFIFOService(unittest.TestCase):
         # Pre-tax profit: 1000.0
         # Tax (30%): 300.0
         # Net Profit: 700.0
-        pl = get_profit_loss()
-        self.assertEqual(pl['total_sales'], 2400.0)
-        self.assertEqual(pl['total_cogs'], 1240.0)
-        self.assertEqual(pl['gross_profit'], 1160.0)
-        self.assertEqual(pl['total_expenses'], 160.0)
-        self.assertEqual(pl['pre_tax_profit'], 1000.0)
-        self.assertEqual(pl['tax_rate'], 30.0)
-        self.assertEqual(pl['tax_amount'], 300.0)
-        self.assertEqual(pl['net_profit'], 700.0)
+        pl = get_profit_loss(business_id=business.id)
+        assert pl['total_sales'] == 2400.0
+        assert pl['total_cogs'] == 1240.0
+        assert pl['gross_profit'] == 1160.0
+        assert pl['total_expenses'] == 160.0
+        assert pl['pre_tax_profit'] == 1000.0
+        assert pl['tax_rate'] == 30.0
+        assert pl['tax_amount'] == 300.0
+        assert pl['net_profit'] == 700.0
 
-    def test_sales_do_not_auto_create_invoices_and_support_invoice_link(self):
-        p = Product(sku='PROD002', name='Tablet', default_selling_price=150.0, business_id=self.business.id)
+
+def test_sales_do_not_auto_create_invoices_and_support_invoice_link(app, business):
+    with app.app_context():
+        _set_tax_rate(business)
+
+        p = Product(sku='PROD002', name='Tablet', default_selling_price=150.0, business_id=business.id)
         db.session.add(p)
         db.session.commit()
 
@@ -184,11 +147,11 @@ class TestFIFOService(unittest.TestCase):
             supplier='Supplier A',
             notes='Initial stock',
             items_data=[{'product_id': p.id, 'quantity': 5, 'unit_cost': 60.0}],
-            business_id=self.business.id,
+            business_id=business.id,
         )
 
         invoice = Invoice(
-            business_id=self.business.id,
+            business_id=business.id,
             invoice_number='INV-1001',
             invoice_date=datetime(2026, 6, 3, 12, 0, 0),
             due_date=datetime(2026, 6, 10, 12, 0, 0),
@@ -204,45 +167,49 @@ class TestFIFOService(unittest.TestCase):
             sale_date=datetime(2026, 6, 3, 14, 0, 0),
             customer_name='Credit Customer',
             items_data=[{'product_id': p.id, 'quantity': 2, 'unit_price': 150.0}],
-            business_id=self.business.id,
+            business_id=business.id,
             invoice_id=invoice.id,
         )
 
-        self.assertEqual(sale.invoice_id, invoice.id)
-        self.assertEqual(Invoice.query.count(), 1)
+        assert sale.invoice_id == invoice.id
+        assert Invoice.query.count() == 1
 
         cash_sale = record_sale(
             sale_date=datetime(2026, 6, 4, 9, 0, 0),
             customer_name='',
             items_data=[{'product_id': p.id, 'quantity': 1, 'unit_price': 150.0}],
-            business_id=self.business.id,
+            business_id=business.id,
         )
 
-        self.assertIsNone(cash_sale.invoice_id)
-        self.assertEqual(Invoice.query.count(), 1)
+        assert cash_sale.invoice_id is None
+        assert Invoice.query.count() == 1
 
-    def test_insufficient_inventory(self):
-        p = Product(sku='PROD003', name='Gadget', default_selling_price=100.0, business_id=self.business.id)
+
+def test_insufficient_inventory(app, business):
+    with app.app_context():
+        _set_tax_rate(business)
+
+        p = Product(sku='PROD003', name='Gadget', default_selling_price=100.0, business_id=business.id)
         db.session.add(p)
         db.session.commit()
-        
+
         # Record 5 items
         record_purchase(
             purchase_date=datetime.now(timezone.utc),
             supplier="Supplier A",
             notes="Refill",
             items_data=[{'product_id': p.id, 'quantity': 5, 'unit_cost': 50.0}],
-            business_id=self.business.id,
+            business_id=business.id,
         )
-        
+
         # Try to sell 6 items
-        with self.assertRaises(InventoryException):
+        try:
             record_sale(
                 sale_date=datetime.now(timezone.utc),
                 customer_name="Failing Customer",
                 items_data=[{'product_id': p.id, 'quantity': 6, 'unit_price': 100.0}],
-                business_id=self.business.id,
+                business_id=business.id,
             )
-
-if __name__ == '__main__':
-    unittest.main()
+        except InventoryException:
+            return
+        raise AssertionError('Expected InventoryException for an oversold quantity')

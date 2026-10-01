@@ -38,6 +38,7 @@ from .accounting import (
     JournalEntry,
     JournalLine,
     AuditLog,
+    ImportRun,
     BankStatement,
     RevenueRecognitionSchedule,
     ExpenseBudget,

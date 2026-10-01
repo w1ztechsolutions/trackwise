@@ -947,3 +947,353 @@ Exclude soft-deleted entries from the financial report services and accounting i
 - `app/services/reports/income_statement.py`
 - `app/services/reports/trial_balance.py`
 - `tests/test_reports.py`
+---
+
+## Bug 32: Valid Workbooks Reported No Data Rows
+
+**Date:** 2026-10-01
+**Severity:** High (silent data loss)
+**Environment:** All spreadsheet imports (bank statements, journal entries, suppliers, customers)
+
+**Symptom:**
+
+Uploading a valid `.xlsx` workbook reported "That workbook does not contain any data rows" and imported nothing, even though the file was readable in Excel.
+
+**Root cause:**
+
+`_read_worksheet` derived each cell's column from its `r` reference attribute. A workbook whose cells omit `r` produced a column index of `-1`, so every cell of the row was stored under key `-1`, the row rendered as an empty list, and `parse_xlsx_file` discarded it as a blank row.
+
+**Fix:**
+
+Iterate the row's cells with `enumerate` and fall back to the positional index whenever `r` is missing or yields a negative index, so a reference-less row keeps its values.
+
+**Files changed:**
+
+- `app/services/xlsx_import.py`
+- `tests/test_imports.py`
+- `CHANGELOG.md`
+
+---
+
+## Bug 33: Repeated Column Headers Silently Overwrote Each Other
+
+**Date:** 2026-10-01
+**Severity:** High (silent data loss)
+**Environment:** All spreadsheet imports
+
+**Symptom:**
+
+A workbook with a repeated header such as `Name, Amount, Amount` produced records with a single `Amount` key, so one of the two amounts was discarded without warning.
+
+**Root cause:**
+
+`parse_xlsx_file` built each record with a dict comprehension keyed on the raw header text. A repeated header collapsed into one entry and the later column value replaced the earlier one.
+
+**Fix:**
+
+Disambiguate headers once before building records, preserving first-occurrence names and suffixing repeats with ` (2)`, ` (3)`, and so on. The disambiguated list is used for both record keys and the value positions, so columns stay aligned. Blank headers keep the existing `column_N` fallback.
+
+**Files changed:**
+
+- `app/services/xlsx_import.py`
+- `templates/import_wizard.html`
+- `tests/test_imports.py`
+- `CHANGELOG.md`
+
+---
+
+## Bug 34: Large Numeric Cells Raised an Unhandled OverflowError
+
+**Date:** 2026-10-01
+**Severity:** Medium (500 on a malformed cell)
+**Environment:** All spreadsheet imports
+
+**Symptom:**
+
+A cell holding an out-of-range number in a date column produced an unhandled `OverflowError` and a 500 response.
+
+**Root cause:**
+
+`parse_date` converted `Decimal` input to an Excel serial date without a guard, while the equivalent numeric-string path already caught `OverflowError` and `ValueError`.
+
+**Fix:**
+
+Route both paths through one guarded serial conversion that returns `None` when the value is out of range.
+
+**Files changed:**
+
+- `app/services/xlsx_import.py`
+- `tests/test_imports.py`
+- `CHANGELOG.md`
+
+---
+
+## Bug 35: Clearing a Column Mapping Silently Disabled Alias Detection
+
+**Date:** 2026-10-01
+**Severity:** High (silent behaviour change on financial data)
+**Environment:** All spreadsheet imports
+
+**Symptom:**
+
+Clearing the *Reference* select on the bank statement wizard silently switched off bank-statement de-duplication, because routes built `column_map` from non-empty form fields only and `resolve_columns` iterated only `column_map`.
+
+**Root cause:**
+
+`resolve_columns` contradicted its own docstring: it never applied the alias fallback it promised, and the call sites' `column_map or FIELD_MAP` idiom meant a partially filled mapping discarded all alias knowledge.
+
+**Fix:**
+
+Give `resolve_columns` a `defaults` parameter and apply alias matching for any field without a usable explicit choice. Remove the `column_map or FIELD_MAP` idiom from all four importers so a partial mapping keeps alias detection. Introduce an explicit `__ignore__` sentinel so opting a field out is still possible and distinguishable from leaving it on auto-detect.
+
+**Files changed:**
+
+- `app/services/import_service.py`
+- `templates/import_wizard.html`
+- `app/accounting/routes.py`
+- `app/sales/routes.py`
+- `app/purchases/routes.py`
+- `tests/test_imports.py`
+- `CHANGELOG.md`
+
+---
+
+## Bug 36: Single-Line Journal Groups Reported "Imported 0 Rows" With No Explanation
+
+**Date:** 2026-10-01
+**Severity:** Medium (misleading import result)
+**Environment:** Journal entry import
+
+**Symptom:**
+
+A journal import containing only one-line entries rendered a green "Imported 0 rows" message with no error explaining why nothing was posted.
+
+**Root cause:**
+
+`flush()` returned silently whenever a group had fewer than two lines, so the group was dropped without contributing an error message.
+
+**Fix:**
+
+Append an explicit error naming the entry description and the line count received. `current_key` is only ever set immediately before a line is appended, so the group is never empty when `flush()` runs.
+
+**Files changed:**
+
+- `app/services/import_service.py`
+- `tests/test_imports.py`
+- `CHANGELOG.md`
+
+---
+
+## Bug 37: Ambiguous Import Dates Were Always Read Month-First
+
+**Date:** 2026-10-01
+**Severity:** Medium (wrong posting dates)
+**Environment:** All date-bearing spreadsheet imports
+
+**Symptom:**
+
+A `01/02/2026` value in a workbook exported on a day-first device was imported as January 2 rather than February 1, shifting the transaction into the wrong accounting period.
+
+**Root cause:**
+
+`parse_date` tried a fixed pattern list in which `%d/%m/%Y` preceded `%m/%d/%Y`, with no way for the caller to express which order the file used.
+
+**Fix:**
+
+Add a `date_order` parameter, always attempting the unambiguous ISO forms first and then the order-specific patterns. The wizard gains a date-order select defaulted from the device locale through `Intl.DateTimeFormat`, overridable by the user, with the first date in the file shown as a hint. The choice is stored on the import run and threaded into the importers.
+
+**Files changed:**
+
+- `app/services/xlsx_import.py`
+- `app/services/import_service.py`
+- `app/services/import_run_service.py`
+- `app/models/accounting.py`
+- `templates/import_wizard.html`
+- `app/accounting/routes.py`
+- `app/sales/routes.py`
+- `app/purchases/routes.py`
+- `tests/test_imports.py`
+- `CHANGELOG.md`
+
+---
+
+## Bug 38: Import Rows Were Supplied by the Browser
+
+**Date:** 2026-10-01
+**Severity:** High (data integrity and request size)
+**Environment:** All spreadsheet imports
+
+**Symptom:**
+
+The mapping step posted the entire parsed workbook back to the server as a client-supplied JSON `payload`, so the rows an import committed were whatever the request contained, and a large workbook made the request size track the file size.
+
+**Root cause:**
+
+Nothing was retained server-side between the upload and mapping steps, so the wizard had to hand the data back to the application.
+
+**Fix:**
+
+Stage the parsed rows against a new `import_runs` row at upload and pass only `import_run_id` through the wizard. The mapping step loads the staged rows server-side with tenant and status enforcement, and any request still carrying `payload` is refused with a re-upload message. Staged rows are purged when the run completes.
+
+**Files changed:**
+
+- `app/services/import_run_service.py`
+- `app/imports/__init__.py`
+- `app/imports/routes.py`
+- `app/models/accounting.py`
+- `app/models/__init__.py`
+- `migrations/versions/20261001_import_runs.py`
+- `app/accounting/routes.py`
+- `app/sales/routes.py`
+- `app/purchases/routes.py`
+- `templates/import_wizard.html`
+- `app/__init__.py`
+- `tests/test_imports.py`
+- `tests/test_import_runs.py`
+- `CHANGELOG.md`
+
+---
+
+## Bug 39: Rejected Import Rows Were Lost After the First Five Errors
+
+**Date:** 2026-10-01
+**Severity:** High (unrecoverable partial import)
+**Environment:** All spreadsheet imports
+
+**Symptom:**
+
+A partially failed import flashed the first five rejected rows and discarded the rest on redirect, so a large workbook with hundreds of bad rows could not be corrected without re-uploading and re-discovering every failure.
+
+**Root cause:**
+
+The result summary truncated the error list and the errors existed only in the flash messages, which are cleared by the redirect that followed.
+
+**Fix:**
+
+Persist every error against the import run, raise the inline flash cap to ten, and add a download link to a new `GET /imports/<int:run_id>/errors` route that returns the full rejected-row list as an XLSX scoped to the owning business.
+
+**Files changed:**
+
+- `app/services/import_run_service.py`
+- `app/imports/routes.py`
+- `app/accounting/routes.py`
+- `app/sales/routes.py`
+- `app/purchases/routes.py`
+- `tests/test_imports.py`
+- `tests/test_import_runs.py`
+- `CHANGELOG.md`
+
+---
+
+## Bug 40: The Audit Trail Asserted Budget Imports That Never Happened
+
+**Date:** 2026-10-01
+**Severity:** Critical (audit integrity)
+**Environment:** Budget variance import
+
+**Symptom:**
+
+Uploading a budget workbook that failed validation still produced a `BUDGET_IMPORT` audit row with the import's details, asserting an import that never occurred.
+
+**Root cause:**
+
+`budget_variance_import` was wrapped in the `audit_report_access` decorator, which records an action and commits unconditionally after the view returns. The failure branch rolled back its own work, and the decorator then committed a successful-looking audit row on top of that rollback.
+
+**Fix:**
+
+Remove the decorator from `budget_variance_import` and record `BUDGET_IMPORT` or `BUDGET_IMPORT_FAILED` explicitly in the success and failure branches, each committed with the import run in the same transaction as the data. Guard the remaining decorator so a view returning 4xx or 5xx is not audited at all.
+
+**Files changed:**
+
+- `app/reports/routes.py`
+- `app/services/import_run_service.py`
+- `app/services/audit_service.py`
+- `tests/test_budgets.py`
+- `tests/test_routes.py`
+- `CHANGELOG.md`
+
+---
+
+## Bug 41: Failed Imports Left No Audit Trace
+
+**Date:** 2026-10-01
+**Severity:** High (audit completeness)
+**Environment:** All spreadsheet imports
+
+**Symptom:**
+
+An import that raised a validation error produced no audit record, so the trail showed only imports that succeeded and could not distinguish "never attempted" from "attempted and rejected".
+
+**Root cause:**
+
+Only the success path wrote an audit entry. Failure flashed a message and rolled back without recording anything.
+
+**Fix:**
+
+Audit both outcomes. Each importer writes `IMPORT_<ENTITY>` with the filename and counts on success and `IMPORT_<ENTITY>_FAILED` with the filename and error on failure, committed with the import run in the same transaction as the data.
+
+**Files changed:**
+
+- `app/services/import_run_service.py`
+- `app/accounting/routes.py`
+- `app/sales/routes.py`
+- `app/purchases/routes.py`
+- `app/reports/routes.py`
+- `tests/test_imports.py`
+- `tests/test_budgets.py`
+- `CHANGELOG.md`
+
+---
+
+## Bug 42: The Audit Service Mixed Import Roots for Its Database Handle
+
+**Date:** 2026-10-01
+**Severity:** Low (latent fragility)
+**Environment:** All
+
+**Symptom:**
+
+`audit_service` imported the database handle from the top-level `models` shim while the rest of the codebase used `app.models`, so the module only worked because the shim exists.
+
+**Root cause:**
+
+An inconsistent import path that resolved to the same object by coincidence rather than by intent.
+
+**Fix:**
+
+Import the handle from `app.models`, matching the rest of the codebase. Apply the same correction to `import_service`.
+
+**Files changed:**
+
+- `app/services/audit_service.py`
+- `app/services/import_service.py`
+- `CHANGELOG.md`
+
+---
+
+## Bug 43: Audit Listeners Applied to Every Session in the Process
+
+**Date:** 2026-10-01
+**Severity:** Medium (process-wide side effect)
+**Environment:** All
+
+**Symptom:**
+
+The audit guard was registered as a module-import side effect on `sqlalchemy.orm.Session` itself, so it applied to every session in the process. Four `tests/test_fifo.py` tests failed in `setUp` because that file built a private Flask application and then ran a bulk delete against an audited table.
+
+**Root cause:**
+
+`app/services/accounting_service.py` called `install_audit_listeners()` at import time, and the listeners were attached to the global Session class rather than to the session class the application's own database handle constructs.
+
+**Fix:**
+
+Remove the module-import side effect and install the listeners on the session class created by the application's `db` handle, from `create_app` once `install_database_routing()` has settled that class. Extend the actor snapshot rule to any row carrying `user_id`, `actor_name`, and `actor_email`, so import runs snapshot their actor the same way audit records do. Migrate `tests/test_fifo.py` to the shared test fixtures (`app`/`business` with full seeded COA including `2200` Tax Payable), replace the audited `Setting.query.delete()` bulk reset with a business-scoped row-by-row delete plus `set_tax_rate(30.0, business_id=...)`, and scope `get_inventory_valuation()`/`get_profit_loss()` reads by `business_id`.
+
+**Files changed:**
+
+- `models.py`
+- `app/services/audit_service.py`
+- `app/services/accounting_service.py`
+- `app/__init__.py`
+- `tests/test_fifo.py`
+- `CHANGELOG.md`

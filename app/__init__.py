@@ -230,6 +230,11 @@ def create_app(config_object=None):
         )
     from app.database import install_database_routing
     install_database_routing()
+    # Audit listeners are bound to the session class, so they are installed after
+    # install_database_routing() has settled which Session subclass this factory
+    # builds. See models.AuditedSQLAlchemy for the equivalent init_app hook.
+    from app.services.audit_service import install_audit_listeners
+    install_audit_listeners(_db.session)
     migrate.init_app(app, _db)
     login_manager.init_app(app)
     csrf.init_app(app)
@@ -239,8 +244,6 @@ def create_app(config_object=None):
         ensure_required_user_columns()
         ensure_required_sales_columns()
         ensure_accounting_columns()
-        from app.services.audit_service import install_audit_listeners
-        install_audit_listeners()
 
     register_template_filters(app)
 
@@ -257,6 +260,7 @@ def create_app(config_object=None):
     from .superadmin import superadmin_bp as _superadmin_bp
     from .approvals import approvals_bp as _approvals_bp
     from .accounting import accounting_bp as _accounting_bp
+    from .imports import imports_bp as _imports_bp
 
     app.register_blueprint(_auth_bp)
     app.register_blueprint(_dashboard_bp)
@@ -271,6 +275,7 @@ def create_app(config_object=None):
     app.register_blueprint(_superadmin_bp)
     app.register_blueprint(_approvals_bp)
     app.register_blueprint(_accounting_bp)
+    app.register_blueprint(_imports_bp)
 
     app.url_map.strict_slashes = False
 

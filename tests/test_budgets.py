@@ -1,12 +1,22 @@
 from datetime import date, datetime
 from decimal import Decimal
 from io import BytesIO
+import json
 from xml.etree import ElementTree
 from zipfile import ZipFile
 
 import pytest
 
-from app.models import Budget, BudgetLineItem, ChartOfAccounts, JournalEntry, JournalLine, db
+from app.models import (
+    AuditLog,
+    Budget,
+    BudgetLineItem,
+    ChartOfAccounts,
+    ImportRun,
+    JournalEntry,
+    JournalLine,
+    db,
+)
 from app.services.budget_service import (
     BudgetError,
     compute_actuals,
@@ -25,6 +35,14 @@ from app.services.reports.xlsx_export import create_xlsx
 
 def _account(business_id, code):
     return ChartOfAccounts.query.filter_by(business_id=business_id, code=code).one()
+
+
+def _budget_import_actions(action):
+    """Return the audit rows recorded for a budget import action."""
+    return AuditLog.query.filter_by(
+        action=action,
+        table_name='import_runs',
+    ).order_by(AuditLog.id).all()
 
 
 def _post_line(business_id, account_id, debit, credit, entry_date):
@@ -396,6 +414,61 @@ def test_budget_xlsx_import_rejects_unknown_and_mistyped_accounts(client, busine
         }, content_type='multipart/form-data', follow_redirects=True)
         assert b'revenue account' in response.data
         assert Budget.query.count() == 0
+
+
+def test_failed_budget_import_is_audited_as_a_failure_only(client, business, app):
+    with app.app_context():
+        workbook = _workbook_bytes([
+            ['Account Code', 'Account Name', 'Budget Type', 'Amount', 'Cost Center Code'],
+            ['9999', 'Missing', 'expense', 100, ''],
+        ])
+        response = client.post('/reports/budget-variance/import', data={
+            'name': 'Bad import',
+            'period_start': '2026-09-01',
+            'period_end': '2026-09-30',
+            'file': (BytesIO(workbook), 'budget.xlsx'),
+        }, content_type='multipart/form-data', follow_redirects=True)
+        assert response.status_code == 200
+        assert Budget.query.count() == 0
+
+        assert _budget_import_actions('BUDGET_IMPORT') == []
+        failures = _budget_import_actions('BUDGET_IMPORT_FAILED')
+        assert len(failures) == 1
+        details = json.loads(failures[0].new_values)
+        assert details['filename'] == 'budget.xlsx'
+        assert '9999' in details['error']
+
+        run = ImportRun.query.filter_by(entity='budgets').one()
+        assert run.status == 'failed'
+        assert run.error_count == 1
+        assert run.staged_rows is None
+
+
+def test_successful_budget_import_is_audited_with_its_run(client, business, app):
+    with app.app_context():
+        workbook = _workbook_bytes([
+            ['Account Code', 'Account Name', 'Budget Type', 'Amount', 'Cost Center Code'],
+            ['5100', 'Rent Expense', 'expense', 900, ''],
+        ])
+        client.post('/reports/budget-variance/import', data={
+            'name': 'Audited plan',
+            'period_start': '2026-09-01',
+            'period_end': '2026-09-30',
+            'file': (BytesIO(workbook), 'plan.xlsx'),
+        }, content_type='multipart/form-data')
+
+        assert _budget_import_actions('BUDGET_IMPORT_FAILED') == []
+        successes = _budget_import_actions('BUDGET_IMPORT')
+        assert len(successes) == 1
+        details = json.loads(successes[0].new_values)
+        assert details['filename'] == 'plan.xlsx'
+        assert details['imported'] == 1
+        assert details['row_count'] == 1
+
+        run = ImportRun.query.filter_by(entity='budgets').one()
+        assert run.status == 'committed'
+        assert run.imported_count == 1
+        assert run.staged_rows is None
 
 
 def test_budget_variance_export_contains_both_sections(client, business, app):

@@ -4,10 +4,9 @@ import uuid
 from datetime import datetime, time
 from decimal import Decimal
 
-from app.models import BankStatement, ChartOfAccounts, db
+from app.models import BankStatement, ChartOfAccounts, Customer, Supplier, db
 from app.services.accounting_service import AccountingException, post_entry
 from app.services.xlsx_import import normalize_text, parse_date, parse_decimal
-from models import Customer, Supplier
 
 
 class ImportValidationError(ValueError):
@@ -37,28 +36,48 @@ PARTY_COLUMNS = {
 }
 
 
-def resolve_columns(rows, column_map):
+IGNORE_FIELD = '__ignore__'
+
+
+def resolve_columns(rows, column_map=None, defaults=None):
     """Map logical field names to actual worksheet header keys.
 
     ``column_map`` provides explicit ``{field: header}`` choices made by the
-    user; any field whose header is not present in the worksheet falls back to
-    header name matching against its known aliases.
+    user. A field mapped to :data:`IGNORE_FIELD` is deliberately left unresolved
+    and never auto-detected. Every other field falls back to case-insensitive
+    header-name matching against the aliases in ``defaults``, so a partially
+    filled mapping no longer discards alias knowledge.
     """
     if not rows:
         return {}
 
     available = list(rows[0].keys())
     lowered = {header.lower().strip(): header for header in available}
-    resolved = {}
-    for field, choice in column_map.items():
-        if isinstance(choice, str):
-            candidates = [choice]
-        else:
-            candidates = list(choice)
+    explicit = column_map or {}
+    defaults = defaults or {}
+
+    def explicit_header(choice):
+        candidates = [choice] if isinstance(choice, str) else list(choice or [])
         for candidate in candidates:
-            if candidate is None:
+            if candidate is None or candidate == IGNORE_FIELD:
                 continue
             header = lowered.get(str(candidate).strip().lower())
+            if header is not None:
+                return header
+        return None
+
+    resolved = {}
+    fields = list(defaults) + [field for field in explicit if field not in defaults]
+    for field in fields:
+        if field in explicit:
+            if explicit[field] == IGNORE_FIELD:
+                continue
+            header = explicit_header(explicit[field])
+            if header is not None:
+                resolved[field] = header
+                continue
+        for alias in defaults.get(field, ()):
+            header = lowered.get(str(alias).strip().lower())
             if header is not None:
                 resolved[field] = header
                 break
@@ -80,7 +99,7 @@ def _require_mapping(resolved, entity, required):
         )
 
 
-def import_bank_statements(business_id, account_id, rows, column_map=None):
+def import_bank_statements(business_id, account_id, rows, column_map=None, date_order='MDY'):
     """Import bank statement lines, skipping references already imported."""
     if business_id is None:
         raise ImportValidationError('business_id is required')
@@ -89,7 +108,7 @@ def import_bank_statements(business_id, account_id, rows, column_map=None):
     if account is None or account.business_id != business_id:
         raise ImportValidationError('Select a valid bank account for this business.')
 
-    resolved = resolve_columns(rows, column_map or BANK_STATEMENT_COLUMNS)
+    resolved = resolve_columns(rows, column_map, BANK_STATEMENT_COLUMNS)
     _require_mapping(resolved, 'bank statements', ('date', 'amount'))
 
     existing_references = {
@@ -104,7 +123,7 @@ def import_bank_statements(business_id, account_id, rows, column_map=None):
     duplicates = 0
     errors = []
     for index, row in enumerate(rows, start=2):
-        statement_date = parse_date(_row_value(row, resolved, 'date'))
+        statement_date = parse_date(_row_value(row, resolved, 'date'), date_order)
         amount = parse_decimal(_row_value(row, resolved, 'amount'))
         if statement_date is None or amount is None:
             errors.append(f'Row {index}: a valid date and amount are required.')
@@ -130,12 +149,12 @@ def import_bank_statements(business_id, account_id, rows, column_map=None):
     return {'imported': imported, 'duplicates': duplicates, 'errors': errors}
 
 
-def import_journal_entries(business_id, rows, column_map=None, created_by=None):
+def import_journal_entries(business_id, rows, column_map=None, created_by=None, date_order='MDY'):
     """Import journal entries, grouping consecutive lines by date and description."""
     if business_id is None:
         raise ImportValidationError('business_id is required')
 
-    resolved = resolve_columns(rows, column_map or JOURNAL_COLUMNS)
+    resolved = resolve_columns(rows, column_map, JOURNAL_COLUMNS)
     _require_mapping(
         resolved, 'journal entries', ('date', 'description', 'account_code'),
     )
@@ -157,6 +176,10 @@ def import_journal_entries(business_id, rows, column_map=None, created_by=None):
     def flush():
         nonlocal imported
         if len(current_lines) < 2:
+            errors.append(
+                f'{current_key[1]}: needs at least two debit/credit lines to post a '
+                f'journal entry (received {len(current_lines)}).'
+            )
             return
         total_debit = sum(line['debit_amount'] for line in current_lines)
         total_credit = sum(line['credit_amount'] for line in current_lines)
@@ -182,7 +205,7 @@ def import_journal_entries(business_id, rows, column_map=None, created_by=None):
         imported += 1
 
     for index, row in enumerate(rows, start=2):
-        entry_date = parse_date(_row_value(row, resolved, 'date'))
+        entry_date = parse_date(_row_value(row, resolved, 'date'), date_order)
         code = normalize_text(_row_value(row, resolved, 'account_code'))
         debit = parse_decimal(_row_value(row, resolved, 'debit')) or Decimal('0')
         credit = parse_decimal(_row_value(row, resolved, 'credit')) or Decimal('0')
@@ -224,7 +247,7 @@ def import_journal_entries(business_id, rows, column_map=None, created_by=None):
 
 def import_suppliers(business_id, rows, column_map=None):
     """Import suppliers, skipping duplicate name and email combinations."""
-    resolved = resolve_columns(rows, column_map or PARTY_COLUMNS)
+    resolved = resolve_columns(rows, column_map, PARTY_COLUMNS)
     _require_mapping(resolved, 'supplier records', ('name',))
 
     existing = {
@@ -266,7 +289,7 @@ def import_suppliers(business_id, rows, column_map=None):
 
 def import_customers(business_id, rows, column_map=None):
     """Import customers, skipping duplicate name and email combinations."""
-    resolved = resolve_columns(rows, column_map or PARTY_COLUMNS)
+    resolved = resolve_columns(rows, column_map, PARTY_COLUMNS)
     _require_mapping(resolved, 'customer records', ('name',))
 
     existing = {

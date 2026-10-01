@@ -18,6 +18,16 @@ from app.services.import_service import (
     import_suppliers,
 )
 from app.services.xlsx_import import XlsxParseError, parse_xlsx_file
+from app.services.import_run_service import (
+    commit_import,
+    fail_import,
+    flash_import_result,
+    load_staged,
+    normalize_date_order,
+    purge_stale_staged_runs,
+    stage_import,
+    staged_records,
+)
 from app.services.purchase_return_service import (
     PurchaseReturnError,
     get_expenditure_returns,
@@ -273,14 +283,14 @@ def import_suppliers_route():
     """Import suppliers from an Excel workbook with column mapping."""
     biz_id = getattr(current_user, 'business_id', None)
 
-    def render_form(sheet_names, rows, payload, preview):
+    def render_form(sheet_names, rows, import_run_id, preview):
         return render_template(
             'import_wizard.html',
             title='Map Supplier Columns' if rows else 'Import Suppliers',
             entity='suppliers',
             sheet_names=sheet_names,
             rows=rows,
-            payload=payload,
+            import_run_id=import_run_id,
             headers=list(rows[0].keys()) if rows else [],
             suggested=PARTY_COLUMNS,
             preview=preview,
@@ -292,45 +302,58 @@ def import_suppliers_route():
         )
 
     if request.method == 'POST' and request.files.get('file'):
+        upload = request.files.get('file')
         try:
-            sheet_names, rows = parse_xlsx_file(request.files.get('file'))
+            sheet_names, rows = parse_xlsx_file(upload)
         except XlsxParseError as error:
             flash(str(error), 'danger')
             return redirect(url_for('purchases.import_suppliers_route'))
         if not rows:
             flash('That workbook does not contain any data rows.', 'danger')
             return redirect(url_for('purchases.import_suppliers_route'))
-        return render_form(sheet_names, rows, json.dumps(rows, default=str), rows[:10])
+
+        purge_stale_staged_runs()
+        run = stage_import(
+            biz_id,
+            current_user.id,
+            entity='suppliers',
+            filename=getattr(upload, 'filename', None),
+            rows=rows,
+            date_order=request.form.get('date_order') or 'MDY',
+        )
+        db.session.commit()
+        return render_form(sheet_names, rows, run.id, rows[:10])
 
     if request.method == 'POST' and request.form.get('mapping'):
-        try:
-            rows = json.loads(request.form.get('payload', '') or '[]')
-        except (TypeError, ValueError):
-            flash('The uploaded file could not be read. Upload it again.', 'danger')
+        if request.form.get('payload'):
+            flash(
+                'This import session has expired. Upload the workbook again and map the columns.',
+                'danger',
+            )
             return redirect(url_for('purchases.import_suppliers_route'))
 
+        run = load_staged(biz_id, request.form.get('import_run_id'))
+        run_id = run.id
+        run.date_order = normalize_date_order(request.form.get('date_order') or run.date_order)
         column_map = {
             field: request.form.get(f'map_{field}', '')
             for field in PARTY_COLUMNS
             if request.form.get(f'map_{field}', '')
         }
         try:
-            result = import_suppliers(biz_id, rows, column_map)
+            result = import_suppliers(biz_id, staged_records(run), column_map)
+            commit_import(biz_id, current_user.id, run, 'IMPORT_SUPPLIERS', result)
             db.session.commit()
         except ImportValidationError as error:
             db.session.rollback()
+            fail_import(biz_id, current_user.id, run_id, 'IMPORT_SUPPLIERS_FAILED', error)
+            db.session.commit()
             flash(str(error), 'danger')
         else:
-            message = (
-                f"Imported {result['imported']} supplier(s); "
-                f"{result['duplicates']} duplicate(s) skipped."
-            )
-            flash(message, 'success' if result['imported'] else 'warning')
-            for error in result['errors'][:5]:
-                flash(error, 'warning')
+            flash_import_result('Supplier', result, run)
         return redirect(url_for('purchases.suppliers'))
 
-    return render_form([], [], '', [])
+    return render_form([], [], None, [])
 
 
 @purchases_bp.route('/purchases/returns', methods=['GET'])

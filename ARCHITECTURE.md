@@ -147,6 +147,8 @@ All blueprints are registered in `app/__init__.py`:
 | `production_bp` | `/production` | Production batches |
 | `superadmin_bp` | `/superadmin` | Platform admin |
 | `approvals_bp` | `/approvals` | Approval workflows |
+| `accounting_bp` | `/accounting` | Chart of Accounts, manual journals, bank reconciliation, period close |
+| `imports_bp` | `/imports` | Rejected-row downloads for completed spreadsheet imports |
 
 ---
 

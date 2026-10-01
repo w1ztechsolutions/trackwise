@@ -4,6 +4,7 @@ import json
 
 from sqlalchemy import event, inspect, select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.scoping import scoped_session
 from app.models.accounting import Business
 
 
@@ -162,13 +163,25 @@ def _before_flush(session, flush_context, instances):
     session.info["audit_actor_snapshots"] = actor_snapshots
     session.info["audit_related_business_ids"] = related_business_ids
 
-    for audit in session.new:
-        if isinstance(audit, AuditLog) and audit.user_id is not None:
-            audit.actor_name, audit.actor_email = _lookup_actor(
+    for instance in session.new:
+        if _carries_actor_snapshot(instance) and instance.user_id is not None:
+            instance.actor_name, instance.actor_email = _lookup_actor(
                 session,
-                audit.user_id,
+                instance.user_id,
                 connection,
             )
+
+
+def _carries_actor_snapshot(instance):
+    """True for rows that keep their own actor name/email snapshot (ADR-0009).
+
+    Only ``audit_logs`` and ``import_runs`` store ``actor_name``/``actor_email``,
+    so this never reaches the snapshot columns of ordinary financial records.
+    """
+    return all(
+        hasattr(instance, attribute)
+        for attribute in ("user_id", "actor_name", "actor_email")
+    )
 
 
 def _lookup_actor(session, actor_id, connection):
@@ -336,20 +349,47 @@ def _guard_audit_bulk_mutation(execute_state):
         )
 
 
-def install_audit_listeners():
-    if not event.contains(Session, "after_flush", _audit_after_flush):
-        event.listen(Session, "after_flush", _audit_after_flush)
-    if not event.contains(Session, "before_flush", _before_flush):
-        event.listen(Session, "before_flush", _before_flush)
-    if not event.contains(Session, "do_orm_execute", _guard_audit_bulk_mutation):
-        event.listen(Session, "do_orm_execute", _guard_audit_bulk_mutation)
+def _session_class(target):
+    """Resolve an event target to the Session subclass the listeners belong on.
+
+    A ``scoped_session`` is resolved to the class it constructs. Listeners are
+    never left on the global ``sqlalchemy.orm.Session``, so they do not apply to
+    sessions the application never created.
+    """
+    if target is None:
+        return Session
+    if isinstance(target, scoped_session):
+        return target.session_factory.class_
+    return target
+
+
+def install_audit_listeners(target=None):
+    """Register the audit listeners on ``target``'s session class.
+
+    ``target`` is normally the scoped session owned by the application's
+    ``db`` handle; its session class is used so the listeners are scoped to
+    sessions this application creates. Passing nothing falls back to the global
+    ``sqlalchemy.orm.Session``, which is only appropriate for standalone
+    processes that deliberately want process-wide auditing.
+    """
+    session_class = _session_class(target)
+    if not event.contains(session_class, "after_flush", _audit_after_flush):
+        event.listen(session_class, "after_flush", _audit_after_flush)
+    if not event.contains(session_class, "before_flush", _before_flush):
+        event.listen(session_class, "before_flush", _before_flush)
+    if not event.contains(session_class, "do_orm_execute", _guard_audit_bulk_mutation):
+        event.listen(
+            session_class,
+            "do_orm_execute",
+            _guard_audit_bulk_mutation,
+        )
 
 
 def record_user_action(business_id, user_id, action, table_name, record_id=None, details=None):
     """Stage a non-model user action in the current database transaction."""
     from app.models.accounting import AuditLog
 
-    from models import db
+    from app.models import db
 
     db.session.add(AuditLog(
         business_id=business_id,

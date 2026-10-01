@@ -11,11 +11,7 @@ from app.models import (
     JournalEntry,
     JournalLine,
 )
-from app.services.audit_service import install_audit_listeners
 from app.services.period_service import assert_period_open
-
-
-install_audit_listeners()
 
 
 class AccountingException(Exception):

@@ -32,6 +32,12 @@ The supported paste-based CSV flow imports bank statement lines for one selected
 4. Review the result and imported statement lines. Resolve rejected/invalid lines from the original source, then reconcile imported items to the appropriate ledger entries. Check for duplicate submissions before importing again; do not assume the import is an idempotent replacement.
 5. Retain the original statement, import date, operator, account, and outcome in the approved evidence location.
 
+## Spreadsheet workbook import
+
+File uploads accept `.xlsx` workbooks only. `.xls` and uploaded CSV files are not supported; convert the source to `.xlsx` first. Uploads cover bank statement lines, journal entries, customers, and suppliers, with a column-mapping step, plus budget variance lines, which use a fixed column set.
+
+Every import attempt is recorded in `import_runs` with its file, entity, column mapping, date order, row counts, and the complete list of rejected rows. Rows an import rejects can be downloaded as an XLSX from the link shown in the import result. Uploaded rows are staged server-side between the upload and mapping steps and are purged when the import completes; only counts and error messages are retained.
+
 ## Unsupported or unsafe operations
 
 - There is no general bulk business-data import, full-business self-service export, or tenant-only database restore described here. Use approved in-app workflows for individual records; request an implementation or a separately designed, reviewed migration for bulk work.

@@ -31,7 +31,7 @@
 <form method="POST" action="{{ action }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="mapping" value="1">
-    <input type="hidden" name="payload" value="{{ payload }}">
+    {% if import_run_id %}<input type="hidden" name="import_run_id" value="{{ import_run_id }}">{% endif %}
     {% if return_type == 'bank_statements' %}
     <div class="glass-card mb-4">
         <div class="form-group">
@@ -48,7 +48,11 @@
 
     <div class="glass-card mb-4">
         <h3 class="section-title">Map Columns</h3>
-        <p class="text-muted">Match each required field to the column it comes from. Unmapped optional columns are ignored.</p>
+        <p class="text-muted">
+            Match each required field to the column it comes from. Columns are matched to
+            their usual names automatically; choose <strong>Ignore this field</strong> to stop a
+            field being mapped even when a matching column exists.
+        </p>
         <div class="table-container">
             <table class="custom-table">
                 <thead>
@@ -69,7 +73,8 @@
                         <td>{{ field.replace('_', ' ')|capitalize }}</td>
                         <td>
                             <select name="map_{{ field }}" class="form-control">
-                                <option value="">-- Not mapped --</option>
+                                <option value="" {% if match == '__ignore__' %}selected{% endif %}>-- Auto-detect --</option>
+                                <option value="__ignore__">Ignore this field</option>
                                 {% for header in headers %}
                                 <option value="{{ header }}" {% if header == match %}selected{% endif %}>
                                     {{ header }}
@@ -83,6 +88,28 @@
             </table>
         </div>
     </div>
+
+    {% if 'date' in suggested %}
+    {% set date_header = '' %}
+    {% for header in headers %}
+        {% if not date_header and header.lower() in suggested['date']|map('lower')|list %}
+            {% set date_header = header %}
+        {% endif %}
+    {% endfor %}
+    <div class="glass-card mb-4">
+        <h3 class="section-title">Date Format</h3>
+        <div class="form-group">
+            <label class="form-label" for="date_order">Ambiguous dates like 01/02/2026 are read as</label>
+            <select id="date_order" name="date_order" class="form-control" aria-describedby="date-order-hint">
+                <option value="mdy">Month first (01/02/2026 = January 2)</option>
+                <option value="dmy">Day first (01/02/2026 = February 1)</option>
+            </select>
+            <span id="date-order-hint" class="field-hint">
+                Defaults to your device's locale. ISO dates (2026-02-01) are always read correctly.
+            </span>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="glass-card mb-4">
         <h3 class="section-title">Preview (first {{ preview|length }} rows)</h3>
@@ -111,5 +138,38 @@
         <a href="{{ back_url }}" class="btn-secondary">Cancel</a>
     </div>
 </form>
+{% endif %}
+{% if 'date' in suggested %}
+<script nonce="{{ csp_nonce }}">
+(function () {
+    var select = document.getElementById('date_order');
+    if (!select) { return; }
+
+    function detectOrder() {
+        try {
+            var parts = new Intl.DateTimeFormat(undefined, {
+                year: 'numeric', month: '2-digit', day: '2-digit'
+            }).formatToParts(new Date(2001, 1, 3)); // 3 February 2001
+            var first = null;
+            for (var i = 0; i < parts.length; i++) {
+                if (parts[i].type === 'day' || parts[i].type === 'month') { first = parts[i]; break; }
+            }
+            return first && first.type === 'day' ? 'dmy' : 'mdy';
+        } catch (error) {
+            return 'mdy';
+        }
+    }
+
+    var sample = {{ (preview[0].get(date_header, '') if preview else '')|tojson }};
+    select.value = detectOrder();
+
+    var hint = document.getElementById('date-order-hint');
+    if (hint && sample !== '') {
+        hint.textContent = 'First date in this file is "' + sample + '", read as '
+            + (select.value === 'dmy' ? 'day first' : 'month first')
+            + '. Change this if the file uses a different format.';
+    }
+})();
+</script>
 {% endif %}
 {% endblock %}

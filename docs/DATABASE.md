@@ -169,6 +169,38 @@ Application-level append-only audit trail for transaction, inventory, production
 
 Password hashes and bank account numbers are intentionally excluded from audit snapshots. Actor fields preserve attribution after user profile changes; older records without snapshots use the related user record where available.
 
+---
+
+### `import_runs`
+
+Operational record of one spreadsheet import attempt: bank statements, journal entries, suppliers, customers, or budgets. Not a financial record, so it is excluded from the audited-table set; its auditability comes from the explicit `IMPORT_*` / `IMPORT_*_FAILED` entries in `audit_logs`. See [ADR-0013](adr/ADR-0013-import-run-records-and-server-side-row-staging.md).
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| `id` | INTEGER | No | Auto | Primary key |
+| `business_id` | INTEGER | No | — | FK to `businesses.id`; tenant scope |
+| `user_id` | INTEGER | Yes | — | FK to `users.id` (`ON DELETE SET NULL`) |
+| `actor_name` | VARCHAR(120) | Yes | — | Actor display name captured when the run was staged |
+| `actor_email` | VARCHAR(120) | Yes | — | Actor email captured when the run was staged |
+| `entity` | VARCHAR(50) | No | — | `bank_statements`, `journal_entries`, `suppliers`, `customers`, `budgets` |
+| `filename` | VARCHAR(255) | Yes | — | Original upload name |
+| `status` | VARCHAR(20) | No | `staged` | `staged` → `committed` or `failed` |
+| `column_map` | TEXT | Yes | — | JSON `{field: header}` mapping applied by the user |
+| `date_order` | VARCHAR(3) | Yes | `MDY` | `MDY` or `DMY` for ambiguous dates |
+| `account_id` | INTEGER | Yes | — | FK to `chart_of_accounts.id`; bank statement imports only |
+| `row_count` | INTEGER | No | `0` | Rows offered for import |
+| `imported_count` | INTEGER | No | `0` | Rows written |
+| `duplicate_count` | INTEGER | No | `0` | Rows skipped as duplicates |
+| `error_count` | INTEGER | No | `0` | Rows rejected |
+| `errors` | TEXT | Yes | — | JSON list of rejection messages, retained permanently |
+| `staged_rows` | TEXT | Yes | — | JSON of parsed rows; purged when the run completes |
+| `created_at` | TIMESTAMP | No | UTC now | Run creation timestamp |
+| `completed_at` | TIMESTAMP | Yes | — | Set when the run is closed |
+
+**Indexes:** `ix_import_runs_business_id` on `business_id`, and `ix_import_runs_business_status` on (`business_id`, `status`).
+
+**Rules:** `staged_rows` holds uploaded row contents only while the run is `staged` and is set to `NULL` when the run completes, so completed runs retain counts and error messages but no row data. Abandoned `staged` runs older than 24 hours are purged on the next upload; `committed` and `failed` runs are never deleted.
+
 ### `revenue_recognition_schedules`
 
 Straight-line, time-based deferral schedule linked to an invoice and its posted sale.
