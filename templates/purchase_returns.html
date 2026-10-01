@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}Expenditure Returns{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Expenditure Returns</h1>
+        <p>Purchase returns, bill credit notes, and cash refunds issued to suppliers.</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('purchases.purchase_return_new') }}" class="btn-primary">New Return</a>
+    </div>
+</div>
+
+<div class="glass-card mb-4">
+    <h3 class="section-title">Filter</h3>
+    <form method="GET" action="{{ url_for('purchases.purchase_returns') }}" class="report-filter-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group report-filter-field">
+            <label class="form-label" for="start_date">From</label>
+            <input type="date" id="start_date" name="start_date" value="{{ start_date }}" class="form-control">
+        </div>
+        <div class="form-group report-filter-field">
+            <label class="form-label" for="end_date">To</label>
+            <input type="date" id="end_date" name="end_date" value="{{ end_date }}" class="form-control">
+        </div>
+        <div class="form-group report-filter-field">
+            <label class="form-label" for="supplier_id">Supplier</label>
+            <select id="supplier_id" name="supplier_id" class="form-control">
+                <option value="">All suppliers</option>
+                {% for supplier in suppliers %}
+                <option value="{{ supplier.id }}" {% if supplier_id == supplier.id %}selected{% endif %}>
+                    {{ supplier.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group report-filter-field">
+            <label class="form-label" for="return_type">Type</label>
+            <select id="return_type" name="return_type" class="form-control">
+                <option value="">All types</option>
+                <option value="credit_note" {% if return_type == 'credit_note' %}selected{% endif %}>Bill credit note</option>
+                <option value="refund" {% if return_type == 'refund' %}selected{% endif %}>Cash refund</option>
+            </select>
+        </div>
+        <div class="report-filter-actions">
+            <button type="submit" class="btn-primary">Apply Filters</button>
+        </div>
+    </form>
+</div>
+
+<div class="glass-card">
+    <div class="section-header">
+        <h3 class="section-title">Returns</h3>
+        <span class="text-muted">Total: {{ total_amount | currency }}</span>
+    </div>
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Supplier</th>
+                    <th scope="col">Bill</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Amount</th>
+                    <th scope="col">Reason</th>
+                    <th scope="col">Status</th>
+                    <th scope="col"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in returns %}
+                <tr>
+                    <td>{{ item.return_date.strftime('%Y-%m-%d') if item.return_date else '-' }}</td>
+                    <td>{{ item.supplier.name if item.supplier else '-' }}</td>
+                    <td>{{ item.bill.bill_number if item.bill else '-' }}</td>
+                    <td>{{ item.return_type.replace('_', ' ')|title }}</td>
+                    <td class="text-danger">{{ item.amount | currency }}</td>
+                    <td>{{ item.reason }}</td>
+                    <td>
+                        {% if item.is_reversed %}
+                        <span class="badge badge-secondary">Reversed</span>
+                        {% else %}
+                        <span class="badge badge-success">Posted</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('purchases.purchase_return_view', return_id=item.id) }}">View</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="text-center text-muted">No expenditure returns recorded.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

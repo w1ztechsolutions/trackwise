@@ -7,7 +7,7 @@ from flask import abort, render_template, request, redirect, url_for, flash, Res
 from flask_login import current_user, login_required
 
 from app.models import Product, Setting, db
-from app.models.accounting import Branch, CostCenter
+from app.models.accounting import Branch, ChartOfAccounts, CostCenter
 from services.fifo_service import get_inventory_valuation, get_profit_loss
 from app.services.reports import (
     get_income_statement,
@@ -20,10 +20,21 @@ from app.services.reports import (
     get_ap_aging,
     get_cashbook,
     get_expense_budget_variance,
+    get_revenue_budget_variance,
     set_expense_budget,
 )
-from app.services.reports.xlsx_export import create_xlsx
+from app.services.budget_service import (
+    BudgetError,
+    create_budget,
+    eligible_budget_accounts,
+    list_budgets,
+    update_budget_amount,
+)
+from app.services.purchase_return_service import get_expenditure_returns
+from app.services.xlsx_import import XlsxParseError, parse_xlsx_file
 from app.services.reports.xlsx_export import build_report_rows, create_xlsx
+from app.auth.decorators import role_required
+from models import Supplier
 
 from . import reports_bp
 
@@ -487,6 +498,25 @@ def _budget_period(value):
     except ValueError as error:
         raise ValueError('Budget period must use YYYY-MM format.') from error
 
+
+def _month_end(period_start):
+    next_month = (
+        date(period_start.year + 1, 1, 1)
+        if period_start.month == 12
+        else date(period_start.year, period_start.month + 1, 1)
+    )
+    return next_month - timedelta(days=1)
+
+
+def _report_date(parameter):
+    value = request.args.get(parameter)
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
 def _export_report_date(parameter, end_of_day=False):
     value = request.args.get(parameter)
     if not value:
@@ -545,6 +575,22 @@ def export_report_xlsx(report_type):
     elif report_type == 'ap-aging':
         report_key = 'ap_aging'
         report = get_ap_aging(business_id, as_of_date)
+    elif report_type == 'budget-variance':
+        report_key = 'budget_variance'
+        period_start = _budget_period(request.args.get('period', ''))
+        report = {
+            'revenue': get_revenue_budget_variance(business_id, period_start),
+            'expense': get_expense_budget_variance(business_id, period_start),
+        }
+    elif report_type == 'expenditure-returns':
+        report_key = 'expenditure_returns'
+        report = get_expenditure_returns(
+            business_id,
+            start_date=start_date,
+            end_date=end_date,
+            supplier_id=request.args.get('supplier_id', type=int),
+            return_type=request.args.get('return_type') or None,
+        )
     elif report_type == 'audit-log':
         report_key = 'audit_log'
         report = get_audit_log(
@@ -612,6 +658,305 @@ def expense_budget_variance():
         report_type='expense_budget_variance',
         budget_variance=variance,
         period=period_start.strftime('%Y-%m'),
+    )
+
+
+BUDGET_IMPORT_COLUMNS = {
+    'Account Code': 'account_code',
+    'Account Name': 'account_name',
+    'Budget Type': 'budget_type',
+    'Amount': 'amount',
+    'Cost Center Code': 'cost_center_code',
+}
+
+
+def _budget_import_rows(file_storage, business_id):
+    """Parse a budget workbook into ``(lines_by_type, cost_center_map)``."""
+    sheet_names, records = parse_xlsx_file(file_storage)
+    del sheet_names
+    if not records:
+        raise XlsxParseError('That workbook does not contain any data rows.')
+
+    accounts = {
+        account.code: account
+        for account in ChartOfAccounts.query.filter(
+            ChartOfAccounts.business_id == business_id,
+            ChartOfAccounts.is_active.is_(True),
+        ).all()
+    }
+    cost_centers = {
+        center.code: center
+        for center in CostCenter.query.filter_by(business_id=business_id).all()
+    }
+
+    grouped = {'revenue': [], 'expense': []}
+    for index, record in enumerate(records, start=2):
+        code = str(record.get('Account Code', '') or '').strip()
+        account = accounts.get(code)
+        if account is None:
+            raise XlsxParseError(
+                f'Row {index}: account code {code or "(blank)"} was not found for this business.'
+            )
+
+        declared = str(record.get('Budget Type', '') or '').strip().lower()
+        inferred = 'revenue' if account.type == 'income' else 'expense'
+        budget_type = declared or inferred
+        if budget_type not in grouped:
+            raise XlsxParseError(
+                f'Row {index}: budget type must be revenue or expense.'
+            )
+        if budget_type != inferred:
+            raise XlsxParseError(
+                f'Row {index}: account {code} is a {inferred} account and cannot be '
+                f'budgeted as {budget_type}.'
+            )
+
+        raw_amount = record.get('Amount', '')
+        amount = raw_amount if raw_amount != '' else None
+        cost_center_code = str(record.get('Cost Center Code', '') or '').strip()
+        cost_center_id = None
+        if cost_center_code:
+            center = cost_centers.get(cost_center_code)
+            if center is None:
+                raise XlsxParseError(
+                    f'Row {index}: cost center {cost_center_code} was not found.'
+                )
+            cost_center_id = center.id
+
+        grouped[budget_type].append({
+            'account_id': account.id,
+            'cost_center_id': cost_center_id,
+            'amount': amount,
+        })
+
+    if not grouped['revenue'] and not grouped['expense']:
+        raise XlsxParseError('That workbook does not contain any budget lines.')
+    return grouped
+
+
+@reports_bp.route('/reports/budget-variance', methods=['GET', 'POST'])
+@login_required
+@role_required('admin', 'accountant')
+@audit_report_access('budget_variance')
+def budget_variance():
+    """Create budgets and compare revenue and expense budgets with actuals."""
+    business_id = current_user.business_id
+    period_value = (
+        request.form.get('period', '')
+        if request.method == 'POST'
+        else request.args.get('period', '')
+    )
+    try:
+        period_start = _budget_period(period_value)
+    except ValueError as error:
+        flash(str(error), 'danger')
+        return redirect(url_for('reports.budget_variance'))
+
+    period_end = _month_end(period_start)
+
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        budget_type = request.form.get('budget_type', 'expense').strip()
+        start_raw = request.form.get('period_start', '').strip() or period_start.isoformat()
+        end_raw = request.form.get('period_end', '').strip() or period_end.isoformat()
+        amounts = {}
+        for key, value in request.form.items():
+            if key.startswith('amounts[') and key.endswith(']') and str(value).strip():
+                amounts[key[len('amounts['):-1]] = value
+
+        lines = [
+            {'account_id': account_id, 'amount': amount, 'cost_center_id': None}
+            for account_id, amount in amounts.items()
+        ]
+
+        try:
+            budget = create_budget(
+                business_id,
+                name,
+                budget_type,
+                date.fromisoformat(start_raw),
+                date.fromisoformat(end_raw),
+                lines,
+                created_by=current_user.id,
+                status=request.form.get('status', 'draft').strip() or 'draft',
+            )
+        except (BudgetError, ValueError) as error:
+            db.session.rollback()
+            flash(str(error) or 'Enter valid budget details.', 'danger')
+        else:
+            flash(f'Budget "{budget.name}" saved.', 'success')
+        return redirect(url_for('reports.budget_variance', period=period_start.strftime('%Y-%m')))
+
+    return render_template(
+        'reports.html',
+        report_type='budget_variance',
+        period=period_start.strftime('%Y-%m'),
+        period_start=period_start.isoformat(),
+        period_end=period_end.isoformat(),
+        revenue_variance=get_revenue_budget_variance(business_id, period_start),
+        budget_expense_variance=get_expense_budget_variance(business_id, period_start),
+        budgets=list_budgets(business_id),
+        revenue_accounts=eligible_budget_accounts(business_id, 'revenue'),
+        expense_accounts=eligible_budget_accounts(business_id, 'expense'),
+        cost_centers=CostCenter.query.filter_by(business_id=business_id).order_by(CostCenter.code).all(),
+    )
+
+
+@reports_bp.route('/reports/budget-variance/lines/<int:line_id>', methods=['POST'])
+@login_required
+@role_required('admin', 'accountant')
+@audit_report_access('budget_variance_line_update', action='BUDGET_UPDATE')
+def budget_variance_update_line(line_id):
+    try:
+        update_budget_amount(
+            request.form.get('budget_id', type=int),
+            line_id,
+            request.form.get('amount', ''),
+        )
+    except BudgetError as error:
+        db.session.rollback()
+        flash(str(error), 'danger')
+    else:
+        flash('Budget line updated.', 'success')
+    return redirect(url_for(
+        'reports.budget_variance',
+        period=request.form.get('period', ''),
+    ))
+
+
+@reports_bp.route('/reports/budget-variance/template.xlsx')
+@login_required
+@role_required('admin', 'accountant')
+@audit_report_access('budget_variance_template', action='REPORT_EXPORT')
+def budget_variance_template():
+    """Download a budget import template pre-filled with active accounts."""
+    business_id = current_user.business_id
+    rows = [list(BUDGET_IMPORT_COLUMNS)]
+    for budget_type in ('expense', 'revenue'):
+        for account in eligible_budget_accounts(business_id, budget_type):
+            rows.append([account.code, account.name, budget_type, '', ''])
+    return send_file(
+        create_xlsx(rows, sheet_name='Budget Import'),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='budget-import-template.xlsx',
+    )
+
+
+@reports_bp.route('/reports/budget-variance/import', methods=['POST'])
+@login_required
+@role_required('admin', 'accountant')
+@audit_report_access('budget_variance_import', action='BUDGET_IMPORT')
+def budget_variance_import():
+    business_id = current_user.business_id
+    upload = request.files.get('file')
+    name = request.form.get('name', '').strip()
+    period_start_raw = request.form.get('period_start', '').strip()
+    period_end_raw = request.form.get('period_end', '').strip()
+
+    try:
+        grouped = _budget_import_rows(upload, business_id)
+        period_start = date.fromisoformat(period_start_raw) if period_start_raw else None
+        period_end = date.fromisoformat(period_end_raw) if period_end_raw else period_start
+        if period_start is None:
+            raise XlsxParseError('Enter the budget period before importing.')
+
+        created = []
+        for index, budget_type in enumerate(('expense', 'revenue')):
+            lines = grouped[budget_type]
+            if not lines:
+                continue
+            created.append(create_budget(
+                business_id,
+                f"{name or 'Budget import'} ({budget_type.title()})",
+                budget_type,
+                period_start,
+                period_end,
+                lines,
+                created_by=current_user.id,
+                commit=index == 1,
+            ))
+    except (XlsxParseError, BudgetError, ValueError) as error:
+        db.session.rollback()
+        flash(str(error) or 'The budget file could not be imported.', 'danger')
+    else:
+        flash(
+            f"Imported {sum(len(b.lines) for b in created)} budget line(s) "
+            f'across {len(created)} budget(s).',
+            'success',
+        )
+
+    return redirect(url_for('reports.budget_variance'))
+
+
+@reports_bp.route('/reports/budget-variance/export.xlsx')
+@login_required
+@role_required('admin', 'accountant')
+@audit_report_access('budget_variance_export', action='REPORT_EXPORT')
+def export_budget_variance():
+    business_id = current_user.business_id
+    period_start = _budget_period(request.args.get('period', ''))
+    report = {
+        'revenue': get_revenue_budget_variance(business_id, period_start),
+        'expense': get_expense_budget_variance(business_id, period_start),
+    }
+    rows = build_report_rows('budget_variance', report)
+    return send_file(
+        create_xlsx(rows, sheet_name=f'Budget Variance {period_start:%Y-%m}'),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=f'budget-variance-{period_start:%Y-%m}.xlsx',
+    )
+
+
+@reports_bp.route('/reports/expenditure-returns')
+@login_required
+@audit_report_access('expenditure_returns')
+def expenditure_returns():
+    """List expenditure returns filtered by period, supplier, and type."""
+    business_id = current_user.business_id
+    start_date = _report_date('start_date')
+    end_date = _report_date('end_date')
+    supplier_id = request.args.get('supplier_id', type=int)
+    return_type = request.args.get('return_type', '').strip()
+
+    report = get_expenditure_returns(
+        business_id,
+        start_date=start_date,
+        end_date=end_date,
+        supplier_id=supplier_id,
+        return_type=return_type or None,
+    )
+    report['suppliers'] = Supplier.query.filter_by(business_id=business_id).order_by(Supplier.name).all()
+    return render_template(
+        'reports.html',
+        report_type='expenditure_returns',
+        er=report,
+        start_date=request.args.get('start_date', ''),
+        end_date=request.args.get('end_date', ''),
+        supplier_id=supplier_id,
+        return_type=return_type,
+    )
+
+
+@reports_bp.route('/reports/expenditure-returns/export.xlsx')
+@login_required
+@audit_report_access('expenditure_returns_export', action='REPORT_EXPORT')
+def export_expenditure_returns():
+    business_id = current_user.business_id
+    report = get_expenditure_returns(
+        business_id,
+        start_date=_export_report_date('start_date'),
+        end_date=_export_report_date('end_date'),
+        supplier_id=request.args.get('supplier_id', type=int),
+        return_type=request.args.get('return_type') or None,
+    )
+    rows = build_report_rows('expenditure_returns', report)
+    return send_file(
+        create_xlsx(rows, sheet_name='Expenditure Returns'),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='expenditure-returns.xlsx',
     )
 
 

@@ -233,3 +233,130 @@ class ExpenseBudget(db.Model):
     )
 
     account = db.relationship('ChartOfAccounts')
+
+
+BUDGET_TYPES = ('revenue', 'expense')
+BUDGET_STATUSES = ('draft', 'approved', 'archived')
+
+
+class Budget(db.Model):
+    __tablename__ = 'budgets'
+
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(
+        db.Integer,
+        db.ForeignKey('businesses.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    name = db.Column(db.String(200), nullable=False)
+    budget_type = db.Column(db.String(20), nullable=False, default='expense')
+    period_start = db.Column(db.Date, nullable=False)
+    period_end = db.Column(db.Date, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='draft')
+    created_by = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete='SET NULL'),
+        nullable=True,
+    )
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    lines = db.relationship(
+        'BudgetLineItem',
+        backref='budget',
+        cascade='all, delete-orphan',
+        order_by='BudgetLineItem.id',
+    )
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "budget_type IN ('revenue', 'expense')",
+            name='ck_budget_type',
+        ),
+        db.CheckConstraint(
+            "status IN ('draft', 'approved', 'archived')",
+            name='ck_budget_status',
+        ),
+        db.CheckConstraint('period_end >= period_start', name='ck_budget_period'),
+    )
+
+
+class BudgetLineItem(db.Model):
+    __tablename__ = 'budget_line_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    budget_id = db.Column(
+        db.Integer,
+        db.ForeignKey('budgets.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    account_id = db.Column(
+        db.Integer,
+        db.ForeignKey('chart_of_accounts.id', ondelete='CASCADE'),
+        nullable=False,
+    )
+    cost_center_id = db.Column(
+        db.Integer,
+        db.ForeignKey('cost_centers.id', ondelete='CASCADE'),
+        nullable=True,
+        index=True,
+    )
+    amount = db.Column(db.Numeric(14, 2), nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+
+    account = db.relationship('ChartOfAccounts')
+    cost_center = db.relationship('CostCenter')
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            'budget_id',
+            'account_id',
+            'cost_center_id',
+            name='uq_budget_line_account_cost_center',
+        ),
+        db.CheckConstraint('amount >= 0', name='ck_budget_line_amount'),
+    )
+
+
+class PurchaseReturn(db.Model):
+    __tablename__ = 'purchase_returns'
+
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(
+        db.Integer,
+        db.ForeignKey('businesses.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    bill_id = db.Column(db.Integer, db.ForeignKey('bills.id', ondelete='SET NULL'), nullable=True)
+    supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.id', ondelete='SET NULL'), nullable=True)
+    return_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    amount = db.Column(db.Numeric(14, 2), nullable=False)
+    reason = db.Column(db.Text, nullable=False)
+    return_type = db.Column(db.String(20), nullable=False, default='credit_note')
+    is_applied_to_ap = db.Column(db.Boolean, nullable=False, default=True)
+    journal_entry_id = db.Column(
+        db.Integer,
+        db.ForeignKey('journal_entries.id', ondelete='SET NULL'),
+        nullable=True,
+    )
+    is_reversed = db.Column(db.Boolean, nullable=False, default=False)
+    created_by = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete='SET NULL'),
+        nullable=True,
+    )
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    bill = db.relationship('Bill', backref='purchase_returns')
+    supplier = db.relationship('Supplier', backref='purchase_returns')
+    journal_entry = db.relationship('JournalEntry', backref='purchase_return_entries')
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "return_type IN ('credit_note', 'refund')",
+            name='ck_purchase_return_type',
+        ),
+        db.CheckConstraint('amount > 0', name='ck_purchase_return_amount'),
+    )

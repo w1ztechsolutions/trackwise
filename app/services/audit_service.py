@@ -47,6 +47,9 @@ AUDITED_TABLES = {
     "line_items",
     "staff",
     "expense_budgets",
+    "budgets",
+    "budget_line_items",
+    "purchase_returns",
 }
 
 SENSITIVE_FIELDS = {
@@ -67,6 +70,7 @@ PERIOD_DATE_FIELDS = {
     "stock_transactions": "timestamp",
     "stock_movements": "timestamp",
     "production_batches": "production_date",
+    "purchase_returns": "return_date",
 }
 
 

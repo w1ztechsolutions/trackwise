@@ -113,6 +113,12 @@ def create_xlsx(rows, sheet_name='Budget Variance'):
     return output
 
 
+RETURN_TYPE_LABELS = {
+    'credit_note': 'Bill Credit Note',
+    'refund': 'Cash Refund',
+}
+
+
 def build_report_rows(report_type, report):
     """Convert a report service result to flat, spreadsheet-friendly rows."""
     if report_type == 'income_statement':
@@ -236,6 +242,49 @@ def build_report_rows(report_type, report):
             'Total', totals['current'], totals['days_30'], totals['days_60'],
             totals['days_90'], totals['total_balance'],
         ])
+        return rows
+
+    if report_type == 'budget_variance':
+        rows = [[
+            'Budget Type', 'Account Code', 'Account', 'Budget', 'Actual',
+            'Variance (Budget - Actual)', 'Budget Used (%)',
+        ]]
+        for budget_type, section in report.items():
+            for row in section['rows']:
+                rows.append([
+                    budget_type.title(),
+                    row['account'].code,
+                    row['account'].name,
+                    row['budget'],
+                    row['actual'],
+                    row['variance'],
+                    row['percent_used'] if row['percent_used'] is not None else '',
+                ])
+            rows.append([
+                budget_type.title(), '', 'Total', section['total_budget'],
+                section['total_actual'], section['total_variance'], '',
+            ])
+        return rows
+
+    if report_type == 'expenditure_returns':
+        rows = [[
+            'Date', 'Supplier', 'Bill Number', 'Return Type', 'Amount',
+            'Reason', 'Journal Entry', 'Reversed',
+        ]]
+        rows.extend([
+            [
+                item.return_date.strftime('%Y-%m-%d') if item.return_date else '',
+                item.supplier.name if item.supplier else '',
+                item.bill.bill_number if item.bill else '',
+                RETURN_TYPE_LABELS.get(item.return_type, item.return_type),
+                item.amount,
+                item.reason,
+                f'#{item.journal_entry_id}' if item.journal_entry_id else '',
+                'Yes' if item.is_reversed else 'No',
+            ]
+            for item in report['items']
+        ])
+        rows.append(['', '', 'Total', '', report['total_amount'], '', '', ''])
         return rows
 
     if report_type == 'audit_log':

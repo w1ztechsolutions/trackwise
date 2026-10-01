@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}New Expenditure Return{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>New Expenditure Return</h1>
+        <p>Issue a bill credit note or cash refund against a received bill.</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('purchases.purchase_returns') }}" class="btn btn-outline-secondary">Back</a>
+    </div>
+</div>
+
+<div class="glass-card">
+    {% if not bills %}
+    <p class="text-muted">Every received bill is fully settled. There is nothing left to return.</p>
+    {% else %}
+    <form method="POST" action="{{ url_for('purchases.purchase_return_new') }}" class="stack-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label class="form-label" for="bill_id">Bill *</label>
+            <select id="bill_id" name="bill_id" required class="form-control"
+                    aria-describedby="bill-hint">
+                <option value="">-- Select Bill --</option>
+                {% for entry in bills %}
+                <option value="{{ entry.bill.id }}"
+                        data-amount="{{ entry.returnable }}"
+                        {% if selected_bill and selected_bill.bill.id == entry.bill.id %}selected{% endif %}>
+                    {{ entry.bill.bill_number or entry.bill.id }} —
+                    {{ entry.bill.supplier.name if entry.bill.supplier else 'Unknown supplier' }}
+                    (returnable: {{ entry.returnable | currency }})
+                </option>
+                {% endfor %}
+            </select>
+            <span id="bill-hint" class="field-hint">Only the remaining returnable balance can be returned.</span>
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="amount">Return amount *</label>
+            <input type="number" id="amount" name="amount" step="0.01" min="0.01" required
+                   class="form-control"
+                   value="{{ selected_bill.returnable if selected_bill else '' }}">
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="return_type">Return type *</label>
+            <select id="return_type" name="return_type" required class="form-control">
+                <option value="credit_note">Bill credit note (Dr AP / Cr Expense)</option>
+                <option value="refund">Cash refund (Dr AP / Cr Cash)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="reason">Reason *</label>
+            <textarea id="reason" name="reason" rows="3" required class="form-control"
+                      placeholder="e.g. goods returned damaged" aria-describedby="reason-hint"></textarea>
+            <span id="reason-hint" class="field-hint">A reason is required for every expenditure return.</span>
+        </div>
+        <div class="form-actions-row">
+            <button type="submit" class="btn-primary">Record Return</button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

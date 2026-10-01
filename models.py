@@ -295,6 +295,9 @@ class Payment(db.Model):
     payment_mode = db.Column(db.String(30), nullable=False, default='cash')
     reference = db.Column(db.String(100), nullable=True)
     status = db.Column(db.String(20), nullable=False, default='pending')  # pending | approved | rejected
+    is_reversed = db.Column(db.Boolean, nullable=False, default=False)
+    reversal_reason = db.Column(db.String(255), nullable=True)
+    reversal_date = db.Column(db.DateTime, nullable=True)
 
     supplier = db.relationship('Supplier', backref='payments')
     bill = db.relationship('Bill', backref='payments')

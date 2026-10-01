@@ -41,6 +41,14 @@ from app.services.revenue_recognition_service import (
     create_revenue_schedule,
     recognize_revenue,
 )
+from app.services.import_service import (
+    BANK_STATEMENT_COLUMNS,
+    JOURNAL_COLUMNS,
+    ImportValidationError,
+    import_bank_statements,
+    import_journal_entries,
+)
+from app.services.xlsx_import import XlsxParseError, parse_xlsx_file
 from app.auth.decorators import role_required
 from app.services.approval_service import create_approval_request
 
@@ -841,6 +849,12 @@ def bank_statement_import():
     biz_id = _biz_id()
     accounts = _bank_accounts(biz_id)
 
+    if request.method == 'POST' and request.files.get('file'):
+        return _bank_statement_import_preview(biz_id, accounts)
+
+    if request.method == 'POST' and request.form.get('mapping'):
+        return _bank_statement_import_process(biz_id)
+
     if request.method == 'POST':
         account_id = request.form.get('account_id', '').strip()
         csv_text = request.form.get('csv_data', '').strip()
@@ -908,6 +922,163 @@ def bank_statement_import():
         return redirect(url_for('accounting.bank_statements', account_id=account_id))
 
     return render_template('bank_statement_import.html', accounts=accounts)
+
+
+def _resolve_bank_account(biz_id, account_id):
+    try:
+        account_id = int(account_id)
+    except (TypeError, ValueError):
+        flash('Invalid bank account selection.', 'danger')
+        return None
+    account = db.session.get(ChartOfAccounts, account_id)
+    if account is None or account.business_id != biz_id:
+        flash('Invalid bank account selection.', 'danger')
+        return None
+    return account
+
+
+def _bank_statement_import_preview(biz_id, accounts):
+    """Parse an uploaded statement workbook and render the column mapping step."""
+    try:
+        sheet_names, rows = parse_xlsx_file(request.files.get('file'))
+    except XlsxParseError as error:
+        flash(str(error), 'danger')
+        return redirect(url_for('accounting.bank_statement_import'))
+
+    if not rows:
+        flash('That workbook does not contain any data rows.', 'danger')
+        return redirect(url_for('accounting.bank_statement_import'))
+
+    return render_template(
+        'import_wizard.html',
+        title='Map Bank Statement Columns',
+        entity='bank statements',
+        sheet_names=sheet_names,
+        rows=rows,
+        payload=json.dumps(rows, default=str),
+        headers=list(rows[0].keys()),
+        suggested=BANK_STATEMENT_COLUMNS,
+        preview=rows[:10],
+        accounts=accounts,
+        action=url_for('accounting.bank_statement_import'),
+        back_url=url_for('accounting.bank_statement_import'),
+        return_type='bank_statements',
+    )
+
+
+def _bank_statement_import_process(biz_id):
+    """Apply a user-confirmed column mapping and import the statement rows."""
+    account = _resolve_bank_account(biz_id, request.form.get('account_id', '').strip())
+    if account is None:
+        return redirect(url_for('accounting.bank_statement_import'))
+
+    payload = request.form.get('payload', '')
+    try:
+        rows = json.loads(payload) if payload else []
+    except (TypeError, ValueError):
+        flash('The uploaded file could not be read. Upload it again.', 'danger')
+        return redirect(url_for('accounting.bank_statement_import'))
+
+    mapping = {
+        field: request.form.get(f'map_{field}', '')
+        for field in BANK_STATEMENT_COLUMNS
+        if request.form.get(f'map_{field}', '')
+    }
+
+    try:
+        result = import_bank_statements(biz_id, account.id, rows, mapping)
+        db.session.commit()
+    except (ImportValidationError, AccountingException) as error:
+        db.session.rollback()
+        flash(str(error), 'danger')
+        return redirect(url_for('accounting.bank_statement_import'))
+
+    _flash_import_result('Bank statement', result)
+    return redirect(url_for('accounting.bank_statements', account_id=account.id))
+
+
+def _flash_import_result(label, result):
+    message = (
+        f'Imported {result["imported"]} {label.lower()} row(s); '
+        f'{result["duplicates"]} duplicate(s) skipped.'
+    )
+    if result['errors']:
+        message += f' {len(result["errors"])} row(s) had errors.'
+    flash(message, 'success' if result['imported'] else 'warning')
+    for error in result['errors'][:5]:
+        flash(error, 'warning')
+
+
+@accounting_bp.route('/accounting/import/journal-entries', methods=['GET', 'POST'])
+@login_required
+@role_required('admin', 'accountant')
+def import_journal_entries_route():
+    """Import journal entries from an Excel workbook with column mapping."""
+    biz_id = _biz_id()
+
+    if request.method == 'POST' and request.files.get('file'):
+        try:
+            sheet_names, rows = parse_xlsx_file(request.files.get('file'))
+        except XlsxParseError as error:
+            flash(str(error), 'danger')
+            return redirect(url_for('accounting.import_journal_entries_route'))
+        if not rows:
+            flash('That workbook does not contain any data rows.', 'danger')
+            return redirect(url_for('accounting.import_journal_entries_route'))
+        return render_template(
+            'import_wizard.html',
+            title='Map Journal Entry Columns',
+            entity='journal entries',
+            sheet_names=sheet_names,
+            rows=rows,
+            payload=json.dumps(rows, default=str),
+            headers=list(rows[0].keys()),
+            suggested=JOURNAL_COLUMNS,
+            preview=rows[:10],
+            action=url_for('accounting.import_journal_entries_route'),
+            back_url=url_for('accounting.je_list'),
+            return_type='journal_entries',
+        )
+
+    if request.method == 'POST' and request.form.get('mapping'):
+        payload = request.form.get('payload', '')
+        try:
+            rows = json.loads(payload) if payload else []
+        except (TypeError, ValueError):
+            flash('The uploaded file could not be read. Upload it again.', 'danger')
+            return redirect(url_for('accounting.import_journal_entries_route'))
+
+        mapping = {
+            field: request.form.get(f'map_{field}', '')
+            for field in JOURNAL_COLUMNS
+            if request.form.get(f'map_{field}', '')
+        }
+        try:
+            result = import_journal_entries(
+                biz_id, rows, mapping, created_by=current_user.id,
+            )
+            db.session.commit()
+        except (ImportValidationError, AccountingException) as error:
+            db.session.rollback()
+            flash(str(error), 'danger')
+        else:
+            _flash_import_result('Journal entry', result)
+        return redirect(url_for('accounting.je_list'))
+
+    return render_template(
+        'import_wizard.html',
+        title='Import Journal Entries',
+        entity='journal entries',
+        sheet_names=[],
+        rows=[],
+        payload='',
+        headers=[],
+        suggested=JOURNAL_COLUMNS,
+        preview=[],
+        action=url_for('accounting.import_journal_entries_route'),
+        back_url=url_for('accounting.je_list'),
+        return_type='journal_entries',
+    )
 
 
 @accounting_bp.route('/accounting/bank-reconciliation/statements/<int:account_id>/reconcile')

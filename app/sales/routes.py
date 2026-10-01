@@ -8,8 +8,108 @@ from models import Product, Sale, SaleItem, Customer, Invoice, InvoiceItem, Rece
 from app.models.approval import ApprovalRequest
 from services.fifo_service import InventoryException, record_sale, get_tax_rate
 from app.services.accounting_service import AccountingException, post_entry, get_account_by_code
+from app.auth.decorators import role_required
+from app.services.import_service import (
+    PARTY_COLUMNS,
+    ImportValidationError,
+    import_customers,
+)
+from app.services.xlsx_import import XlsxParseError, parse_xlsx_file
 
 from . import sales_bp
+
+
+def _customers_import_form(
+    title, entity, sheet_names, rows, payload, headers, preview,
+    action, back_url, return_type, mapping=None,
+):
+    return render_template(
+        'import_wizard.html',
+        title=title,
+        entity=entity,
+        sheet_names=sheet_names,
+        rows=rows,
+        payload=payload,
+        headers=headers,
+        suggested=PARTY_COLUMNS,
+        preview=preview,
+        accounts=None,
+        action=action,
+        back_url=back_url,
+        return_type=return_type,
+        mapping=mapping or {},
+    )
+
+
+@sales_bp.route('/sales/import/customers', methods=['GET', 'POST'])
+@login_required
+@role_required('admin', 'accountant')
+def import_customers_route():
+    """Import customers from an Excel workbook with column mapping."""
+    biz_id = getattr(current_user, 'business_id', None)
+
+    if request.method == 'POST' and request.files.get('file'):
+        try:
+            sheet_names, rows = parse_xlsx_file(request.files.get('file'))
+        except XlsxParseError as error:
+            flash(str(error), 'danger')
+            return redirect(url_for('sales.import_customers_route'))
+        if not rows:
+            flash('That workbook does not contain any data rows.', 'danger')
+            return redirect(url_for('sales.import_customers_route'))
+        return _customers_import_form(
+            title='Map Customer Columns',
+            entity='customers',
+            sheet_names=sheet_names,
+            rows=rows,
+            payload=json.dumps(rows, default=str),
+            headers=list(rows[0].keys()),
+            preview=rows[:10],
+            action=url_for('sales.import_customers_route'),
+            back_url=url_for('sales.customers'),
+            return_type='customers',
+        )
+
+    if request.method == 'POST' and request.form.get('mapping'):
+        try:
+            rows = json.loads(request.form.get('payload', '') or '[]')
+        except (TypeError, ValueError):
+            flash('The uploaded file could not be read. Upload it again.', 'danger')
+            return redirect(url_for('sales.import_customers_route'))
+
+        column_map = {
+            field: request.form.get(f'map_{field}', '')
+            for field in PARTY_COLUMNS
+            if request.form.get(f'map_{field}', '')
+        }
+        try:
+            result = import_customers(biz_id, rows, column_map)
+            db.session.commit()
+        except ImportValidationError as error:
+            db.session.rollback()
+            flash(str(error), 'danger')
+        else:
+            message = (
+                f"Imported {result['imported']} customer(s); "
+                f"{result['duplicates']} duplicate(s) skipped."
+            )
+            flash(message, 'success' if result['imported'] else 'warning')
+            for error in result['errors'][:5]:
+                flash(error, 'warning')
+        return redirect(url_for('sales.customers'))
+
+    return _customers_import_form(
+        title='Import Customers',
+        entity='customers',
+        sheet_names=[],
+        rows=[],
+        payload='',
+        headers=[],
+        preview=[],
+        action=url_for('sales.import_customers_route'),
+        back_url=url_for('sales.customers'),
+        return_type='customers',
+    )
 
 
 @sales_bp.route('/customers', methods=['GET', 'POST'])

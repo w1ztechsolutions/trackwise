@@ -206,6 +206,134 @@ def reverse_entry(business_id, entry_id, reason, created_by=None, reversal_date=
     return reversal
 
 
+def get_payment_refunded_amount(business_id, payment_id):
+    """Sum reversal journal entries already posted against a payment."""
+    entries = (
+        JournalEntry.query
+        .join(JournalLine)
+        .filter(
+            JournalEntry.business_id == business_id,
+            JournalEntry.reference_type == 'PaymentReversal',
+            JournalEntry.reference_id == payment_id,
+            JournalEntry.is_deleted.is_(False),
+        )
+        .distinct()
+        .all()
+    )
+    total = 0.0
+    for entry in entries:
+        for line in entry.lines:
+            if line.account and line.account.type == 'asset' and line.account.code == '1000':
+                total += float(line.debit_amount or 0)
+    return total
+
+
+def reverse_payment(business_id, payment_id, reason, created_by=None, reversal_date=None, amount=None):
+    """Reverse a payment's journal entry, in full or in part.
+
+    A full reversal uses :func:`reverse_entry` so the original entry keeps its
+    linked reversal. A partial reversal posts a proportional opposite entry
+    against the same accounts.
+    """
+    from models import Payment
+
+    reason = (reason or "").strip()
+    if not reason:
+        raise AccountingException("A reason is required to reverse a payment")
+    if len(reason) > 255:
+        raise AccountingException("Reversal reason must be 255 characters or fewer")
+
+    payment = db.session.get(Payment, payment_id)
+    if payment is None or payment.business_id != business_id:
+        raise AccountingException("Payment not found")
+    if payment.status != 'approved':
+        raise AccountingException("Only approved payments can be refunded")
+    if payment.is_reversed:
+        raise AccountingException("Payment has already been refunded")
+
+    entry = (
+        JournalEntry.query
+        .filter_by(
+            business_id=business_id,
+            reference_type='Payment',
+            reference_id=payment_id,
+        )
+        .filter(JournalEntry.is_deleted.is_(False))
+        .order_by(JournalEntry.id.desc())
+        .first()
+    )
+    if entry is None:
+        raise AccountingException("Payment has no journal entry to refund")
+
+    payment_amount = float(payment.amount or 0)
+    already_refunded = get_payment_refunded_amount(business_id, payment_id)
+    remaining = round(payment_amount - already_refunded, 2)
+
+    # Omitting the amount refunds whatever balance is left.
+    refund_amount = remaining if amount is None else round(float(amount), 2)
+    if refund_amount <= 0:
+        raise AccountingException("Refund amount must be greater than zero")
+    if refund_amount - remaining > 0.01:
+        raise AccountingException(
+            f"Refund amount exceeds the remaining refundable balance of {remaining:.2f}"
+        )
+
+    if already_refunded <= 0.01 and refund_amount + 0.01 >= payment_amount:
+        reversal = reverse_entry(
+            business_id,
+            entry.id,
+            reason,
+            created_by=created_by,
+            reversal_date=reversal_date,
+        )
+        payment.is_reversed = True
+        payment.reversal_reason = reason
+        payment.reversal_date = reversal_date or datetime.now(timezone.utc)
+        try:
+            db.session.commit()
+        except IntegrityError as error:
+            db.session.rollback()
+            raise AccountingException("Payment has already been refunded") from error
+        return reversal
+
+    ratio = refund_amount / payment_amount if payment_amount else 0
+    reversal_lines = []
+    for line in entry.lines:
+        debit = float(line.debit_amount or 0) * ratio
+        credit = float(line.credit_amount or 0) * ratio
+        if debit or credit:
+            reversal_lines.append({
+                "account_id": line.account_id,
+                "debit_amount": round(credit, 2),
+                "credit_amount": round(debit, 2),
+                "cost_center_id": line.cost_center_id,
+            })
+
+    try:
+        reversal = post_entry(
+            business_id,
+            reversal_date or datetime.now(timezone.utc),
+            f"Partial refund of payment #{payment.id}: {reason}",
+            reversal_lines,
+            reference_type='PaymentReversal',
+            reference_id=payment.id,
+            created_by=created_by,
+            commit=False,
+            branch_id=entry.branch_id,
+            allow_inactive_dimensions=True,
+        )
+    except AccountingException:
+        db.session.rollback()
+        raise
+
+    payment.reversal_reason = reason
+    payment.reversal_date = reversal_date or datetime.now(timezone.utc)
+    if already_refunded + refund_amount >= payment_amount - 0.01:
+        payment.is_reversed = True
+    db.session.commit()
+    return reversal
+
+
 def get_ledger_balances(business_id, account_ids=None):
     line_sums = db.session.query(
         JournalLine.account_id,

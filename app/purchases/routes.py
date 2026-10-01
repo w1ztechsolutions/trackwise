@@ -9,8 +9,34 @@ from models import Product, Purchase, PurchaseItem, Supplier, Payment, Staff, Fi
 from app.models.approval import ApprovalConfig, ApprovalRequest, ApprovalAction
 from services.fifo_service import record_purchase
 from app.auth.permissions import can_approve_at_level
+from app.auth.decorators import role_required
+from app.services.accounting_service import AccountingException, reverse_payment
+from app.models import PurchaseReturn
+from app.services.import_service import (
+    PARTY_COLUMNS,
+    ImportValidationError,
+    import_suppliers,
+)
+from app.services.xlsx_import import XlsxParseError, parse_xlsx_file
+from app.services.purchase_return_service import (
+    PurchaseReturnError,
+    get_expenditure_returns,
+    process_purchase_return,
+    returnable_bills,
+    reverse_purchase_return,
+)
 
 from . import purchases_bp
+
+
+def _parse_date_arg(parameter):
+    value = request.args.get(parameter, '').strip()
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date()
+    except ValueError:
+        return None
 
 
 @purchases_bp.route('/payments/status/<int:payment_id>')
@@ -238,6 +264,224 @@ def purchases():
     page = request.args.get('page', 1, type=int)
     purchase_records = Purchase.query.filter_by(business_id=biz_id).order_by(Purchase.purchase_date.desc()).paginate(page=page, per_page=10)
     return render_template('purchases.html', products=products, purchases=purchase_records)
+
+
+@purchases_bp.route('/purchases/import/suppliers', methods=['GET', 'POST'])
+@login_required
+@role_required('admin', 'accountant')
+def import_suppliers_route():
+    """Import suppliers from an Excel workbook with column mapping."""
+    biz_id = getattr(current_user, 'business_id', None)
+
+    def render_form(sheet_names, rows, payload, preview):
+        return render_template(
+            'import_wizard.html',
+            title='Map Supplier Columns' if rows else 'Import Suppliers',
+            entity='suppliers',
+            sheet_names=sheet_names,
+            rows=rows,
+            payload=payload,
+            headers=list(rows[0].keys()) if rows else [],
+            suggested=PARTY_COLUMNS,
+            preview=preview,
+            accounts=None,
+            action=url_for('purchases.import_suppliers_route'),
+            back_url=url_for('purchases.suppliers'),
+            return_type='suppliers',
+            mapping={},
+        )
+
+    if request.method == 'POST' and request.files.get('file'):
+        try:
+            sheet_names, rows = parse_xlsx_file(request.files.get('file'))
+        except XlsxParseError as error:
+            flash(str(error), 'danger')
+            return redirect(url_for('purchases.import_suppliers_route'))
+        if not rows:
+            flash('That workbook does not contain any data rows.', 'danger')
+            return redirect(url_for('purchases.import_suppliers_route'))
+        return render_form(sheet_names, rows, json.dumps(rows, default=str), rows[:10])
+
+    if request.method == 'POST' and request.form.get('mapping'):
+        try:
+            rows = json.loads(request.form.get('payload', '') or '[]')
+        except (TypeError, ValueError):
+            flash('The uploaded file could not be read. Upload it again.', 'danger')
+            return redirect(url_for('purchases.import_suppliers_route'))
+
+        column_map = {
+            field: request.form.get(f'map_{field}', '')
+            for field in PARTY_COLUMNS
+            if request.form.get(f'map_{field}', '')
+        }
+        try:
+            result = import_suppliers(biz_id, rows, column_map)
+            db.session.commit()
+        except ImportValidationError as error:
+            db.session.rollback()
+            flash(str(error), 'danger')
+        else:
+            message = (
+                f"Imported {result['imported']} supplier(s); "
+                f"{result['duplicates']} duplicate(s) skipped."
+            )
+            flash(message, 'success' if result['imported'] else 'warning')
+            for error in result['errors'][:5]:
+                flash(error, 'warning')
+        return redirect(url_for('purchases.suppliers'))
+
+    return render_form([], [], '', [])
+
+
+@purchases_bp.route('/purchases/returns', methods=['GET'])
+@login_required
+@role_required('admin', 'accountant')
+def purchase_returns():
+    """List expenditure returns with supplier and type filters."""
+    biz_id = getattr(current_user, 'business_id', None)
+    supplier_id = request.args.get('supplier_id', type=int)
+    return_type = request.args.get('return_type', '').strip()
+    start_date = _parse_date_arg('start_date')
+    end_date = _parse_date_arg('end_date')
+
+    report = get_expenditure_returns(
+        biz_id,
+        start_date=start_date,
+        end_date=end_date,
+        supplier_id=supplier_id,
+        return_type=return_type or None,
+    )
+    return render_template(
+        'purchase_returns.html',
+        returns=report['items'],
+        total_amount=report['total_amount'],
+        suppliers=Supplier.query.filter_by(business_id=biz_id).order_by(Supplier.name.asc()).all(),
+        supplier_id=supplier_id,
+        return_type=return_type,
+        start_date=request.args.get('start_date', ''),
+        end_date=request.args.get('end_date', ''),
+    )
+
+
+@purchases_bp.route('/purchases/returns/new', methods=['GET', 'POST'])
+@login_required
+@role_required('admin', 'accountant')
+def purchase_return_new():
+    """Create a bill credit note or cash refund against a received bill."""
+    biz_id = getattr(current_user, 'business_id', None)
+
+    if request.method == 'POST':
+        bill_id = request.form.get('bill_id', '').strip()
+        amount_raw = request.form.get('amount', '').strip()
+        reason = request.form.get('reason', '').strip()
+        return_type = request.form.get('return_type', 'credit_note').strip()
+        try:
+            bill_id = int(bill_id)
+        except (TypeError, ValueError):
+            db.session.rollback()
+            flash('Select the bill being returned.', 'danger')
+            return redirect(url_for('purchases.purchase_return_new'))
+
+        try:
+            purchase_return = process_purchase_return(
+                biz_id,
+                bill_id,
+                amount_raw,
+                reason,
+                return_type=return_type,
+                created_by=current_user.id,
+            )
+        except PurchaseReturnError as error:
+            db.session.rollback()
+            flash(str(error), 'danger')
+        else:
+            flash(f'Expenditure return #{purchase_return.id} recorded.', 'success')
+            return redirect(url_for('purchases.purchase_return_view', return_id=purchase_return.id))
+
+        return redirect(url_for('purchases.purchase_return_new'))
+
+    bills = returnable_bills(biz_id)
+    selected_bill_id = request.args.get('bill_id', type=int)
+    selected = next(
+        (entry for entry in bills if entry['bill'].id == selected_bill_id),
+        None,
+    )
+    return render_template(
+        'purchase_return_form.html',
+        bills=bills,
+        selected_bill=selected,
+    )
+
+
+@purchases_bp.route('/purchases/returns/<int:return_id>')
+@login_required
+@role_required('admin', 'accountant')
+def purchase_return_view(return_id):
+    """Show an expenditure return with its linked bill and journal entry."""
+    biz_id = getattr(current_user, 'business_id', None)
+    purchase_return = PurchaseReturn.query.filter_by(
+        id=return_id,
+        business_id=biz_id,
+    ).first()
+    if purchase_return is None:
+        abort(404)
+
+    return render_template(
+        'purchase_return_view.html',
+        purchase_return=purchase_return,
+        journal_entry=purchase_return.journal_entry,
+    )
+
+
+@purchases_bp.route('/purchases/returns/<int:return_id>/reverse', methods=['POST'])
+@login_required
+@role_required('admin', 'accountant')
+def purchase_return_reverse(return_id):
+    """Reverse a posted expenditure return."""
+    biz_id = getattr(current_user, 'business_id', None)
+    reason = request.form.get('reason', '').strip()
+    try:
+        reverse_purchase_return(biz_id, return_id, reason, created_by=current_user.id)
+    except PurchaseReturnError as error:
+        db.session.rollback()
+        flash(str(error), 'danger')
+    else:
+        flash('Expenditure return reversed.', 'success')
+    return redirect(url_for('purchases.purchase_return_view', return_id=return_id))
+
+
+@purchases_bp.route('/payments/<int:payment_id>/refund', methods=['POST'])
+@login_required
+@role_required('admin')
+def payment_refund(payment_id):
+    """Refund a payment in full or in part."""
+    biz_id = getattr(current_user, 'business_id', None)
+    payment = db.session.get(Payment, payment_id)
+    if not payment or payment.business_id != biz_id:
+        abort(404)
+
+    reason = request.form.get('reason', '').strip()
+    amount_raw = request.form.get('refund_amount', '').strip()
+
+    try:
+        if amount_raw:
+            refund_amount = float(amount_raw)
+        else:
+            refund_amount = None
+        reversal = reverse_payment(
+            biz_id,
+            payment.id,
+            reason,
+            created_by=current_user.id,
+            amount=refund_amount,
+        )
+    except AccountingException as error:
+        db.session.rollback()
+        flash(str(error), 'danger')
+    else:
+        flash(f'Payment refunded with journal entry #{reversal.id}.', 'success')
+
+    return redirect(url_for('purchases.payments'))
 
 
 @purchases_bp.route('/suppliers/<int:supplier_id>/edit', methods=['POST'])

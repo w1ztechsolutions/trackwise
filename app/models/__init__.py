@@ -41,6 +41,9 @@ from .accounting import (
     BankStatement,
     RevenueRecognitionSchedule,
     ExpenseBudget,
+    Budget,
+    BudgetLineItem,
+    PurchaseReturn,
 )
 from .user import User
 from .superadmin import SuperAdmin

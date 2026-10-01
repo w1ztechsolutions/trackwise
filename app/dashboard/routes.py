@@ -1,8 +1,10 @@
-from datetime import datetime
+from datetime import date, datetime
 from flask_login import login_required
 from flask import redirect, render_template, url_for
 
 from app.models import Product, Purchase, Sale, Expense, Payment
+from app.services.budget_service import get_dashboard_budget_summary
+from app.services.reports import get_expense_budget_variance
 from services.fifo_service import get_profit_loss, get_inventory_valuation
 
 from . import dashboard_bp
@@ -65,6 +67,28 @@ def dashboard():
         chart_sales.append(m_pl['total_sales'])
         chart_expenses.append(m_pl['total_expenses'])
 
+    budget_summary = get_dashboard_budget_summary(biz_id, start_of_month.date())
+    budget_labels = []
+    budget_values = []
+    budget_actual_values = []
+    for row in budget_summary['rows']:
+        if row['budget'] <= 0:
+            continue
+        budget_labels.append(row['period_start'].strftime('%b %Y'))
+        budget_values.append(float(row['budget']))
+        budget_actual_values.append(float(row['actual']))
+
+    current_variance = get_expense_budget_variance(biz_id, start_of_month.date())
+    account_labels = []
+    account_budget = []
+    account_actual = []
+    for row in current_variance['rows']:
+        if row['budget'] <= 0:
+            continue
+        account_labels.append(f"{row['account'].code} {row['account'].name}")
+        account_budget.append(float(row['budget']))
+        account_actual.append(float(row['actual']))
+
     return render_template(
         'dashboard.html',
         pl=pl_stats,
@@ -78,6 +102,13 @@ def dashboard():
         recent_payments=recent_payments,
         chart_labels=chart_labels,
         chart_sales=chart_sales,
-        chart_expenses=chart_expenses
+        chart_expenses=chart_expenses,
+        chart_budget_labels=budget_labels,
+        chart_budget=budget_values,
+        chart_budget_actual=budget_actual_values,
+        chart_budget_utilization=budget_summary['utilization'],
+        chart_account_labels=account_labels,
+        chart_account_budget=account_budget,
+        chart_account_actual=account_actual,
     )
 

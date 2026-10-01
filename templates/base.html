@@ -234,6 +234,15 @@
                     </a>
                 </li>
                 <li>
+                    <a href="{{ url_for('purchases.purchase_returns') }}" class="nav-link {% if request.endpoint and 'purchase_return' in request.endpoint %}active{% endif %}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="1 4 1 10 7 10"></polyline>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                        </svg>
+                        Expenditure Returns
+                    </a>
+                </li>
+                <li>
                     <a href="{{ url_for('production.production') }}" class="nav-link {% if request.endpoint == 'production.production' %}active{% endif %}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M3 6h18"></path>

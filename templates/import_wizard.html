@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>{{ title }}</h1>
+        <p>Upload an Excel workbook, map the columns, then review the first rows before importing.</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ back_url }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</div>
+
+{% if not rows %}
+<div class="glass-card">
+    <form method="POST" action="{{ action }}" enctype="multipart/form-data" class="stack-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label class="form-label" for="import_file">Excel file</label>
+            <input type="file" id="import_file" name="file" accept=".xlsx" required
+                   class="form-control" aria-describedby="import-file-hint">
+            <span id="import-file-hint" class="field-hint">Only .xlsx workbooks are supported.</span>
+        </div>
+        <div class="form-actions-row">
+            <button type="submit" class="btn-primary">Upload and map columns</button>
+        </div>
+    </form>
+</div>
+{% else %}
+<form method="POST" action="{{ action }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="mapping" value="1">
+    <input type="hidden" name="payload" value="{{ payload }}">
+    {% if return_type == 'bank_statements' %}
+    <div class="glass-card mb-4">
+        <div class="form-group">
+            <label class="form-label" for="account_id">Bank Account *</label>
+            <select id="account_id" name="account_id" class="form-control" required>
+                <option value="">-- Select Bank Account --</option>
+                {% for account in accounts or [] %}
+                <option value="{{ account.id }}">{{ account.code }} — {{ account.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="glass-card mb-4">
+        <h3 class="section-title">Map Columns</h3>
+        <p class="text-muted">Match each required field to the column it comes from. Unmapped optional columns are ignored.</p>
+        <div class="table-container">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Field</th>
+                        <th scope="col">Worksheet column</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for field, aliases in suggested.items() %}
+                    {% set match = '' %}
+                    {% for header in headers %}
+                        {% if not match and header.lower() in aliases|map('lower')|list %}
+                            {% set match = header %}
+                        {% endif %}
+                    {% endfor %}
+                    <tr>
+                        <td>{{ field.replace('_', ' ')|capitalize }}</td>
+                        <td>
+                            <select name="map_{{ field }}" class="form-control">
+                                <option value="">-- Not mapped --</option>
+                                {% for header in headers %}
+                                <option value="{{ header }}" {% if header == match %}selected{% endif %}>
+                                    {{ header }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="glass-card mb-4">
+        <h3 class="section-title">Preview (first {{ preview|length }} rows)</h3>
+        <div class="table-container">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        {% for header in headers %}<th scope="col">{{ header }}</th>{% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in preview %}
+                    <tr>
+                        {% for header in headers %}
+                        <td>{{ row.get(header, '') }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="form-actions-row">
+        <button type="submit" class="btn-primary">Import {{ rows|length }} row(s)</button>
+        <a href="{{ back_url }}" class="btn-secondary">Cancel</a>
+    </div>
+</form>
+{% endif %}
+{% endblock %}

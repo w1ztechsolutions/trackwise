@@ -132,6 +132,37 @@
     </div>
 </div>
 
+<!-- Budget charts -->
+<div class="dashboard-grid">
+    <!-- Bar Chart: Budget vs Actual by account -->
+    <div class="glass-card chart-card">
+        <h3 class="section-title">Budget vs Actual (Current Month)</h3>
+        {% if chart_account_labels %}
+        <div class="chart-container">
+            <canvas id="budgetAccountChart"></canvas>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>No expense budgets set for this month yet.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Line Chart: Monthly utilization trend -->
+    <div class="glass-card chart-card">
+        <h3 class="section-title">Monthly Budget Utilization Trend</h3>
+        {% if chart_budget_labels %}
+        <div class="chart-container">
+            <canvas id="budgetTrendChart"></canvas>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>No budget history available yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
 <!-- Recent Transactions Tables -->
 <div class="dashboard-grid recent-transactions">
     <!-- Recent Sales -->
@@ -223,6 +254,17 @@
     "labels": {{ chart_labels | tojson }},
     "sales": {{ chart_sales | tojson }},
     "expenses": {{ chart_expenses | tojson }}
+}
+</script>
+<script type="application/json" id="budgetChartData">
+{
+    "accountLabels": {{ chart_account_labels | tojson }},
+    "accountBudget": {{ chart_account_budget | tojson }},
+    "accountActual": {{ chart_account_actual | tojson }},
+    "monthLabels": {{ chart_budget_labels | tojson }},
+    "monthBudget": {{ chart_budget | tojson }},
+    "monthActual": {{ chart_budget_actual | tojson }},
+    "monthUtilization": {{ chart_budget_utilization | tojson }}
 }
 </script>
 <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>

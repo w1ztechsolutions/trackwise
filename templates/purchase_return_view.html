@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}Expenditure Return Detail{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Expenditure Return #{{ purchase_return.id }}</h1>
+        <p>{{ purchase_return.return_type.replace('_', ' ')|title }} recorded {{ purchase_return.return_date.strftime('%d %b %Y') if purchase_return.return_date else '' }}</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('purchases.purchase_returns') }}" class="btn btn-outline-secondary">Back</a>
+    </div>
+</div>
+
+<div class="glass-card mb-4">
+    <div class="table-container">
+        <table class="custom-table">
+            <tbody>
+                <tr>
+                    <th scope="row">Supplier</th>
+                    <td>{{ purchase_return.supplier.name if purchase_return.supplier else '-' }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Bill</th>
+                    <td>
+                        {% if purchase_return.bill %}
+                            {{ purchase_return.bill.bill_number or purchase_return.bill.id }}
+                            ({{ purchase_return.bill.total_amount | currency }})
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Type</th>
+                    <td>{{ purchase_return.return_type.replace('_', ' ')|title }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Amount</th>
+                    <td class="text-danger">{{ purchase_return.amount | currency }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Applied to AP</th>
+                    <td>{{ 'Yes' if purchase_return.is_applied_to_ap else 'No' }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Reason</th>
+                    <td>{{ purchase_return.reason }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Status</th>
+                    <td>{{ 'Reversed' if purchase_return.is_reversed else 'Posted' }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Journal entry</th>
+                    <td>
+                        {% if journal_entry %}
+                            <a href="{{ url_for('accounting.je_view', entry_id=journal_entry.id) }}">#{{ journal_entry.id }}</a>
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if not purchase_return.is_reversed %}
+<div class="glass-card">
+    <h3 class="section-title">Reverse this return</h3>
+    <form method="POST" action="{{ url_for('purchases.purchase_return_reverse', return_id=purchase_return.id) }}"
+          class="stack-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label class="form-label" for="reverse_reason">Reason *</label>
+            <textarea id="reverse_reason" name="reason" rows="2" required class="form-control"
+                      aria-describedby="reverse-reason-hint"></textarea>
+            <span id="reverse-reason-hint" class="field-hint">
+                Posting a reversal keeps the original return in the ledger.
+            </span>
+        </div>
+        <div class="form-actions-row">
+            <button type="submit" class="btn-primary">Reverse Return</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+{% endblock %}
