@@ -1,10 +1,13 @@
 """Report routes for TrackWise."""
 
-from datetime import datetime, timedelta
-from flask_login import login_required
-from flask import render_template, request, redirect, url_for, flash, Response
+from datetime import date, datetime, timedelta
+from decimal import Decimal, InvalidOperation
+from functools import wraps
+from flask import abort, render_template, request, redirect, url_for, flash, Response, send_file
+from flask_login import current_user, login_required
 
-from app.models import Product, Setting
+from app.models import Product, Setting, db
+from app.models.accounting import Branch, CostCenter
 from services.fifo_service import get_inventory_valuation, get_profit_loss
 from app.services.reports import (
     get_income_statement,
@@ -16,13 +19,66 @@ from app.services.reports import (
     get_ar_aging,
     get_ap_aging,
     get_cashbook,
+    get_expense_budget_variance,
+    set_expense_budget,
 )
+from app.services.reports.xlsx_export import create_xlsx
 
 from . import reports_bp
 
 
+def _report_dimensions(business_id):
+    branches = []
+    cost_centers = []
+    if business_id:
+        branches = Branch.query.filter_by(
+            business_id=business_id,
+        ).order_by(Branch.code).all()
+        cost_centers = CostCenter.query.filter_by(
+            business_id=business_id,
+        ).order_by(CostCenter.code).all()
+    branch_id = request.args.get('branch_id', type=int)
+    cost_center_id = request.args.get('cost_center_id', type=int)
+    if branch_id is not None and not any(branch.id == branch_id for branch in branches):
+        abort(404)
+    if cost_center_id is not None and not any(
+        center.id == cost_center_id for center in cost_centers
+    ):
+        abort(404)
+    return branches, cost_centers, branch_id, cost_center_id
+
+
+def audit_report_access(report_type, action=None):
+    """Record successful report views in the caller's transaction."""
+
+    def decorate(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            response = view(*args, **kwargs)
+            from app.services.audit_service import record_user_action
+
+            record_user_action(
+                current_user.business_id,
+                current_user.id,
+                action or (
+                    'REPORT_VIEW'
+                    if request.method == 'GET'
+                    else 'REPORT_ACTION'
+                ),
+                'reports',
+                details={'report_type': report_type},
+            )
+            db.session.commit()
+            return response
+
+        return wrapped
+
+    return decorate
+
+
 @reports_bp.route('/reports')
 @login_required
+@audit_report_access('reports_home')
 def reports():
     """Main reports page - shows income statement by default."""
     return redirect(url_for('reports.income_statement'))
@@ -30,6 +86,7 @@ def reports():
 
 @reports_bp.route('/reports/income-statement')
 @login_required
+@audit_report_access('income_statement')
 def income_statement():
     """Income Statement report."""
     start_date_str = request.args.get('start_date')
@@ -64,6 +121,7 @@ def income_statement():
 
 @reports_bp.route('/reports/balance-sheet')
 @login_required
+@audit_report_access('balance_sheet')
 def balance_sheet():
     """Balance Sheet report."""
     as_of_date_str = request.args.get('as_of_date')
@@ -91,6 +149,7 @@ def balance_sheet():
 
 @reports_bp.route('/reports/cash-flow')
 @login_required
+@audit_report_access('cash_flow')
 def cash_flow():
     """Cash Flow Statement report."""
     start_date_str = request.args.get('start_date')
@@ -126,6 +185,7 @@ def cash_flow():
 
 @reports_bp.route('/reports/trial-balance')
 @login_required
+@audit_report_access('trial_balance')
 def trial_balance():
     """Trial Balance report."""
     as_of_date_str = request.args.get('as_of_date')
@@ -136,9 +196,15 @@ def trial_balance():
     
     from flask_login import current_user
     business_id = getattr(current_user, 'business_id', None)
+    branches, cost_centers, branch_id, cost_center_id = _report_dimensions(business_id)
     
     if business_id:
-        tb_data = get_trial_balance(business_id, as_of_date)
+        tb_data = get_trial_balance(
+            business_id,
+            as_of_date,
+            branch_id=branch_id,
+            cost_center_id=cost_center_id,
+        )
     else:
         tb_data = {'entries': [], 'total_debits': 0, 'total_credits': 0, 'is_balanced': True, 'difference': 0}
     
@@ -147,11 +213,16 @@ def trial_balance():
         report_type='trial_balance',
         tb=tb_data,
         as_of_date=as_of_date_str,
+        branches=branches,
+        cost_centers=cost_centers,
+        branch_id=branch_id,
+        cost_center_id=cost_center_id,
     )
 
 
 @reports_bp.route('/reports/general-ledger')
 @login_required
+@audit_report_access('general_ledger')
 def general_ledger():
     """General Ledger report."""
     account_id = request.args.get('account_id', type=int)
@@ -170,9 +241,17 @@ def general_ledger():
 
     from flask_login import current_user
     business_id = getattr(current_user, 'business_id', None)
+    branches, cost_centers, branch_id, cost_center_id = _report_dimensions(business_id)
 
     if business_id:
-        gl_data = get_general_ledger(business_id, account_id, start_date, end_date)
+        gl_data = get_general_ledger(
+            business_id,
+            account_id,
+            start_date,
+            end_date,
+            branch_id=branch_id,
+            cost_center_id=cost_center_id,
+        )
     else:
         gl_data = {'entries': [], 'accounts': [], 'selected_account': None}
 
@@ -200,11 +279,16 @@ def general_ledger():
         per_page=per_page,
         total=total,
         pages=gl_data['pages'],
+        branches=branches,
+        cost_centers=cost_centers,
+        branch_id=branch_id,
+        cost_center_id=cost_center_id,
     )
 
 
 @reports_bp.route('/reports/cashbook')
 @login_required
+@audit_report_access('cashbook')
 def cashbook():
     """Cashbook report showing all cash and bank transactions."""
     start_date_str = request.args.get('start_date')
@@ -259,6 +343,7 @@ def cashbook():
 
 @reports_bp.route('/reports/ar-aging')
 @login_required
+@audit_report_access('ar_aging')
 def ar_aging():
     """AR Aging report."""
     as_of_date_str = request.args.get('as_of_date')
@@ -301,6 +386,7 @@ def ar_aging():
 
 @reports_bp.route('/reports/audit-log')
 @login_required
+@audit_report_access('audit_log')
 def audit_log():
     """Audit Trail report."""
     start_date_str = request.args.get('start_date')
@@ -351,6 +437,7 @@ def audit_log():
 
 @reports_bp.route('/reports/ap-aging')
 @login_required
+@audit_report_access('ap_aging')
 def ap_aging():
     """AP Aging report."""
     as_of_date_str = request.args.get('as_of_date')
@@ -388,4 +475,103 @@ def ap_aging():
         per_page=per_page,
         total=total,
         pages=ap_data['pages'],
+    )
+
+
+def _budget_period(value):
+    if not value:
+        return date.today().replace(day=1)
+    try:
+        return datetime.strptime(value, '%Y-%m').date().replace(day=1)
+    except ValueError as error:
+        raise ValueError('Budget period must use YYYY-MM format.') from error
+
+
+@reports_bp.route('/reports/expense-budget-variance', methods=['GET', 'POST'])
+@login_required
+@audit_report_access('expense_budget_variance')
+def expense_budget_variance():
+    """Manage monthly expense budgets and compare them with posted actuals."""
+    period_value = (
+        request.form.get('period', '')
+        if request.method == 'POST'
+        else request.args.get('period', '')
+    )
+    try:
+        period_start = _budget_period(period_value)
+    except ValueError as error:
+        flash(str(error), 'danger')
+        return redirect(url_for('reports.expense_budget_variance'))
+
+    if request.method == 'POST':
+        account_id = request.form.get('account_id', type=int)
+        amount_value = request.form.get('amount', '').strip()
+        if account_id is None:
+            flash('Select an expense account.', 'danger')
+        else:
+            try:
+                amount = Decimal(amount_value)
+                set_expense_budget(
+                    current_user.business_id,
+                    account_id,
+                    period_start,
+                    amount,
+                    created_by=current_user.id,
+                )
+            except (InvalidOperation, ValueError) as error:
+                flash(str(error) or 'Enter a valid budget amount.', 'danger')
+            else:
+                flash('Expense budget saved.', 'success')
+        return redirect(url_for(
+            'reports.expense_budget_variance',
+            period=period_start.strftime('%Y-%m'),
+        ))
+
+    variance = get_expense_budget_variance(current_user.business_id, period_start)
+    return render_template(
+        'reports.html',
+        report_type='expense_budget_variance',
+        budget_variance=variance,
+        period=period_start.strftime('%Y-%m'),
+    )
+
+
+@reports_bp.route('/reports/expense-budget-variance/export.xlsx')
+@login_required
+@audit_report_access('expense_budget_variance_export', action='REPORT_EXPORT')
+def export_expense_budget_variance():
+    period_start = _budget_period(request.args.get('period', ''))
+    variance = get_expense_budget_variance(current_user.business_id, period_start)
+    rows = [[
+        'Account Code',
+        'Expense Account',
+        'Budget',
+        'Actual',
+        'Variance (Budget - Actual)',
+        'Budget Used (%)',
+    ]]
+    rows.extend(
+        [
+            row['account'].code,
+            row['account'].name,
+            row['budget'],
+            row['actual'],
+            row['variance'],
+            row['percent_used'] if row['percent_used'] is not None else '',
+        ]
+        for row in variance['rows']
+    )
+    rows.append([
+        '',
+        'Total',
+        variance['total_budget'],
+        variance['total_actual'],
+        variance['total_variance'],
+        '',
+    ])
+    return send_file(
+        create_xlsx(rows),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=f'expense-budget-variance-{period_start:%Y-%m}.xlsx',
     )

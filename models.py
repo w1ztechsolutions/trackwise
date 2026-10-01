@@ -435,4 +435,11 @@ class Staff(db.Model):
     payments = db.relationship('Payment', backref='staff_member', lazy='select', foreign_keys='Payment.staff_id')
 
 
-from app.models.accounting import Business, ChartOfAccounts, JournalEntry, JournalLine, AuditLog
+from app.models.accounting import (
+    Business,
+    ChartOfAccounts,
+    JournalEntry,
+    JournalLine,
+    AuditLog,
+    ExpenseBudget,
+)

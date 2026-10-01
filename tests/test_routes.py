@@ -214,6 +214,42 @@ class TestReportsRoutes:
         resp = client.get('/reports?start_date=2024-01-01&end_date=2024-12-31', follow_redirects=True)
         assert resp.status_code == 200
 
+    def test_report_view_is_attributed_in_audit_log(self, client, app, business):
+        from app.models import AuditLog
+
+        response = client.get('/reports/income-statement')
+        assert response.status_code == 200
+
+        with app.app_context():
+            audit = AuditLog.query.filter_by(
+                business_id=business.id,
+                action='REPORT_VIEW',
+                table_name='reports',
+            ).order_by(AuditLog.id.desc()).first()
+            assert audit is not None
+            assert audit.user_id == app.test_client_user.id
+            assert audit.actor_email == app.test_client_user.email
+            assert '"report_type": "income_statement"' in audit.new_values
+
+    def test_report_export_is_attributed_in_audit_log(self, client, app, business):
+        from app.models import AuditLog
+
+        response = client.get('/reports/expense-budget-variance/export.xlsx')
+        assert response.status_code == 200
+        assert response.mimetype == (
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+        with app.app_context():
+            audit = AuditLog.query.filter_by(
+                business_id=business.id,
+                action='REPORT_EXPORT',
+                table_name='reports',
+            ).order_by(AuditLog.id.desc()).first()
+            assert audit is not None
+            assert audit.user_id == app.test_client_user.id
+            assert audit.actor_email == app.test_client_user.email
+
 
 class TestReceiptRoutes:
     def test_invoice_receipt_page_loads(self, client, app, business):

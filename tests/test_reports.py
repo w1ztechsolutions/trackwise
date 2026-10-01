@@ -358,7 +358,10 @@ class TestReportServices(unittest.TestCase):
         self.assertGreater(len(al['entries']), 0)
         logged_tables = {log['table_name'] for log in al['entries']}
         self.assertTrue({'purchases', 'purchase_items', 'stock_transactions', 'journal_entries'} <= logged_tables)
-        self.assertTrue(all(log['action'] == 'CREATE' for log in al['entries']))
+        self.assertTrue(all(
+            log['action'] in {'CREATE', 'UPDATE'}
+            for log in al['entries']
+        ))
         journal_logs = [
             log for log in al['entries']
             if log['table_name'] == 'journal_entries' and log['action'] == 'CREATE'

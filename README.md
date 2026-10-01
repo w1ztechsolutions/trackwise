@@ -426,6 +426,10 @@ In production, logs are formatted as JSON for aggregation:
 - **[docs/PAYMENTS_HUB.md](docs/PAYMENTS_HUB.md)** — Payments Hub system documentation
 - **[docs/bugs_and_fixes.md](docs/bugs_and_fixes.md)** — Known bugs and fixes log
 - **[docs/OPERATIONS.md](docs/OPERATIONS.md)** — Operations runbook and utility scripts
+- **[docs/PERIOD_CLOSE_RUNBOOK.md](docs/PERIOD_CLOSE_RUNBOOK.md)** — Financial period-close runbook
+- **[docs/BACKUP_AND_RETENTION.md](docs/BACKUP_AND_RETENTION.md)** — Database backup and retention policy
+- **[docs/DISASTER_RECOVERY.md](docs/DISASTER_RECOVERY.md)** — Production disaster recovery procedure
+- **[docs/DATA_EXPORT_IMPORT.md](docs/DATA_EXPORT_IMPORT.md)** — Supported data export and import procedures
 - **[docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)** — Environment variable reference
 - **[docs/DATABASE.md](docs/DATABASE.md)** — Database schema reference
 - **[docs/RELEASES.md](docs/RELEASES.md)** — Release process and versioning guide

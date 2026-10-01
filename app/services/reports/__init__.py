@@ -12,6 +12,7 @@ from .audit_trail import get_audit_log
 from .ar_aging import get_ar_aging
 from .ap_aging import get_ap_aging
 from .cashbook import get_cashbook
+from .expense_budget import get_expense_budget_variance, set_expense_budget
 
 __all__ = [
     'get_income_statement',
@@ -23,4 +24,6 @@ __all__ = [
     'get_ar_aging',
     'get_ap_aging',
     'get_cashbook',
+    'get_expense_budget_variance',
+    'set_expense_budget',
 ]

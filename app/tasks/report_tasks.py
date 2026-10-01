@@ -8,7 +8,7 @@ from app.celery_app import celery_app
 
 
 @celery_app.task(bind=True, max_retries=3)
-def generate_report_pdf(self, business_id, report_type, params=None):
+def generate_report_pdf(self, business_id, report_type, params=None, requested_by_user_id=None):
     """Generate a PDF report in the background.
 
     Args:
@@ -70,6 +70,19 @@ def generate_report_pdf(self, business_id, report_type, params=None):
             filepath = os.path.join(output_dir, filename)
 
             HTML(string=html).write_pdf(filepath)
+
+            from app.services.audit_service import record_user_action
+
+            record_user_action(
+                business_id,
+                requested_by_user_id,
+                'REPORT_EXPORT',
+                'reports',
+                details={'report_type': report_type, 'format': 'pdf'},
+            )
+            from app.models import db
+
+            db.session.commit()
 
             return {
                 'status': 'success',

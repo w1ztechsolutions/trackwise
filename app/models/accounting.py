@@ -50,11 +50,50 @@ class ChartOfAccounts(db.Model):
     )
 
 
+class Branch(db.Model):
+    __tablename__ = 'branches'
+
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(
+        db.Integer,
+        db.ForeignKey('businesses.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    code = db.Column(db.String(20), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('business_id', 'code', name='uq_business_branch_code'),
+    )
+
+
+class CostCenter(db.Model):
+    __tablename__ = 'cost_centers'
+
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(
+        db.Integer,
+        db.ForeignKey('businesses.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    code = db.Column(db.String(20), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('business_id', 'code', name='uq_business_cost_center_code'),
+    )
+
+
 class JournalEntry(db.Model):
     __tablename__ = 'journal_entries'
 
     id = db.Column(db.Integer, primary_key=True)
     business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'), nullable=False)
+    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=True, index=True)
     entry_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     reference_type = db.Column(db.String(50), nullable=True)
     reference_id = db.Column(db.Integer, nullable=True)
@@ -73,6 +112,7 @@ class JournalEntry(db.Model):
     reversal_reason = db.Column(db.String(255), nullable=True)
 
     lines = db.relationship('JournalLine', backref='journal_entry', cascade='all, delete-orphan')
+    branch = db.relationship('Branch', backref='journal_entries')
     reversal_entry = db.relationship(
         'JournalEntry',
         remote_side=[id],
@@ -87,10 +127,17 @@ class JournalLine(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entries.id'), nullable=False)
     account_id = db.Column(db.Integer, db.ForeignKey('chart_of_accounts.id'), nullable=False)
+    cost_center_id = db.Column(
+        db.Integer,
+        db.ForeignKey('cost_centers.id'),
+        nullable=True,
+        index=True,
+    )
     debit_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     credit_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
 
     account = db.relationship('ChartOfAccounts', backref='journal_lines')
+    cost_center = db.relationship('CostCenter', backref='journal_lines')
 
 
 class AuditLog(db.Model):
@@ -99,6 +146,8 @@ class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     business_id = db.Column(db.Integer, db.ForeignKey('businesses.id'), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    actor_name = db.Column(db.String(120), nullable=True)
+    actor_email = db.Column(db.String(120), nullable=True)
     action = db.Column(db.String(50), nullable=False)
     table_name = db.Column(db.String(100), nullable=False)
     record_id = db.Column(db.Integer, nullable=True)
@@ -148,3 +197,39 @@ class RevenueRecognitionSchedule(db.Model):
         'ChartOfAccounts',
         foreign_keys=[deferred_revenue_account_id],
     )
+
+
+class ExpenseBudget(db.Model):
+    __tablename__ = 'expense_budgets'
+
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(
+        db.Integer,
+        db.ForeignKey('businesses.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    account_id = db.Column(
+        db.Integer,
+        db.ForeignKey('chart_of_accounts.id', ondelete='CASCADE'),
+        nullable=False,
+    )
+    period_start = db.Column(db.Date, nullable=False)
+    amount = db.Column(db.Numeric(14, 2), nullable=False)
+    created_by = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete='SET NULL'),
+        nullable=True,
+    )
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            'business_id',
+            'account_id',
+            'period_start',
+            name='uq_expense_budget_business_account_period',
+        ),
+    )
+
+    account = db.relationship('ChartOfAccounts')

@@ -1,7 +1,7 @@
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from flask import Flask
-from models import db, Product, User
+from models import db, Product, User, FinancialCategory
 from services.fifo_service import record_purchase, record_sale, record_expense
 from app.services.accounting_service import (
     AccountingException,
@@ -220,6 +220,56 @@ class TestAccountingEngine(unittest.TestCase):
 
         audit = db.session.get(AuditLog, audit.id)
         self.assertEqual(audit.action, 'LOGIN')
+        self.assertEqual(audit.actor_email, self.user.email)
+
+    def test_audited_configuration_and_actor_identity_snapshot(self):
+        db.session.info['audit_actor_id'] = self.user.id
+        category = FinancialCategory(
+            business_id=self.business.id,
+            name='Operating costs',
+            code='OPEX',
+        )
+        db.session.add(category)
+        db.session.commit()
+
+        created = AuditLog.query.filter_by(
+            table_name='financial_categories',
+            record_id=category.id,
+            action='CREATE',
+        ).one()
+        self.assertEqual(created.user_id, self.user.id)
+        self.assertEqual(created.actor_email, self.user.email)
+
+        self.user.name = 'Original name'
+        db.session.commit()
+        self.user.name = 'Changed name'
+        db.session.commit()
+        updated = AuditLog.query.filter_by(
+            table_name='users',
+            record_id=self.user.id,
+            action='UPDATE',
+        ).order_by(AuditLog.id.desc()).first()
+        self.assertEqual(updated.actor_name, 'Original name')
+        db.session.info.pop('audit_actor_id', None)
+
+    def test_bulk_audit_log_mutations_are_rejected(self):
+        record_user_action(
+            self.business.id,
+            self.user.id,
+            'LOGIN',
+            'authentication',
+            record_id=self.user.id,
+        )
+        db.session.commit()
+        audit = AuditLog.query.filter_by(action='LOGIN').one()
+
+        with self.assertRaises(AuditLogImmutableError):
+            AuditLog.query.filter_by(id=audit.id).update({'action': 'ALTERED'})
+        db.session.rollback()
+
+        with self.assertRaises(AuditLogImmutableError):
+            AuditLog.query.filter_by(id=audit.id).delete()
+        db.session.rollback()
 
     def test_reversal_posts_opposite_lines_and_preserves_original(self):
         entry = post_entry(

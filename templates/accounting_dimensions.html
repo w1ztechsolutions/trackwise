@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Branches & Cost Centers{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="breadcrumb-nav">
+    <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{{ url_for('accounting.je_list') }}">Accounting</a>
+    <span class="breadcrumb-separator">/</span>
+    <span>Branches &amp; Cost Centers</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Branches &amp; Cost Centers</h1>
+        <p>Organize journal entries and compare financial activity across your business.</p>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <section class="glass-card">
+        <h2 class="section-title">Branches</h2>
+        <form method="POST" action="{{ url_for('accounting.dimensions') }}" class="mb-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="dimension_type" value="branch">
+            <div class="form-group">
+                <label class="form-label" for="branch_code">Branch code</label>
+                <input class="form-control" id="branch_code" name="code" maxlength="20" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="branch_name">Branch name</label>
+                <input class="form-control" id="branch_name" name="name" maxlength="200" required>
+            </div>
+            <button class="btn-primary" type="submit">Add Branch</button>
+        </form>
+        <div class="table-container">
+            <table class="custom-table">
+                <thead><tr><th>Code</th><th>Name</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody>
+                    {% for branch in branches %}
+                    <tr>
+                        <td>{{ branch.code }}</td>
+                        <td>{{ branch.name }}</td>
+                        <td>{{ 'Active' if branch.is_active else 'Archived' }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('accounting.dimension_toggle', dimension_type='branch', dimension_id=branch.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-sm btn-outline-secondary" type="submit">{{ 'Archive' if branch.is_active else 'Restore' }}</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-muted">No branches configured.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="glass-card">
+        <h2 class="section-title">Cost Centers</h2>
+        <form method="POST" action="{{ url_for('accounting.dimensions') }}" class="mb-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="dimension_type" value="cost_center">
+            <div class="form-group">
+                <label class="form-label" for="cost_center_code">Cost center code</label>
+                <input class="form-control" id="cost_center_code" name="code" maxlength="20" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="cost_center_name">Cost center name</label>
+                <input class="form-control" id="cost_center_name" name="name" maxlength="200" required>
+            </div>
+            <button class="btn-primary" type="submit">Add Cost Center</button>
+        </form>
+        <div class="table-container">
+            <table class="custom-table">
+                <thead><tr><th>Code</th><th>Name</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody>
+                    {% for center in cost_centers %}
+                    <tr>
+                        <td>{{ center.code }}</td>
+                        <td>{{ center.name }}</td>
+                        <td>{{ 'Active' if center.is_active else 'Archived' }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('accounting.dimension_toggle', dimension_type='cost-center', dimension_id=center.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-sm btn-outline-secondary" type="submit">{{ 'Archive' if center.is_active else 'Restore' }}</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-muted">No cost centers configured.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

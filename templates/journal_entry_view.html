@@ -28,6 +28,7 @@
             <thead>
                 <tr>
                     <th scope="col">Account</th>
+                    <th scope="col">Cost Center</th>
                     <th scope="col">Debit</th>
                     <th scope="col">Credit</th>
                 </tr>
@@ -36,6 +37,7 @@
                 {% for line in entry.lines %}
                 <tr>
                     <td>{{ account_map.get(line.account_id, 'Unknown') }}</td>
+                    <td>{{ line.cost_center.code if line.cost_center else '-' }}</td>
                     <td>{{ '%.2f'|format(line.debit_amount) if line.debit_amount else '' }}</td>
                     <td>{{ '%.2f'|format(line.credit_amount) if line.credit_amount else '' }}</td>
                 </tr>
@@ -50,7 +52,10 @@
             <tr><td class="px-3">Total Credit:</td><td><strong>{{ '%.2f'|format(total_credit) }}</strong></td></tr>
         </table>
     </div>
-    <p class="text-muted text-sm mt-3">Reference: Journal Entry &middot; Created by user #{{ entry.created_by }}</p>
+    <p class="text-muted text-sm mt-3">
+        Branch: {{ entry.branch.code if entry.branch else 'Unassigned' }} ·
+        Reference: Journal Entry · Created by user #{{ entry.created_by }}
+    </p>
     {% if reversal_entry %}
     <div class="alert alert-info mt-3">
         Reversed by journal entry

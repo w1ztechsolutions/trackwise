@@ -3,7 +3,14 @@ from datetime import datetime, timezone
 
 from sqlalchemy.exc import IntegrityError
 
-from app.models import db, ChartOfAccounts, JournalEntry, JournalLine
+from app.models import (
+    db,
+    Branch,
+    ChartOfAccounts,
+    CostCenter,
+    JournalEntry,
+    JournalLine,
+)
 from app.services.audit_service import install_audit_listeners
 from app.services.period_service import assert_period_open
 
@@ -24,12 +31,31 @@ def post_entry(
     reference_id=None,
     created_by=None,
     commit=True,
+    branch_id=None,
+    allow_inactive_dimensions=False,
 ):
     if business_id is None:
         raise AccountingException("business_id is required")
     assert_period_open(business_id, entry_date or datetime.now(timezone.utc))
     if not lines:
         raise AccountingException("Journal entry must have at least two lines")
+
+    if branch_id in ("", None):
+        branch_id = None
+    else:
+        try:
+            branch_id = int(branch_id)
+        except (TypeError, ValueError):
+            raise AccountingException("Branch selection is invalid")
+        branch_filters = {
+            'id': branch_id,
+            'business_id': business_id,
+        }
+        if not allow_inactive_dimensions:
+            branch_filters['is_active'] = True
+        branch = Branch.query.filter_by(**branch_filters).first()
+        if branch is None:
+            raise AccountingException("Branch not found or inactive")
 
     normalized_lines = []
     for line in lines:
@@ -45,10 +71,19 @@ def post_entry(
         if debit > 0 and credit > 0:
             raise AccountingException("A journal line cannot contain both a debit and a credit")
         if debit > 0 or credit > 0:
+            cost_center_id = line.get('cost_center_id')
+            if cost_center_id in ("", None):
+                cost_center_id = None
+            else:
+                try:
+                    cost_center_id = int(cost_center_id)
+                except (TypeError, ValueError):
+                    raise AccountingException("Cost center selection is invalid")
             normalized_lines.append({
                 'account_id': line['account_id'],
                 'debit_amount': debit,
                 'credit_amount': credit,
+                'cost_center_id': cost_center_id,
             })
     if len(normalized_lines) < 2:
         raise AccountingException("Journal entry must have at least two non-zero lines")
@@ -72,8 +107,29 @@ def post_entry(
     if missing:
         raise AccountingException(f"Account(s) not found or inactive: {missing}")
 
+    cost_center_ids = {
+        line['cost_center_id']
+        for line in normalized_lines
+        if line['cost_center_id'] is not None
+    }
+    if cost_center_ids:
+        center_query = CostCenter.query.filter(
+            CostCenter.id.in_(cost_center_ids),
+            CostCenter.business_id == business_id,
+        )
+        if not allow_inactive_dimensions:
+            center_query = center_query.filter(CostCenter.is_active.is_(True))
+        centers = center_query.all()
+        found_center_ids = {center.id for center in centers}
+        missing_centers = cost_center_ids - found_center_ids
+        if missing_centers:
+            raise AccountingException(
+                f"Cost center(s) not found or inactive: {missing_centers}"
+            )
+
     entry = JournalEntry(
         business_id=business_id,
+        branch_id=branch_id,
         entry_date=entry_date or datetime.now(timezone.utc),
         reference_type=reference_type,
         reference_id=reference_id,
@@ -87,6 +143,7 @@ def post_entry(
         line = JournalLine(
             journal_entry_id=entry.id,
             account_id=line_data['account_id'],
+            cost_center_id=line_data['cost_center_id'],
             debit_amount=line_data['debit_amount'],
             credit_amount=line_data['credit_amount'],
         )
@@ -123,6 +180,7 @@ def reverse_entry(business_id, entry_id, reason, created_by=None, reversal_date=
             "account_id": line.account_id,
             "debit_amount": line.credit_amount,
             "credit_amount": line.debit_amount,
+            "cost_center_id": line.cost_center_id,
         }
         for line in entry.lines
     ]
@@ -135,6 +193,8 @@ def reverse_entry(business_id, entry_id, reason, created_by=None, reversal_date=
         reference_id=entry.id,
         created_by=created_by,
         commit=False,
+        branch_id=entry.branch_id,
+        allow_inactive_dimensions=True,
     )
     entry.reversed_by_entry_id = reversal.id
     entry.reversal_reason = reason

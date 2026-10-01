@@ -37,6 +37,7 @@
                 <tr>
                     <th scope="col">Date</th>
                     <th scope="col">Description</th>
+                    <th scope="col">Branch</th>
                     <th scope="col">Lines</th>
                     <th scope="col">Created By</th>
                     <th scope="col">Status</th>
@@ -48,6 +49,7 @@
                 <tr>
                     <td>{{ entry.entry_date.strftime('%Y-%m-%d') if entry.entry_date else '-' }}</td>
                     <td>{{ entry.description }}</td>
+                    <td>{{ entry.branch.code if entry.branch else '-' }}</td>
                     <td>{{ entry.lines|length }}</td>
                     <td>{{ entry.created_by or 'system' }}</td>
                     <td><span class="badge badge-success">Posted</span></td>
@@ -57,7 +59,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="empty-state">No journal entries yet. Click "New Journal Entry" to get started.</td>
+                    <td colspan="7" class="empty-state">No journal entries yet. Click "New Journal Entry" to get started.</td>
                 </tr>
                 {% endfor %}
             </tbody>

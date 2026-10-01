@@ -99,6 +99,15 @@
                     </a>
                 </li>
                 <li>
+                    <a href="{{ url_for('accounting.dimensions') }}" class="nav-link {% if request.endpoint and 'dimension' in request.endpoint %}active{% endif %}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 4h16v16H4z"></path>
+                            <path d="M4 10h16M10 4v16"></path>
+                        </svg>
+                        Branches &amp; Cost Centers
+                    </a>
+                </li>
+                <li>
                     <a href="{{ url_for('accounting.bank_recon') }}" class="nav-link {% if request.endpoint and 'bank' in request.endpoint %}active{% endif %}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="2" y="5" width="20" height="14" rx="2"></rect>

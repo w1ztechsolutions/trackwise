@@ -3,7 +3,12 @@
 from app.models import db, ChartOfAccounts, JournalLine, JournalEntry
 
 
-def get_trial_balance(business_id, as_of_date=None):
+def get_trial_balance(
+    business_id,
+    as_of_date=None,
+    branch_id=None,
+    cost_center_id=None,
+):
     """Generate a Trial Balance from journal entries.
     
     Args:
@@ -30,6 +35,10 @@ def get_trial_balance(business_id, as_of_date=None):
     
     if as_of_date:
         line_query = line_query.filter(JournalEntry.entry_date <= as_of_date)
+    if branch_id is not None:
+        line_query = line_query.filter(JournalEntry.branch_id == branch_id)
+    if cost_center_id is not None:
+        line_query = line_query.filter(JournalLine.cost_center_id == cost_center_id)
     
     line_query = line_query.group_by(JournalLine.account_id)
     
@@ -80,4 +89,6 @@ def get_trial_balance(business_id, as_of_date=None):
         'is_balanced': is_balanced,
         'difference': total_debits - total_credits,
         'as_of_date': as_of_date,
+        'branch_id': branch_id,
+        'cost_center_id': cost_center_id,
     }

@@ -151,13 +151,15 @@ Individual debit/credit lines within a journal entry.
 
 ### `audit_logs`
 
-Application-level append-only audit trail for financially significant records and user actions. ORM updates/deletes are rejected; database administrators with direct SQL access remain able to alter the table.
+Application-level append-only audit trail for transaction, inventory, production, approval, account-configuration, user, authentication, and report activity. ORM updates/deletes, including bulk ORM DML, are rejected; database administrators with direct SQL access remain able to alter the table.
 
 | Column | Type | Nullable | Default | Description |
 |--------|------|----------|---------|-------------|
 | `id` | INTEGER | No | Auto | Primary key |
 | `business_id` | INTEGER | Yes | — | FK to `businesses.id` |
 | `user_id` | INTEGER | Yes | — | FK to `users.id` |
+| `actor_name` | VARCHAR(120) | Yes | — | Actor display name captured when the event was recorded |
+| `actor_email` | VARCHAR(120) | Yes | — | Actor email captured when the event was recorded |
 | `action` | VARCHAR(50) | No | — | Action type (e.g., `CREATE`, `UPDATE`, `DELETE`, `LOGIN`) |
 | `table_name` | VARCHAR(100) | No | — | Affected table |
 | `record_id` | INTEGER | Yes | — | Affected record ID |
@@ -165,7 +167,7 @@ Application-level append-only audit trail for financially significant records an
 | `new_values` | TEXT | Yes | — | JSON snapshot of new values |
 | `timestamp` | TIMESTAMP | No | UTC now | Event timestamp |
 
-Password hashes and bank account numbers are intentionally excluded from audit snapshots.
+Password hashes and bank account numbers are intentionally excluded from audit snapshots. Actor fields preserve attribution after user profile changes; older records without snapshots use the related user record where available.
 
 ### `revenue_recognition_schedules`
 

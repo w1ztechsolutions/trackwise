@@ -22,6 +22,8 @@ from models import db
 from app.models import Invoice, Sale
 from app.models.accounting import (
     Business,
+    Branch,
+    CostCenter,
     ChartOfAccounts,
     JournalEntry,
     JournalLine,
@@ -69,6 +71,90 @@ def _accounts_for_select(business_id):
         .all()
     )
     return [{'id': a.id, 'code': a.code, 'name': a.name, 'type': a.type} for a in accounts]
+
+
+def _active_dimensions(model, business_id):
+    return (
+        model.query.filter_by(business_id=business_id, is_active=True)
+        .order_by(model.code)
+        .all()
+    )
+
+
+@accounting_bp.route('/accounting/dimensions', methods=['GET', 'POST'])
+@login_required
+@role_required('admin', 'accountant')
+def dimensions():
+    biz_id = _biz_id()
+    if request.method == 'POST':
+        dimension_type = request.form.get('dimension_type', '')
+        dimension_model = {
+            'branch': Branch,
+            'cost_center': CostCenter,
+        }.get(dimension_type)
+        code = request.form.get('code', '').strip()
+        name = request.form.get('name', '').strip()
+        if dimension_model is None:
+            abort(400)
+        if not code or not name:
+            flash('A code and name are required.', 'danger')
+        elif len(code) > 20 or len(name) > 200:
+            flash('Codes must be at most 20 characters and names at most 200 characters.', 'danger')
+        elif dimension_model.query.filter_by(
+            business_id=biz_id, code=code
+        ).first():
+            flash(f'The {dimension_type.replace("_", " ")} code already exists.', 'danger')
+        else:
+            db.session.add(dimension_model(
+                business_id=biz_id,
+                code=code,
+                name=name,
+                is_active=True,
+            ))
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                flash('That code is already in use.', 'danger')
+            else:
+                flash(f'{dimension_type.replace("_", " ").title()} created.', 'success')
+                return redirect(url_for('accounting.dimensions'))
+
+    return render_template(
+        'accounting_dimensions.html',
+        branches=Branch.query.filter_by(business_id=biz_id).order_by(Branch.code).all(),
+        cost_centers=CostCenter.query.filter_by(
+            business_id=biz_id
+        ).order_by(CostCenter.code).all(),
+    )
+
+
+@accounting_bp.route(
+    '/accounting/dimensions/<dimension_type>/<int:dimension_id>/toggle',
+    methods=['POST'],
+)
+@login_required
+@role_required('admin', 'accountant')
+def dimension_toggle(dimension_type, dimension_id):
+    biz_id = _biz_id()
+    dimension_model = {
+        'branch': Branch,
+        'cost-center': CostCenter,
+    }.get(dimension_type)
+    if dimension_model is None:
+        abort(404)
+    dimension = dimension_model.query.filter_by(
+        id=dimension_id,
+        business_id=biz_id,
+    ).first_or_404()
+    dimension.is_active = not dimension.is_active
+    db.session.commit()
+    flash(
+        f'{dimension_type.replace("-", " ").title()} '
+        f'{"activated" if dimension.is_active else "archived"}.',
+        'success',
+    )
+    return redirect(url_for('accounting.dimensions'))
 
 
 # ─── Chart of Accounts ────────────────────────────────────────────────────
@@ -283,10 +369,27 @@ def je_create():
         account_ids = request.form.getlist('account_id')
         debits = request.form.getlist('debit_amount')
         credits = request.form.getlist('credit_amount')
+        cost_center_ids = request.form.getlist('cost_center_id')
+        if not cost_center_ids:
+            cost_center_ids = [''] * len(account_ids)
+        branch_id_raw = request.form.get('branch_id', '').strip()
+        try:
+            branch_id = int(branch_id_raw) if branch_id_raw else None
+        except ValueError:
+            branch_id = -1
+        if branch_id is not None and not Branch.query.filter_by(
+            id=branch_id,
+            business_id=biz_id,
+            is_active=True,
+        ).first():
+            flash('Selected branch is not valid for this business.', 'danger')
+            return redirect(url_for('accounting.je_create'))
 
         parsed_lines = []
         errors = []
-        for acc_id_raw, debit_raw, credit_raw in zip(account_ids, debits, credits):
+        for acc_id_raw, debit_raw, credit_raw, cost_center_id_raw in zip(
+            account_ids, debits, credits, cost_center_ids
+        ):
             acc_id_raw = acc_id_raw.strip() if acc_id_raw else ''
             if not acc_id_raw:
                 continue
@@ -311,12 +414,26 @@ def je_create():
             if debit > 0 and credit > 0:
                 errors.append('A line cannot be both a debit and a credit.')
                 continue
+            cost_center_id_raw = (cost_center_id_raw or '').strip()
+            try:
+                cost_center_id = int(cost_center_id_raw) if cost_center_id_raw else None
+            except ValueError:
+                errors.append('Invalid cost center selection.')
+                continue
+            if cost_center_id is not None and not CostCenter.query.filter_by(
+                id=cost_center_id,
+                business_id=biz_id,
+                is_active=True,
+            ).first():
+                errors.append('Selected cost center is not valid for this business.')
+                continue
             parsed_lines.append({
                 'account_id': account.id,
                 'account_code': account.code,
                 'account_name': account.name,
                 'debit_amount': round(debit, 2),
                 'credit_amount': round(credit, 2),
+                'cost_center_id': cost_center_id,
             })
 
         if not description:
@@ -339,6 +456,7 @@ def je_create():
         proposal = {
             'description': description,
             'entry_date': entry_date_raw,
+            'branch_id': branch_id,
             'lines': parsed_lines,
         }
 
@@ -365,11 +483,13 @@ def je_create():
                     [
                         {'account_id': l['account_id'],
                          'debit_amount': l['debit_amount'],
-                         'credit_amount': l['credit_amount']}
+                         'credit_amount': l['credit_amount'],
+                         'cost_center_id': l['cost_center_id']}
                         for l in parsed_lines
                     ],
                     reference_type='JournalEntry',
                     created_by=current_user.id,
+                    branch_id=branch_id,
                 )
                 db.session.commit()
                 flash(f'Journal entry #{entry.id} posted.', 'success')
@@ -381,8 +501,16 @@ def je_create():
         return redirect(url_for('accounting.je_list'))
 
     accounts = _accounts_for_select(biz_id)
+    branches = _active_dimensions(Branch, biz_id)
+    cost_centers = _active_dimensions(CostCenter, biz_id)
     today = datetime.now(timezone.utc).date().isoformat()
-    return render_template('journal_entry_form.html', accounts=accounts, today=today)
+    return render_template(
+        'journal_entry_form.html',
+        accounts=accounts,
+        branches=branches,
+        cost_centers=cost_centers,
+        today=today,
+    )
 
 
 @accounting_bp.route('/accounting/journal-entries/<int:entry_id>')

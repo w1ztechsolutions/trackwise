@@ -1,10 +1,4 @@
-"""Audit Trail report derived from AuditLog records.
-
-Every journal entry creation writes an AuditLog row via
-`_log_audit()` in `accounting_service.py`.  This report
-surfaces those immutable records so users can see who did what
-and when — separate from the General Ledger's per-line attribution.
-"""
+"""Audit Trail report derived from immutable AuditLog records."""
 
 import json
 
@@ -40,14 +34,16 @@ def get_audit_log(business_id, start_date=None, end_date=None, action=None):
 
     entries = []
     for log, user in query.all():
-        display_name = 'Unknown'
-        if user:
-            display_name = user.name or user.email or str(user.id)
+        display_name = (
+            log.actor_name
+            or log.actor_email
+            or (user.name or user.email or str(user.id) if user else 'Unknown')
+        )
 
         entries.append({
             'timestamp': log.timestamp,
             'user_name': display_name,
-            'user_email': user.email if user else '',
+            'user_email': log.actor_email or (user.email if user else ''),
             'action': log.action,
             'table_name': log.table_name,
             'record_id': log.record_id,

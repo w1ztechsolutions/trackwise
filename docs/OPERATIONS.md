@@ -12,6 +12,7 @@ This document describes the operational utility scripts included in the TrackWis
 4. [Seed Demo Data](#seed-demo-data)
 5. [Quick Database Connectivity Check](#quick-database-connectivity-check)
 6. [Common Operational Procedures](#common-operational-procedures)
+7. [Operational Runbooks](#operational-runbooks)
 
 ---
 
@@ -166,14 +167,7 @@ python verify_db.py
 
 ### Closing an Accounting Period
 
-1. Complete reconciliation and review the trial balance and supporting reports.
-2. As an `admin` or `accountant`, open **Accounting → Journal Entries → Period Close**.
-3. Close through the final date reviewed. The application only permits moving the close date forward.
-4. If corrections in the closed period are required, only an `admin` can reopen it. Confirm the action on the Period Close page; the event is recorded in the audit log.
-5. Complete and review corrections promptly, then close the period again. Alternatively, correct posted entries with a reasoned journal reversal and a new entry in an open period.
-6. Take and verify a database backup before production close procedures.
-
-The close-through date is business-scoped. New financial records and edits dated on or before it are rejected. It is a posting lock, not a substitute for an independent review, statutory close, tax filing, or jurisdiction-specific approval workflow.
+Follow the [period-close runbook](PERIOD_CLOSE_RUNBOOK.md) for preparation, approval, locking, correction, and evidence steps. The close-through date is business-scoped; it is a posting lock, not a substitute for an independent review, statutory close, tax filing, or jurisdiction-specific approval workflow.
 
 ### Running Migrations
 
@@ -231,6 +225,13 @@ flask shell
 >>> from app.services.accounting_service import verify_balances
 >>> verify_balances(business_id=1)
 ```
+
+### Operational Runbooks
+
+- [Period-close runbook](PERIOD_CLOSE_RUNBOOK.md)
+- [Backup and retention policy](BACKUP_AND_RETENTION.md)
+- [Disaster recovery procedure](DISASTER_RECOVERY.md)
+- [Data export and import procedures](DATA_EXPORT_IMPORT.md)
 
 ### Superadmin Bootstrap
 

@@ -4,6 +4,8 @@
 
     const templateSelect = document.getElementById('accountTemplate');
     const optionsHtml = templateSelect ? templateSelect.innerHTML.trim() : '';
+    const costCenterTemplate = document.getElementById('costCenterTemplate');
+    const costCenterOptionsHtml = costCenterTemplate ? costCenterTemplate.innerHTML.trim() : '';
 
     function cloneSelect() {
         const sel = document.createElement('select');
@@ -55,6 +57,7 @@
         tr.className = 'line-row';
         tr.innerHTML =
             '<td><select name="account_id" class="form-control account-select" required></select></td>' +
+            '<td><select name="cost_center_id" class="form-control">' + costCenterOptionsHtml + '</select></td>' +
             '<td><input type="number" name="debit_amount" class="form-control debit" step="0.01" min="0" value="0"></td>' +
             '<td><input type="number" name="credit_amount" class="form-control credit" step="0.01" min="0" value="0"></td>' +
             '<td><button type="button" class="btn btn-sm btn-outline-danger remove-line" aria-label="Remove line">Remove</button></td>';

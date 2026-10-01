@@ -37,6 +37,15 @@
             <input type="date" id="entry_date" name="entry_date" class="form-control" value="{{ today }}" required aria-describedby="entry-date-hint">
             <span id="entry-date-hint" class="field-hint">Defaults to today. Use the calendar to change.</span>
         </div>
+        <div class="mb-3">
+            <label for="branch_id" class="form-label">Branch</label>
+            <select id="branch_id" name="branch_id" class="form-control">
+                <option value="">Unassigned</option>
+                {% for branch in branches %}
+                <option value="{{ branch.id }}">{{ branch.code }} — {{ branch.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
 
         <h3 class="section-title">Lines</h3>
         <p class="text-muted text-sm mb-2">Every entry must balance (total debits = total credits).</p>
@@ -46,6 +55,7 @@
                 <thead>
                     <tr>
                         <th scope="col">Account</th>
+                        <th scope="col">Cost Center</th>
                         <th scope="col">Debit</th>
                         <th scope="col">Credit</th>
                         <th scope="col">Action</th>
@@ -55,6 +65,14 @@
                     <tr class="line-row">
                         <td>
                             <select name="account_id" class="form-control account-select" required></select>
+                        </td>
+                        <td>
+                            <select name="cost_center_id" class="form-control">
+                                <option value="">Unassigned</option>
+                                {% for center in cost_centers %}
+                                <option value="{{ center.id }}">{{ center.code }} — {{ center.name }}</option>
+                                {% endfor %}
+                            </select>
                         </td>
                         <td><input type="number" name="debit_amount" class="form-control debit" step="0.01" min="0" value="0"></td>
                         <td><input type="number" name="credit_amount" class="form-control credit" step="0.01" min="0" value="0"></td>
@@ -83,6 +101,12 @@
 <select id="accountTemplate" class="d-none">
     {% for a in accounts %}
     <option value="{{ a.id }}" {% if a.type == 'asset' or a.type == 'expense' %}data-side="debit"{% elif a.type == 'liability' or a.type == 'income' or a.type == 'equity' %}data-side="credit"{% endif %} data-type="{{ a.type }}">{{ a.code }} — {{ a.name }}</option>
+    {% endfor %}
+</select>
+<select id="costCenterTemplate" class="d-none">
+    <option value="">Unassigned</option>
+    {% for center in cost_centers %}
+    <option value="{{ center.id }}">{{ center.code }} — {{ center.name }}</option>
     {% endfor %}
 </select>
 {% endblock %}

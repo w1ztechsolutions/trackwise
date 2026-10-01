@@ -9,7 +9,11 @@ from app.models.accounting import Business
 
 AUDITED_TABLES = {
     "businesses",
+    "branches",
+    "cost_centers",
     "chart_of_accounts",
+    "products",
+    "warehouses",
     "customers",
     "suppliers",
     "purchases",
@@ -25,6 +29,7 @@ AUDITED_TABLES = {
     "bills",
     "bill_items",
     "payments",
+    "bank_statements",
     "journal_entries",
     "journal_lines",
     "production_batches",
@@ -32,9 +37,14 @@ AUDITED_TABLES = {
     "finished_good_outputs",
     "approval_requests",
     "approval_actions",
+    "approval_configs",
     "users",
     "revenue_recognition_schedules",
     "settings",
+    "financial_categories",
+    "line_items",
+    "staff",
+    "expense_budgets",
 }
 
 SENSITIVE_FIELDS = {
@@ -124,6 +134,63 @@ def _before_flush(session, flush_context, instances):
         raise AuditLogImmutableError("Audit log records cannot be changed or deleted")
     _guard_closed_periods(session, flush_context, instances)
 
+    from app.models.accounting import AuditLog
+
+    connection = session.connection()
+    actor_snapshots = {}
+    related_business_ids = {}
+    for instance in session.new.union(session.dirty).union(session.deleted):
+        if getattr(instance, "__tablename__", None) not in AUDITED_TABLES:
+            continue
+        if _business_id(instance) is None:
+            business_id = _related_business_id(instance, connection)
+            if business_id is not None:
+                related_business_ids[id(instance)] = business_id
+        actor_id = _actor_id(session, instance)
+        if actor_id is not None and actor_id not in actor_snapshots:
+            actor_snapshots[actor_id] = _lookup_actor(session, actor_id, connection)
+    session.info["audit_actor_snapshots"] = actor_snapshots
+    session.info["audit_related_business_ids"] = related_business_ids
+
+    for audit in session.new:
+        if isinstance(audit, AuditLog) and audit.user_id is not None:
+            audit.actor_name, audit.actor_email = _lookup_actor(
+                session,
+                audit.user_id,
+                connection,
+            )
+
+
+def _lookup_actor(session, actor_id, connection):
+    from app.models import User
+
+    row = connection.execute(
+        select(User.name, User.email).where(User.id == actor_id)
+    ).one_or_none()
+    actor = next(
+        (
+            instance
+            for instance in session.identity_map.values()
+            if isinstance(instance, User) and instance.id == actor_id
+        ),
+        None,
+    )
+    if actor is not None:
+        state = inspect(actor)
+        values = {}
+        for field in ("name", "email"):
+            history = state.attrs[field].history
+            values[field] = (
+                history.deleted[0]
+                if history.has_changes() and history.deleted
+                else getattr(row, field)
+                if history.has_changes() and row
+                else getattr(actor, field)
+            )
+        return values["name"], values["email"]
+
+    return (row.name, row.email) if row else (None, None)
+
 
 def _snapshot(instance, fields=None):
     mapper = inspect(instance).mapper
@@ -163,11 +230,20 @@ def _related_business_id(instance, connection):
 
 
 def _actor_id(session, instance):
-    return (
-        session.info.get("audit_actor_id")
-        or getattr(instance, "created_by", None)
-        or getattr(instance, "user_id", None)
-    )
+    for key in ("audit_actor_id", "actor_id", "created_by", "user_id"):
+        actor_id = session.info.get(key) if key == "audit_actor_id" else getattr(instance, key, None)
+        if actor_id is not None:
+            return actor_id
+    return None
+
+
+def _actor_snapshot(session, actor_id, connection):
+    if actor_id is None:
+        return None, None
+    snapshots = session.info.get("audit_actor_snapshots", {})
+    if actor_id in snapshots:
+        return snapshots[actor_id]
+    return _lookup_actor(session, actor_id, connection)
 
 
 def _audit_after_flush(session, _flush_context):
@@ -208,11 +284,19 @@ def _audit_after_flush(session, _flush_context):
     for instance, action, old_values, new_values in changes:
         business_id = _business_id(instance)
         if business_id is None:
+            business_id = session.info.get("audit_related_business_ids", {}).get(
+                id(instance)
+            )
+        if business_id is None:
             business_id = _related_business_id(instance, connection)
+        actor_id = _actor_id(session, instance)
+        actor_name, actor_email = _actor_snapshot(session, actor_id, connection)
         connection.execute(
             AuditLog.__table__.insert().values(
                 business_id=business_id,
-                user_id=_actor_id(session, instance),
+                user_id=actor_id,
+                actor_name=actor_name,
+                actor_email=actor_email,
                 action=action,
                 table_name=instance.__tablename__,
                 record_id=getattr(instance, "id", None),
@@ -226,6 +310,18 @@ def _audit_after_flush(session, _flush_context):
                 ),
             )
         )
+    session.info.pop("audit_actor_snapshots", None)
+    session.info.pop("audit_related_business_ids", None)
+
+
+def _guard_audit_bulk_mutation(execute_state):
+    statement_table = getattr(execute_state.statement, "table", None)
+    if (
+        (execute_state.is_update or execute_state.is_delete)
+        and statement_table is not None
+        and statement_table.name == "audit_logs"
+    ):
+        raise AuditLogImmutableError("Audit log records cannot be changed or deleted")
 
 
 def install_audit_listeners():
@@ -233,6 +329,8 @@ def install_audit_listeners():
         event.listen(Session, "after_flush", _audit_after_flush)
     if not event.contains(Session, "before_flush", _before_flush):
         event.listen(Session, "before_flush", _before_flush)
+    if not event.contains(Session, "do_orm_execute", _guard_audit_bulk_mutation):
+        event.listen(Session, "do_orm_execute", _guard_audit_bulk_mutation)
 
 
 def record_user_action(business_id, user_id, action, table_name, record_id=None, details=None):

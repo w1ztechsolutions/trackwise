@@ -338,6 +338,7 @@ def _execute_approval(req):
                 'account_id': l['account_id'],
                 'debit_amount': l['debit_amount'],
                 'credit_amount': l['credit_amount'],
+                'cost_center_id': l.get('cost_center_id'),
             }
             for l in lines
         ]
@@ -349,6 +350,7 @@ def _execute_approval(req):
             accounting_lines,
             reference_type='JournalEntry',
             created_by=req.created_by,
+            branch_id=proposal.get('branch_id'),
         )
         db.session.commit()
 

@@ -3,7 +3,14 @@
 from app.models import db, ChartOfAccounts, JournalLine, JournalEntry, User
 
 
-def get_general_ledger(business_id, account_id=None, start_date=None, end_date=None):
+def get_general_ledger(
+    business_id,
+    account_id=None,
+    start_date=None,
+    end_date=None,
+    branch_id=None,
+    cost_center_id=None,
+):
     """Generate a General Ledger from journal entries.
     
     Args:
@@ -39,6 +46,10 @@ def get_general_ledger(business_id, account_id=None, start_date=None, end_date=N
         line_query = line_query.filter(JournalEntry.entry_date >= start_date)
     if end_date:
         line_query = line_query.filter(JournalEntry.entry_date <= end_date)
+    if branch_id is not None:
+        line_query = line_query.filter(JournalEntry.branch_id == branch_id)
+    if cost_center_id is not None:
+        line_query = line_query.filter(JournalLine.cost_center_id == cost_center_id)
     
     line_query = line_query.order_by(
         JournalEntry.entry_date.asc(),
@@ -72,6 +83,8 @@ def get_general_ledger(business_id, account_id=None, start_date=None, end_date=N
             'balance': running_balance,
             'created_by': entry.created_by,
             'created_at': entry.created_at,
+            'branch': entry.branch,
+            'cost_center': line.cost_center,
         })
     
     # Get the specific account if filtering
@@ -98,4 +111,6 @@ def get_general_ledger(business_id, account_id=None, start_date=None, end_date=N
         'selected_account': selected_account,
         'start_date': start_date,
         'end_date': end_date,
+        'branch_id': branch_id,
+        'cost_center_id': cost_center_id,
     }
