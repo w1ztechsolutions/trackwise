@@ -1,0 +1,28 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/health",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {
+      "name": "SECRET_KEY",
+      "description": "Flask session signing key. A development placeholder has been generated; replace with a strong random value for production.",
+      "requiredAtBoot": true,
+      "generatedForDevelopment": true
+    },
+    {
+      "name": "STRIPE_SECRET_KEY",
+      "description": "Stripe API secret key for subscription payments. Optional — the app runs without it; only needed to enable paid plans.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "STRIPE_PUBLISHABLE_KEY",
+      "description": "Stripe publishable key for the client-side checkout. Optional — only needed for paid subscriptions.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "STRIPE_WEBHOOK_SECRET",
+      "description": "Stripe webhook signing secret for verifying Stripe webhook events. Optional.",
+      "requiredAtBoot": false
+    }
+  ]
+}
