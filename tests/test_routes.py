@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime
+from datetime import date, datetime
 from models import Product, Sale, Purchase, Expense, Customer, Invoice, InvoiceItem, Supplier, Bill, db
 from services.fifo_service import record_purchase, record_sale, record_expense
 
@@ -1280,3 +1280,296 @@ class TestTaxPerLineItem:
 
             total_tax_credit = sum(float(l.credit_amount) for l in tax_lines)
             assert abs(total_tax_credit - tax_amount) < 0.01
+
+
+class TestBankReconciliationPeriodLock:
+    """Tests for bank reconciliation period lock enforcement and audit."""
+
+    def _get_bank_account(self, app, business):
+        from app.models.accounting import ChartOfAccounts
+        with app.app_context():
+            acct = ChartOfAccounts.query.filter_by(
+                business_id=business.id, code='1100'
+            ).first()
+            return acct.id if acct else None
+
+    def _create_statement(self, app, business, account_id, statement_date, amount=1000):
+        from app.models.accounting import BankStatement
+        with app.app_context():
+            stmt = BankStatement(
+                business_id=business.id,
+                account_id=account_id,
+                statement_date=statement_date,
+                description='Test statement',
+                amount=amount,
+                reference=f'REF-{statement_date.strftime("%Y%m%d")}',
+            )
+            db.session.add(stmt)
+            db.session.commit()
+            return stmt.id
+
+    def _create_journal_entry(self, app, business, account_id, entry_date, amount=1000):
+        from app.models.accounting import JournalEntry, JournalLine
+        with app.app_context():
+            entry = JournalEntry(
+                business_id=business.id,
+                entry_date=entry_date,
+                reference_type='Test',
+                description='Test JE',
+                created_by=app.test_client_user.id,
+            )
+            db.session.add(entry)
+            db.session.flush()
+            db.session.add(JournalLine(
+                journal_entry_id=entry.id,
+                account_id=account_id,
+                debit_amount=amount,
+                credit_amount=0,
+            ))
+            db.session.commit()
+            return entry.id
+
+    def test_general_period_close_blocks_bank_reconciliation_match(self, client, app, business):
+        """General period close should block matching statements in closed period."""
+        from app.services.period_service import close_period
+
+        # Create statement and entry BEFORE closing the period
+        account_id = self._get_bank_account(app, business)
+        stmt_id = self._create_statement(app, business, account_id, datetime(2026, 6, 15), 5000)
+        entry_id = self._create_journal_entry(app, business, account_id, datetime(2026, 6, 15), 5000)
+
+        # Now close the period through June 30
+        close_through = date(2026, 6, 30)
+        with app.app_context():
+            close_period(business.id, close_through)
+            db.session.commit()
+
+        # Match should fail due to general period close - test via route
+        response = client.post('/accounting/bank-reconciliation/match', data={
+            'statement_id': str(stmt_id),
+            'entry_id': str(entry_id),
+        }, follow_redirects=True)
+        # Should be blocked with 409
+        assert response.status_code == 409
+        assert b'closed through' in response.data.lower()
+
+    def test_reconciliation_period_lock_blocks_match(self, client, app, business):
+        """Dedicated reconciliation period lock should block match."""
+        from app.services.reconciliation_period_service import close_reconciliation_period
+
+        # Create statement and entry BEFORE locking the period
+        account_id = self._get_bank_account(app, business)
+        stmt_id = self._create_statement(app, business, account_id, datetime(2026, 6, 15), 5000)
+        entry_id = self._create_journal_entry(app, business, account_id, datetime(2026, 6, 15), 5000)
+
+        # Lock reconciliation period for June 2026
+        with app.app_context():
+            close_reconciliation_period(business.id, account_id, date(2026, 6, 30), app.test_client_user.id)
+            db.session.commit()
+
+        # Match should fail
+        response = client.post('/accounting/bank-reconciliation/match', data={
+            'statement_id': str(stmt_id),
+            'entry_id': str(entry_id),
+        }, follow_redirects=True)
+        assert response.status_code in (400, 409, 500) or b'locked' in response.data.lower() or b'closed' in response.data.lower()
+
+    def test_reconciliation_period_lock_blocks_unmatch(self, client, app, business):
+        """Dedicated reconciliation period lock should block unmatch."""
+        from app.services.reconciliation_period_service import close_reconciliation_period
+        from app.models.accounting import BankStatement
+
+        account_id = self._get_bank_account(app, business)
+        stmt_id = self._create_statement(app, business, account_id, datetime(2026, 6, 15), 5000)
+        entry_id = self._create_journal_entry(app, business, account_id, datetime(2026, 6, 15), 5000)
+
+        # First match it (before locking)
+        with app.app_context():
+            stmt = db.session.get(BankStatement, stmt_id)
+            stmt.is_reconciled = True
+            stmt.journal_entry_id = entry_id
+            db.session.commit()
+
+        # Lock reconciliation period for June 2026
+        with app.app_context():
+            close_reconciliation_period(business.id, account_id, date(2026, 6, 30), app.test_client_user.id)
+            db.session.commit()
+
+        # Unmatch should fail
+        response = client.post('/accounting/bank-reconciliation/unmatch', data={
+            'statement_id': str(stmt_id),
+        }, follow_redirects=True)
+        assert response.status_code in (400, 409, 500) or b'locked' in response.data.lower() or b'closed' in response.data.lower()
+
+    def test_reconciliation_period_lock_blocks_import(self, client, app, business):
+        """Import should be blocked for statements in a locked reconciliation period."""
+        from app.services.reconciliation_period_service import close_reconciliation_period
+
+        account_id = self._get_bank_account(app, business)
+        with app.app_context():
+            close_reconciliation_period(business.id, account_id, date(2026, 6, 30), app.test_client_user.id)
+            db.session.commit()
+
+        response = client.post('/accounting/bank-reconciliation/import', data={
+            'account_id': str(account_id),
+            'csv_data': '2026-06-15,1000,Test statement,REF-TEST',
+        }, follow_redirects=True)
+        # Should be blocked
+        assert b'locked' in response.data.lower() or b'closed' in response.data.lower() or b'error' in response.data.lower()
+
+    def test_duplicate_reconciliation_period_rejected(self, client, app, business):
+        """Cannot close the same reconciliation period twice."""
+        from app.services.reconciliation_period_service import close_reconciliation_period
+
+        account_id = self._get_bank_account(app, business)
+        with app.app_context():
+            close_reconciliation_period(business.id, account_id, date(2026, 6, 30), app.test_client_user.id)
+            db.session.commit()
+
+        # Second attempt via route
+        response = client.post('/accounting/bank-reconciliation/periods/%d/close' % account_id, data={
+            'period_end': '2026-06-30',
+        }, follow_redirects=True)
+        assert b'already locked' in response.data.lower() or b'error' in response.data.lower()
+
+    def test_reopen_reconciliation_period_allows_match_again(self, client, app, business):
+        """After reopening, match should work again."""
+        from app.services.reconciliation_period_service import close_reconciliation_period, reopen_reconciliation_period
+
+        # Create statement and entry BEFORE locking
+        account_id = self._get_bank_account(app, business)
+        stmt_id = self._create_statement(app, business, account_id, datetime(2026, 6, 15), 5000)
+        entry_id = self._create_journal_entry(app, business, account_id, datetime(2026, 6, 15), 5000)
+
+        # Lock
+        with app.app_context():
+            close_reconciliation_period(business.id, account_id, date(2026, 6, 30), app.test_client_user.id)
+            db.session.commit()
+
+        # Reopen (admin only)
+        with app.app_context():
+            reopen_reconciliation_period(business.id, account_id, date(2026, 6, 30), app.test_client_user.id)
+            db.session.commit()
+
+        # Match should work now
+        response = client.post('/accounting/bank-reconciliation/match', data={
+            'statement_id': str(stmt_id),
+            'entry_id': str(entry_id),
+        }, follow_redirects=True)
+        assert response.status_code == 200
+
+    def test_match_route_audits_bank_reconcile_match(self, client, app, business):
+        """POST /match should create AuditLog entry."""
+        from app.models.accounting import AuditLog
+
+        account_id = self._get_bank_account(app, business)
+        stmt_id = self._create_statement(app, business, account_id, datetime(2026, 6, 15), 5000)
+        entry_id = self._create_journal_entry(app, business, account_id, datetime(2026, 6, 15), 5000)
+
+        response = client.post('/accounting/bank-reconciliation/match', data={
+            'statement_id': str(stmt_id),
+            'entry_id': str(entry_id),
+        }, follow_redirects=True)
+        assert response.status_code == 200
+
+        with app.app_context():
+            audit = AuditLog.query.filter_by(
+                business_id=business.id,
+                action='BANK_RECONCILE_MATCH',
+                table_name='bank_statements',
+                record_id=stmt_id,
+            ).order_by(AuditLog.id.desc()).first()
+
+            assert audit is not None
+            assert audit.user_id == app.test_client_user.id
+            import json
+            details = json.loads(audit.new_values) if audit.new_values else {}
+            assert details.get('journal_entry_id') == entry_id
+
+    def test_unmatch_route_audits_bank_reconcile_unmatch(self, client, app, business):
+        """POST /unmatch should create AuditLog entry."""
+        from app.models.accounting import AuditLog
+
+        account_id = self._get_bank_account(app, business)
+        stmt_id = self._create_statement(app, business, account_id, datetime(2026, 6, 15), 5000)
+        entry_id = self._create_journal_entry(app, business, account_id, datetime(2026, 6, 15), 5000)
+
+        # First match
+        client.post('/accounting/bank-reconciliation/match', data={
+            'statement_id': str(stmt_id),
+            'entry_id': str(entry_id),
+        }, follow_redirects=True)
+
+        # Then unmatch
+        response = client.post('/accounting/bank-reconciliation/unmatch', data={
+            'statement_id': str(stmt_id),
+        }, follow_redirects=True)
+        assert response.status_code == 200
+
+        with app.app_context():
+            audit = AuditLog.query.filter_by(
+                business_id=business.id,
+                action='BANK_RECONCILE_UNMATCH',
+                table_name='bank_statements',
+                record_id=stmt_id,
+            ).order_by(AuditLog.id.desc()).first()
+
+            assert audit is not None
+            assert audit.user_id == app.test_client_user.id
+
+    def test_reconciliation_period_lock_route_audits_lock(self, client, app, business):
+        """POST /periods/<id>/close should create AuditLog entry."""
+        from app.models.accounting import AuditLog
+
+        account_id = self._get_bank_account(app, business)
+
+        response = client.post('/accounting/bank-reconciliation/periods/%d/close' % account_id, data={
+            'period_end': '2026-06-30',
+        }, follow_redirects=True)
+        assert response.status_code == 200
+
+        with app.app_context():
+            audit = AuditLog.query.filter_by(
+                business_id=business.id,
+                action='BANK_RECON_PERIOD_LOCK',
+                table_name='bank_reconciliation_periods',
+            ).order_by(AuditLog.id.desc()).first()
+
+            assert audit is not None
+            assert audit.user_id == app.test_client_user.id
+            import json
+            details = json.loads(audit.new_values) if audit.new_values else {}
+            assert details.get('account_id') == account_id
+            assert details.get('period_end') == '2026-06-30'
+
+    def test_reconciliation_period_unlock_route_audits_unlock(self, client, app, business):
+        """POST /periods/<id>/reopen should create AuditLog entry."""
+        from app.models.accounting import AuditLog
+        from app.services.reconciliation_period_service import close_reconciliation_period
+
+        account_id = self._get_bank_account(app, business)
+
+        # First lock it
+        with app.app_context():
+            close_reconciliation_period(business.id, account_id, date(2026, 6, 30), app.test_client_user.id)
+            db.session.commit()
+
+        # Then reopen
+        response = client.post('/accounting/bank-reconciliation/periods/%d/2026-06-30/reopen' % account_id, data={
+            'confirm_reopen': 'yes',
+        }, follow_redirects=True)
+        assert response.status_code == 200
+
+        with app.app_context():
+            audit = AuditLog.query.filter_by(
+                business_id=business.id,
+                action='BANK_RECON_PERIOD_UNLOCK',
+                table_name='bank_reconciliation_periods',
+            ).order_by(AuditLog.id.desc()).first()
+
+            assert audit is not None
+            assert audit.user_id == app.test_client_user.id
+            import json
+            details = json.loads(audit.new_values) if audit.new_values else {}
+            assert details.get('account_id') == account_id
+            assert details.get('period_end') == '2026-06-30'

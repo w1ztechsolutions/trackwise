@@ -28,6 +28,7 @@ from app.models.accounting import (
     JournalEntry,
     JournalLine,
     BankStatement,
+    BankReconciliationPeriod,
     RevenueRecognitionSchedule,
 )
 from app.models.approval import ApprovalConfig, ApprovalRequest
@@ -36,6 +37,13 @@ from app.services.accounting_service import (
     verify_balances,
 )
 from app.services.period_service import close_period, reopen_period
+from app.services.reconciliation_period_service import (
+    ReconciliationPeriodClosedError,
+    assert_reconciliation_open,
+    close_reconciliation_period,
+    reopen_reconciliation_period,
+    get_reconciliation_periods,
+)
 from app.services.revenue_recognition_service import (
     RevenueRecognitionError,
     create_revenue_schedule,
@@ -61,6 +69,7 @@ from app.services.import_run_service import (
 )
 from app.auth.decorators import role_required
 from app.services.approval_service import create_approval_request
+from app.services.audit_service import record_user_action
 
 from . import accounting_bp
 
@@ -1210,9 +1219,23 @@ def bank_match():
     if not entry or entry.business_id != biz_id:
         abort(404)
 
+    # Check reconciliation period lock
+    assert_reconciliation_open(biz_id, stmt.account_id, stmt.statement_date)
+
     stmt.is_reconciled = True
     stmt.journal_entry_id = entry.id
     db.session.commit()
+
+    record_user_action(
+        biz_id,
+        current_user.id,
+        'BANK_RECONCILE_MATCH',
+        'bank_statements',
+        stmt.id,
+        {'journal_entry_id': entry.id, 'statement_date': stmt.statement_date.isoformat()},
+    )
+    db.session.commit()
+
     flash('Statement line matched to journal entry.', 'success')
     return redirect(url_for('accounting.bank_reconcile', account_id=stmt.account_id))
 
@@ -1228,9 +1251,23 @@ def bank_unmatch():
     if not stmt or stmt.business_id != biz_id:
         abort(404)
 
+    # Check reconciliation period lock
+    assert_reconciliation_open(biz_id, stmt.account_id, stmt.statement_date)
+
     stmt.is_reconciled = False
     stmt.journal_entry_id = None
     db.session.commit()
+
+    record_user_action(
+        biz_id,
+        current_user.id,
+        'BANK_RECONCILE_UNMATCH',
+        'bank_statements',
+        stmt.id,
+        {'statement_date': stmt.statement_date.isoformat()},
+    )
+    db.session.commit()
+
     flash('Statement line unmatched.', 'info')
     return redirect(url_for('accounting.bank_reconcile', account_id=stmt.account_id))
 
@@ -1354,3 +1391,103 @@ def coa_seeder_import():
     else:
         message = f"No new accounts imported. {total_skipped} skipped (already exist)."
     return jsonify({'imported': imported, 'skipped': total_skipped, 'skipped_codes': skipped, 'message': message})
+
+
+@accounting_bp.route('/accounting/bank-reconciliation/periods/<int:account_id>')
+@login_required
+@role_required('admin', 'accountant')
+def bank_reconciliation_periods(account_id):
+    """List reconciliation periods for a bank account."""
+    biz_id = _biz_id()
+    account = db.session.get(ChartOfAccounts, account_id)
+    if not account or account.business_id != biz_id:
+        abort(404)
+
+    periods = get_reconciliation_periods(biz_id, account_id)
+
+    return render_template(
+        'bank_reconciliation_periods.html',
+        account=account,
+        periods=periods,
+    )
+
+
+@accounting_bp.route('/accounting/bank-reconciliation/periods/<int:account_id>/close', methods=['POST'])
+@login_required
+@role_required('admin', 'accountant')
+def bank_reconciliation_period_close(account_id):
+    """Close (lock) a reconciliation period for a bank account."""
+    biz_id = _biz_id()
+    account = db.session.get(ChartOfAccounts, account_id)
+    if not account or account.business_id != biz_id:
+        abort(404)
+
+    period_end_raw = request.form.get('period_end', '').strip()
+    try:
+        period_end = date.fromisoformat(period_end_raw)
+    except ValueError:
+        flash('Enter a valid period end date (YYYY-MM-DD).', 'danger')
+        return redirect(url_for('accounting.bank_reconciliation_periods', account_id=account_id))
+
+    try:
+        close_reconciliation_period(biz_id, account_id, period_end, current_user.id)
+        db.session.commit()
+
+        record_user_action(
+            biz_id,
+            current_user.id,
+            'BANK_RECON_PERIOD_LOCK',
+            'bank_reconciliation_periods',
+            None,
+            {'account_id': account_id, 'period_end': period_end.isoformat()},
+        )
+        db.session.commit()
+
+        flash(f'Reconciliation period through {period_end.isoformat()} locked for {account.code}.', 'success')
+    except ValueError as error:
+        db.session.rollback()
+        flash(str(error), 'danger')
+
+    return redirect(url_for('accounting.bank_reconciliation_periods', account_id=account_id))
+
+
+@accounting_bp.route('/accounting/bank-reconciliation/periods/<int:account_id>/<period_end>/reopen', methods=['POST'])
+@login_required
+@role_required('admin')
+def bank_reconciliation_period_reopen(account_id, period_end):
+    """Reopen (unlock) a reconciliation period. Admin only."""
+    biz_id = _biz_id()
+    account = db.session.get(ChartOfAccounts, account_id)
+    if not account or account.business_id != biz_id:
+        abort(404)
+
+    try:
+        period_end_date = date.fromisoformat(period_end)
+    except ValueError:
+        flash('Invalid period end date.', 'danger')
+        return redirect(url_for('accounting.bank_reconciliation_periods', account_id=account_id))
+
+    if request.form.get('confirm_reopen') != 'yes':
+        flash('Confirm that you want to reopen this reconciliation period.', 'danger')
+        return redirect(url_for('accounting.bank_reconciliation_periods', account_id=account_id))
+
+    try:
+        reopen_reconciliation_period(biz_id, account_id, period_end_date, current_user.id)
+        db.session.commit()
+
+        record_user_action(
+            biz_id,
+            current_user.id,
+            'BANK_RECON_PERIOD_UNLOCK',
+            'bank_reconciliation_periods',
+            None,
+            {'account_id': account_id, 'period_end': period_end_date.isoformat()},
+        )
+        db.session.commit()
+
+        flash(f'Reconciliation period through {period_end_date.isoformat()} reopened for {account.code}.', 'success')
+    except ValueError as error:
+        db.session.rollback()
+        flash(str(error), 'danger')
+
+    return redirect(url_for('accounting.bank_reconciliation_periods', account_id=account_id))

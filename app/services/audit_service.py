@@ -72,6 +72,7 @@ PERIOD_DATE_FIELDS = {
     "stock_movements": "timestamp",
     "production_batches": "production_date",
     "purchase_returns": "return_date",
+    "bank_statements": "statement_date",
 }
 
 

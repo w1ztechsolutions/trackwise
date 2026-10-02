@@ -42,6 +42,7 @@
                     <a href="{{ url_for('accounting.bank_register', account_id=account.id) }}" class="btn btn-sm btn-outline-secondary">Register</a>
                     <a href="{{ url_for('accounting.bank_statements', account_id=account.id) }}" class="btn btn-sm btn-outline-secondary">Statements</a>
                     <a href="{{ url_for('accounting.bank_reconcile', account_id=account.id) }}" class="btn btn-sm btn-outline-primary">Reconcile</a>
+                    <a href="{{ url_for('accounting.bank_reconciliation_periods', account_id=account.id) }}" class="btn btn-sm btn-outline-warning">Periods</a>
                 </span>
             </div>
         </div>

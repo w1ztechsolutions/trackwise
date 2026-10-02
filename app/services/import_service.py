@@ -6,6 +6,10 @@ from decimal import Decimal
 
 from app.models import BankStatement, ChartOfAccounts, Customer, Supplier, db
 from app.services.accounting_service import AccountingException, post_entry
+from app.services.reconciliation_period_service import (
+    ReconciliationPeriodClosedError,
+    assert_reconciliation_open,
+)
 from app.services.xlsx_import import normalize_text, parse_date, parse_decimal
 
 
@@ -108,6 +112,8 @@ def import_bank_statements(business_id, account_id, rows, column_map=None, date_
     if account is None or account.business_id != business_id:
         raise ImportValidationError('Select a valid bank account for this business.')
 
+    # Check if any statement dates fall in a locked reconciliation period
+    # We'll check each row's date individually during the loop
     resolved = resolve_columns(rows, column_map, BANK_STATEMENT_COLUMNS)
     _require_mapping(resolved, 'bank statements', ('date', 'amount'))
 
@@ -127,6 +133,13 @@ def import_bank_statements(business_id, account_id, rows, column_map=None, date_
         amount = parse_decimal(_row_value(row, resolved, 'amount'))
         if statement_date is None or amount is None:
             errors.append(f'Row {index}: a valid date and amount are required.')
+            continue
+
+        # Check reconciliation period lock
+        try:
+            assert_reconciliation_open(business_id, account_id, datetime.combine(statement_date, time.min))
+        except ReconciliationPeriodClosedError as e:
+            errors.append(f'Row {index}: {e}')
             continue
 
         reference = normalize_text(_row_value(row, resolved, 'reference')) or None

@@ -209,6 +209,56 @@ class BankStatement(db.Model):
     journal_entry = db.relationship('JournalEntry', backref='bank_statement_matches')
 
 
+class BankReconciliationPeriod(db.Model):
+    """Lock records for bank reconciliation periods (per account, per period).
+
+    Once a reconciliation period is locked for a bank account, no further
+    matching or unmatching of statements in that period is allowed.
+    """
+    __tablename__ = 'bank_reconciliation_periods'
+
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(
+        db.Integer,
+        db.ForeignKey('businesses.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+    account_id = db.Column(
+        db.Integer,
+        db.ForeignKey('chart_of_accounts.id'),
+        nullable=False,
+    )
+    period_end = db.Column(db.Date, nullable=False)
+    closed_by = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete='SET NULL'),
+        nullable=True,
+    )
+    closed_at = db.Column(db.DateTime, nullable=True)
+    reopened_by = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete='SET NULL'),
+        nullable=True,
+    )
+    reopened_at = db.Column(db.DateTime, nullable=True)
+    is_locked = db.Column(db.Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            'business_id', 'account_id', 'period_end',
+            name='uq_bank_recon_periods_business_account_period'
+        ),
+        db.Index('ix_bank_recon_periods_business_id', 'business_id'),
+        db.Index('ix_bank_recon_periods_account_id', 'account_id'),
+        db.Index('ix_bank_recon_periods_is_locked', 'is_locked'),
+    )
+
+    account = db.relationship('ChartOfAccounts', backref='reconciliation_periods')
+    closed_by_user = db.relationship('User', foreign_keys=[closed_by])
+    reopened_by_user = db.relationship('User', foreign_keys=[reopened_by])
+
+
 class RevenueRecognitionSchedule(db.Model):
     __tablename__ = 'revenue_recognition_schedules'
 

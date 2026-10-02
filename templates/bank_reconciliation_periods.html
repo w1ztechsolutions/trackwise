@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Reconciliation Periods — {{ account.code }} {{ account.name }}{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="breadcrumb-nav">
+    <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{{ url_for('accounting.bank_recon') }}">Bank Reconciliation</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{{ url_for('accounting.bank_statements', account_id=account.id) }}">{{ account.code }} {{ account.name }}</a>
+    <span class="breadcrumb-separator">/</span>
+    <span>Reconciliation Periods</span>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="header-bar">
+    <div class="page-title">
+        <h1>Reconciliation Periods — {{ account.code }} {{ account.name }}</h1>
+        <p>Lock reconciliation periods to prevent duplicate or unauthorized changes.</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('accounting.bank_reconcile', account_id=account.id) }}" class="btn btn-outline-secondary">Back to Reconcile</a>
+        <a href="{{ url_for('accounting.bank_statements', account_id=account.id) }}" class="btn btn-outline-secondary">Statements</a>
+    </div>
+</div>
+
+<div class="glass-card">
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th scope="col">Period End</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Closed By</th>
+                    <th scope="col">Closed At</th>
+                    <th scope="col">Reopened By</th>
+                    <th scope="col">Reopened At</th>
+                    <th scope="col">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for period in periods %}
+                <tr>
+                    <td>{{ period.period_end.strftime('%b %Y') if period.period_end else '-' }}</td>
+                    <td>
+                        {% if period.is_locked %}
+                        <span class="badge badge-success">Locked</span>
+                        {% else %}
+                        <span class="badge badge-warning">Open</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ period.closed_by_user.name if period.closed_by_user else '—' }}</td>
+                    <td>{{ period.closed_at.strftime('%d %b %Y %H:%M') if period.closed_at else '—' }}</td>
+                    <td>{{ period.reopened_by_user.name if period.reopened_by_user else '—' }}</td>
+                    <td>{{ period.reopened_at.strftime('%d %b %Y %H:%M') if period.reopened_at else '—' }}</td>
+                    <td>
+                        {% if period.is_locked %}
+                        <form method="POST" action="{{ url_for('accounting.bank_reconciliation_period_reopen', account_id=account.id, period_end=period.period_end.isoformat()) }}" class="d-inline" onsubmit="return confirm('Reopen this reconciliation period? This will allow matching/unmatching of statements in this period again.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="confirm_reopen" value="yes">
+                            <button type="submit" class="btn btn-sm btn-outline-warning">Reopen</button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted text-sm">Already open</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="empty-state">No reconciliation periods recorded yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="glass-card">
+    <h3 class="section-title">Lock a New Reconciliation Period</h3>
+    <form method="POST" action="{{ url_for('accounting.bank_reconciliation_period_close', account_id=account.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label for="period_end" class="form-label">Period End Date</label>
+            <input
+                id="period_end"
+                name="period_end"
+                type="date"
+                max="{{ today }}"
+                required
+                class="form-control"
+                style="max-width: 200px;"
+            >
+            <small class="form-text text-muted">Select the last day of the month/period to lock (e.g., 2026-01-31 for January).</small>
+        </div>
+        <button type="submit" class="btn btn-danger">Lock Period</button>
+    </form>
+    <p class="text-muted mt-3">
+        Locking a period prevents any matching or unmatching of bank statements dated on or before the period end.
+        Only administrators can reopen a locked period. All lock/unlock actions are recorded in the audit log.
+    </p>
+</div>
+{% endblock %}

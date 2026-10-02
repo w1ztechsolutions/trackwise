@@ -332,9 +332,14 @@ def create_app(config_object=None):
             _db.session.info.pop('audit_actor_id', None)
 
     from app.services.period_service import PeriodClosedError
+    from app.services.reconciliation_period_service import ReconciliationPeriodClosedError
 
     @app.errorhandler(PeriodClosedError)
     def _handle_period_close_error(error):
+        return str(error), 409
+
+    @app.errorhandler(ReconciliationPeriodClosedError)
+    def _handle_reconciliation_period_error(error):
         return str(error), 409
 
     @app.teardown_request
