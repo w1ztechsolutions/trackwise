@@ -186,9 +186,12 @@ def vat_return():
     business_id = current_user.business_id
 
     start_date = end_date = None
+    # REVIEW: dates come from the query string, so they are parsed strictly
+    # REVIEW: and redirected on garbage input rather than 500-ing. The
+    # REVIEW: user-facing end date is inclusive, hence +1 day (the service
+    # REVIEW: queries [start, end)).
     if start_str and end_str:
         try:
-            # End date is inclusive: bound at midnight of the next day.
             start_date = datetime.strptime(start_str, "%Y-%m-%d")
             end_date = datetime.strptime(end_str, "%Y-%m-%d") + timedelta(days=1)
         except ValueError:

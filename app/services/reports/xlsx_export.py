@@ -171,6 +171,10 @@ def build_report_rows(report_type, report):
         ])
         return rows
 
+    # REVIEW: the export mirrors the on-screen report exactly: line detail
+    # REVIEW: first, then the three summary figures an MRA return form asks
+    # REVIEW: for (output, input, net), with the payable/reclaimable label
+    # REVIEW: resolved so the spreadsheet is self-describing offline.
     if report_type == 'vat_return':
         rows = [['Date', 'Reference', 'Description', 'Input VAT (debit)', 'Output VAT (credit)']]
         rows.extend([

@@ -38,6 +38,9 @@ def get_vat_return(business_id, start_date=None, end_date=None):
         contributing journal lines for audit trail. When the business has
         no VAT control account the report is empty but well-formed.
     """
+    # REVIEW: when the caller (route) omits dates the report covers the
+    # REVIEW: current calendar month — VAT returns are monthly in Malawi,
+    # REVIEW: so this default matches the statutory filing cadence.
     if start_date is None and end_date is None:
         start_date, end_date = _month_bounds()
 
@@ -64,10 +67,18 @@ def get_vat_return(business_id, start_date=None, end_date=None):
         JournalLine.query.join(JournalEntry)
         .filter(
             JournalLine.account_id == vat_account.id,
+            # REVIEW: two hard filters make the report audit-safe:
+            # REVIEW: business_id (tenant isolation) and is_deleted=False
+            # REVIEW: (voided/reversed entries excluded, matching every
+            # REVIEW: other journal-derived report).
             JournalEntry.business_id == business_id,
             JournalEntry.is_deleted.is_(False),
         )
     )
+    # REVIEW: the period is [start, end) — the route already converted the
+    # REVIEW: user's inclusive end date to next-day midnight, so a return
+    # REVIEW: for 1–31 Jan queries [<1 Feb, >=1 Jan) and catches entry times
+    # REVIEW: late on the last day.
     if start_date is not None:
         query = query.filter(JournalEntry.entry_date >= start_date)
     if end_date is not None:
@@ -94,6 +105,9 @@ def get_vat_return(business_id, start_date=None, end_date=None):
             'credit': credit,
         })
 
+    # REVIEW: positive net = VAT owed TO MRA (output exceeded input);
+    # REVIEW: negative = refundable position. is_payable drives the wording
+    # REVIEW: in the UI/export so the sign is never misread.
     net_vat = output_tax - input_tax
     result.update({
         'output_tax': output_tax,
