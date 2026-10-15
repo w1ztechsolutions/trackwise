@@ -36,7 +36,7 @@ from app.models.accounting import (
     AuditLog,
     BankStatement,
 )
-from app.models.inventory import Plan, Subscription
+from app.models.inventory import Plan, Subscription, Supplier
 
 
 class TestAccountingEngine(unittest.TestCase):
@@ -283,9 +283,13 @@ class TestAccountingEngine(unittest.TestCase):
         subscription = Subscription(
             business_id=self.business.id,
             plan_id=plan.id,
-            stripe_subscription_id='stripe-secret',
         )
-        db.session.add_all([workspace, subscription])
+        supplier = Supplier(
+            business_id=self.business.id,
+            name='Audit supplier',
+            bank_account_number='secret-account',
+        )
+        db.session.add_all([workspace, subscription, supplier])
         db.session.commit()
 
         workspace_audit = AuditLog.query.filter_by(
@@ -301,7 +305,12 @@ class TestAccountingEngine(unittest.TestCase):
         self.assertEqual(workspace_audit.business_id, self.business.id)
         self.assertEqual(subscription_audit.business_id, self.business.id)
         self.assertEqual(subscription_audit.user_id, self.user.id)
-        self.assertNotIn('stripe_subscription_id', subscription_audit.new_values)
+        supplier_audit = AuditLog.query.filter_by(
+            table_name='suppliers',
+            record_id=supplier.id,
+            action='CREATE',
+        ).one()
+        self.assertNotIn('bank_account_number', supplier_audit.new_values)
 
         subscription.status = 'cancelled'
         db.session.commit()

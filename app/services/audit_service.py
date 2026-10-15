@@ -56,7 +56,6 @@ AUDITED_TABLES = {
 SENSITIVE_FIELDS = {
     "password_hash",
     "bank_account_number",
-    "stripe_subscription_id",
 }
 
 PERIOD_DATE_FIELDS = {

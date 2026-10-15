@@ -596,7 +596,6 @@ Business subscription records.
 | `status` | VARCHAR(30) | No | `active` | `active`, `cancelled`, `past_due` |
 | `start_date` | TIMESTAMP | No | UTC now | Subscription start |
 | `renewal_date` | TIMESTAMP | Yes | — | Next renewal date |
-| `stripe_subscription_id` | VARCHAR(255) | Yes | — | Stripe subscription ID |
 | `payment_method` | VARCHAR(50) | Yes | — | Last 4 digits or type |
 
 **Relationships:** Belongs to `businesses`, `plans`.
