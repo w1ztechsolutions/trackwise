@@ -1,5 +1,11 @@
 """Spreadsheet import handlers for bank statements, journal entries, and parties."""
 
+# REVIEW: Spreadsheet import parsing and domain entity creation service (Bank Statements, Journal Entries, Parties).
+# REVIEW: Security boundary: All entity creations, GL account validations, and duplicate checks are strictly
+# REVIEW: scoped by business_id.
+# REVIEW: Financial & Accounting integrity: Enforces bank reconciliation period locks for bank imports, and
+# REVIEW: double-entry debit/credit balance verification (abs(diff) <= 0.01) and open period checks for journal entries.
+
 import uuid
 from datetime import datetime, time
 from decimal import Decimal
@@ -43,6 +49,8 @@ PARTY_COLUMNS = {
 IGNORE_FIELD = '__ignore__'
 
 
+# REVIEW: Maps raw spreadsheet headers to canonical domain field names using explicit user mappings,
+# REVIEW: IGNORE_FIELD directives, and fallback alias dictionaries.
 def resolve_columns(rows, column_map=None, defaults=None):
     """Map logical field names to actual worksheet header keys.
 
@@ -103,6 +111,9 @@ def _require_mapping(resolved, entity, required):
         )
 
 
+# REVIEW: Imports bank statement lines for a specific bank account.
+# REVIEW: Checks assert_reconciliation_open() per row to prevent importing statement lines into locked/closed
+# REVIEW: reconciliation periods, and deduplicates against existing transaction references.
 def import_bank_statements(business_id, account_id, rows, column_map=None, date_order='MDY'):
     """Import bank statement lines, skipping references already imported."""
     if business_id is None:
@@ -162,6 +173,9 @@ def import_bank_statements(business_id, account_id, rows, column_map=None, date_
     return {'imported': imported, 'duplicates': duplicates, 'errors': errors}
 
 
+# REVIEW: Groups consecutive spreadsheet rows by (date, description) into multi-line journal entries.
+# REVIEW: Invariants: Requires >= 2 lines, validates account codes against tenant COA, enforces
+# REVIEW: total_debit == total_credit balancing within 0.01 tolerance, and calls post_entry().
 def import_journal_entries(business_id, rows, column_map=None, created_by=None, date_order='MDY'):
     """Import journal entries, grouping consecutive lines by date and description."""
     if business_id is None:
@@ -258,6 +272,8 @@ def import_journal_entries(business_id, rows, column_map=None, created_by=None, 
     return {'imported': imported, 'duplicates': 0, 'errors': errors}
 
 
+# REVIEW: Bulk importer for suppliers with business_id scoping, unique ID generation (SUPP-*),
+# REVIEW: and duplicate detection based on lowercased (name, email) pairs.
 def import_suppliers(business_id, rows, column_map=None):
     """Import suppliers, skipping duplicate name and email combinations."""
     resolved = resolve_columns(rows, column_map, PARTY_COLUMNS)
@@ -300,6 +316,8 @@ def import_suppliers(business_id, rows, column_map=None):
     return {'imported': imported, 'duplicates': duplicates, 'errors': errors}
 
 
+# REVIEW: Bulk importer for customers with business_id scoping, unique ID generation (CUST-*),
+# REVIEW: and duplicate detection based on lowercased (name, email) pairs.
 def import_customers(business_id, rows, column_map=None):
     """Import customers, skipping duplicate name and email combinations."""
     resolved = resolve_columns(rows, column_map, PARTY_COLUMNS)
