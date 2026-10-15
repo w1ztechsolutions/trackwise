@@ -60,6 +60,7 @@ app/
 │
 ├── services/                    # Business logic layer
 │   ├── accounting_service.py
+│   ├── fifo_service.py
 │   ├── inventory_service.py
 │   ├── production_service.py
 │   ├── subscription_service.py

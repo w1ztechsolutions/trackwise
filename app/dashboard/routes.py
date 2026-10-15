@@ -5,7 +5,7 @@ from flask import redirect, render_template, url_for
 from app.models import Product, Purchase, Sale, Expense, Payment
 from app.services.budget_service import get_dashboard_budget_summary
 from app.services.reports import get_expense_budget_variance
-from services.fifo_service import get_profit_loss, get_inventory_valuation
+from app.services.fifo_service import get_profit_loss, get_inventory_valuation
 
 from . import dashboard_bp
 

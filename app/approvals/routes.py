@@ -312,7 +312,7 @@ def _execute_approval(req):
         payment = db.session.get(Payment, transaction_id)
         if payment:
             payment.status = 'approved'
-            from services.fifo_service import _post_payment_accounting
+            from app.services.fifo_service import _post_payment_accounting
             _post_payment_accounting(
                 payment_date=payment.payment_date,
                 amount=float(payment.amount),

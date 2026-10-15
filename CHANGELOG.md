@@ -9,8 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Tracked `__pycache__/` byte-compiled files from the repository; `.gitignore` already excluded them and they are regenerated locally
+
+### Changed
+
+- `fifo_service.py` relocated from the legacy root `services/` package to `app/services/fifo_service.py`, consolidating all business logic under the application package; documentation references updated accordingly
+
 ### Added
 
+- `docs/2026-10-15-critical-review-and-roadmap.md` — critical review of the current codebase vs. Zoho Books / QuickBooks / Sage, IFRS-for-SMEs and MRA (VAT, EIS e-invoicing, PAYE) standards mapping, and a phased professionalization roadmap
 - `import_runs` table recording every spreadsheet import attempt: file, entity, column mapping, date order, staged/completed lifecycle, row counts, imported and duplicate counts, and the full rejected-row list
 - Rejected-row download at `GET /imports/<int:run_id>/errors`, returning the complete list of rows an import rejected as an XLSX scoped to the owning business
 - `imports` blueprint (`app/imports/`)
