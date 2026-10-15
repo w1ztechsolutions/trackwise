@@ -54,6 +54,8 @@ def assert_reconciliation_open(business_id, account_id, statement_date):
         raise ReconciliationPeriodClosedError(locked.period_end, account_code)
 
 
+# REVIEW: Bank reconciliation period locking service.
+# REVIEW: Locks statement lines up to period_end date to freeze audit trail.
 def close_reconciliation_period(business_id, account_id, period_end, user_id):
     """Lock a reconciliation period for a bank account.
 

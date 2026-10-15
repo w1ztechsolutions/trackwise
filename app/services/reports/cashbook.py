@@ -1,3 +1,4 @@
+# REVIEW: Cashbook report generator aggregating cash and bank account transactions over date ranges.
 """Cashbook report derived from journal entries.
 
 The cashbook combines the Cash (account 1000) and Bank (account 1100)

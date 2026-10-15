@@ -8,6 +8,7 @@ from app.celery_app import celery_app
 
 
 @celery_app.task(bind=True, max_retries=3)
+# REVIEW: Asynchronous PDF report generation task using WeasyPrint HTML rendering and instance directory output.
 def generate_report_pdf(self, business_id, report_type, params=None, requested_by_user_id=None):
     """Generate a PDF report in the background.
 

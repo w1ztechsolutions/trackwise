@@ -6,6 +6,8 @@ from app.models import db
 from app.models.approval import ApprovalConfig, ApprovalRequest
 
 
+# REVIEW: Multi-step approval workflow initializer.
+# REVIEW: Compares monetary value against business threshold settings to determine required authorization levels.
 def create_approval_request(business_id, transaction_type, transaction_id, created_by):
     config = ApprovalConfig.query.filter_by(
         business_id=business_id,

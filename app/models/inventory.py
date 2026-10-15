@@ -1,3 +1,4 @@
+# REVIEW: Operational domain models re-exporting product, sales, purchasing, and inventory classes.
 """Inventory, sales, purchases, production, subscription, and business domain models.
 
 This module provides a clean namespace for all operational (non-accounting) models.

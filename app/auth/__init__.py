@@ -1,3 +1,4 @@
+# REVIEW: Authentication blueprint module defining login, user administration, and session routes.
 from flask import Blueprint
 from .decorators import role_required
 

@@ -38,6 +38,8 @@ PERMISSIONS = {
 }
 
 
+# REVIEW: Fine-grained permission evaluator mapping user roles to specific action permissions.
+# REVIEW: Admins receive wildcard ('*') access across all platform capabilities.
 def has_permission(user, permission):
     """Check if a user has the given permission."""
     if not user or not user.is_authenticated:
@@ -56,6 +58,7 @@ def has_permission(user, permission):
     return False
 
 
+# REVIEW: Permission enforcement decorator checking has_permission() prior to route handler execution.
 def permission_required(permission):
     """Decorator that checks if the current user has the given permission."""
     def decorator(f):

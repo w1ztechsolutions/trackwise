@@ -1,3 +1,4 @@
+# REVIEW: Trial balance report generator verifying that total debit balances equal total credit balances across all active GL accounts.
 """Trial Balance report derived from journal entries."""
 
 from app.models import db, ChartOfAccounts, JournalLine, JournalEntry

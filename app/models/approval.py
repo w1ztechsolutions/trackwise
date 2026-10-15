@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from models import db
 
 
+# REVIEW: Multi-tier authorization threshold rules for high-value financial actions.
 class ApprovalConfig(db.Model):
     """Defines approval workflow configuration for each transaction type per business.
 
@@ -35,6 +36,7 @@ class ApprovalConfig(db.Model):
         }
 
 
+# REVIEW: Pending approval instance tracking authorization workflow state (pending, approved, rejected).
 class ApprovalRequest(db.Model):
     """Tracks a pending approval request for a specific transaction.
 

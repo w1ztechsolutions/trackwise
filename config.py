@@ -94,6 +94,8 @@ def _get_pool_options(is_neon: bool = False) -> dict:
     }
 
 
+# REVIEW: Base configuration class establishing session lifetimes, cookie security policies,
+# REVIEW: and optional demo database isolation flags (DEMO_MODE_ENABLED).
 class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 300}
@@ -121,6 +123,8 @@ class DevelopmentConfig(Config):
     SESSION_COOKIE_SECURE = False
 
 
+# REVIEW: Deterministic configuration for pytest execution using isolated in-memory SQLite (sqlite:///:memory:).
+# REVIEW: Disables WTF CSRF and forces LOGIN_DISABLED=True for automated test suites.
 class TestingConfig(Config):
     DEBUG = False
     TESTING = True

@@ -1,3 +1,4 @@
+# REVIEW: Aging bucket calculation utilities (Current, 30, 60, 90+ days) for AR/AP aging reports.
 """Shared helpers for date-based receivable and payable aging."""
 
 from datetime import datetime, time
