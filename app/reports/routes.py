@@ -11,6 +11,7 @@ from app.models.accounting import Branch, ChartOfAccounts, CostCenter
 from app.models import ImportRun
 from app.services.fifo_service import get_inventory_valuation, get_profit_loss
 from app.services.reports import (
+    get_vat_return,
     get_income_statement,
     get_balance_sheet,
     get_cash_flow,
@@ -172,6 +173,42 @@ def balance_sheet():
         report_type='balance_sheet',
         bs=bs_data,
         as_of_date=as_of_date_str,
+    )
+
+
+@reports_bp.route('/reports/vat-return')
+@login_required
+@audit_report_access('vat_return')
+def vat_return():
+    """VAT return: input and output tax for a period, net VAT payable."""
+    start_str = request.args.get('start_date')
+    end_str = request.args.get('end_date')
+    business_id = current_user.business_id
+
+    start_date = end_date = None
+    # REVIEW: dates come from the query string, so they are parsed strictly
+    # REVIEW: and redirected on garbage input rather than 500-ing. The
+    # REVIEW: user-facing end date is inclusive, hence +1 day (the service
+    # REVIEW: queries [start, end)).
+    if start_str and end_str:
+        try:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d")
+            end_date = datetime.strptime(end_str, "%Y-%m-%d") + timedelta(days=1)
+        except ValueError:
+            flash('Invalid date range for the VAT return.', 'danger')
+            return redirect(url_for('reports.vat_return'))
+
+    if business_id:
+        vat_data = get_vat_return(business_id, start_date, end_date)
+    else:
+        vat_data = None
+
+    return render_template(
+        'reports.html',
+        report_type='vat_return',
+        vat=vat_data,
+        start_date=start_str,
+        end_date=end_str,
     )
 
 
@@ -606,6 +643,13 @@ def export_report_xlsx(report_type):
             end_date=end_date,
             supplier_id=request.args.get('supplier_id', type=int),
             return_type=request.args.get('return_type') or None,
+        )
+    elif report_type == 'vat-return':
+        report_key = 'vat_return'
+        report = get_vat_return(
+            business_id,
+            start_date,
+            end_date,
         )
     elif report_type == 'audit-log':
         report_key = 'audit_log'

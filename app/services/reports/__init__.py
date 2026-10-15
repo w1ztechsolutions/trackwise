@@ -19,6 +19,7 @@ from .budget_variance import (
     get_revenue_budget_variance,
 )
 from .expense_budget import set_expense_budget
+from .vat_return import get_vat_return
 
 __all__ = [
     'get_income_statement',
@@ -35,4 +36,5 @@ __all__ = [
     'get_revenue_budget_variance',
     'get_period_comparison',
     'set_expense_budget',
+    'get_vat_return',
 ]
