@@ -416,6 +416,11 @@ class Subscription(db.Model):
 
 
 # Malawi tax engine: effective-dated tax codes (VAT standard/zero-rated/exempt, WHT)
+# REVIEW: tax engine models (Phase 1) — see docs/TAX_ENGINE.md and
+# REVIEW: ADR-0015 for the design rationale. Key invariants:
+# REVIEW: 1. codes are unique per business (tenant isolation, uq below);
+# REVIEW: 2. rates are unique per (code, effective_from) so history is
+# REVIEW:    append-only — edits add a new dated row, never mutate one.
 class TaxCode(db.Model):
     __tablename__ = 'tax_codes'
     id = db.Column(db.Integer, primary_key=True)
@@ -429,6 +434,11 @@ class TaxCode(db.Model):
 
     rates = db.relationship('TaxRate', backref='tax_code', order_by='TaxRate.effective_from')
 
+    # REVIEW: rate_on() is the effective-dating core: it returns the rate of
+    # REVIEW: the LATEST row whose effective_from is on/before the document
+    # REVIEW: date. `rates` is relationship-ordered by effective_from, so
+    # REVIEW: applicable[-1] is the newest applicable row. Returns None when
+    # REVIEW: the code predates its earliest rate row.
     def rate_on(self, on_date):
         """Return the Decimal rate effective for the given date, or None."""
         if on_date is None:

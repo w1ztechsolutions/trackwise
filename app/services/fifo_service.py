@@ -205,6 +205,12 @@ def _post_purchase_accounting(purchase_date, total_amount, purchase_id, business
     if inventory_acct:
         lines.append({'account_id': inventory_acct.id, 'debit_amount': net_amount, 'credit_amount': 0})
 
+    # REVIEW: input VAT posts as a DEBIT to the VAT Payable control account
+    # REVIEW: (2200). Sales post output VAT as a CREDIT on the same account,
+    # REVIEW: so 2200's balance is output minus input = net VAT payable to
+    # REVIEW: MRA — the figure the VAT return report (/reports/vat-return)
+    # REVIEW: reads. Inventory is debited with the NET cost (excl. VAT)
+    # REVIEW: because the VAT portion is recoverable, not an expense.
     if tax_amount > 0:
         tax_acct = get_account_by_code(business_id, ACCOUNT_CODE_TAX_PAYABLE)
         if tax_acct:
@@ -280,6 +286,9 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
             'tax_code_id': item.get('tax_code_id'),
         })
 
+    # REVIEW: skipped entirely when no line carries a tax code — legacy
+    # REVIEW: purchases (pre-tax-engine data) take the same code path with
+    # REVIEW: zero tax, so the change is behavior-neutral for them.
     tax_input = compute_document_tax(
         normalized, business_id, purchase_date, tax_inclusive=False
     ) if any(item.get('tax_code_id') for item in normalized) else None
