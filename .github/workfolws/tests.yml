@@ -1,0 +1,50 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install system libraries for WeasyPrint
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libpango-1.0-0 libpangoft2-1.0-0
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run test suite
+        env:
+          CELERY_DISABLED: "true"
+        run: python -m pytest tests/ -v --tb=short
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-output
+          path: |
+            .pytest_cache/
+            **/*.log
+          if-no-files-found: ignore
