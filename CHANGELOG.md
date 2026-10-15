@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Tracked `__pycache__/` byte-compiled files from the repository; `.gitignore` already excluded them and they are regenerated locally
+- Unused `stripe` dependency and the model-only `stripe_subscription_id` column on `subscriptions` (Stripe subscription payments are not planned; no payment flow existed — the column was dead schema). Migration `20261015_drop_stripe_subscription_id` drops the column; audit-log sensitive-field redaction remains for `password_hash` and `bank_account_number`
 
 ### Changed
 

@@ -405,7 +405,6 @@ class Subscription(db.Model):
     status = db.Column(db.String(30), nullable=False, default='active')
     start_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     renewal_date = db.Column(db.DateTime, nullable=True)
-    stripe_subscription_id = db.Column(db.String(255), nullable=True)
     payment_method = db.Column(db.String(50), nullable=True)
 
     plan = db.relationship('Plan', backref='subscriptions')
