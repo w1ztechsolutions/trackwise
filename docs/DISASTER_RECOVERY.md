@@ -37,7 +37,7 @@ The incident lead coordinates technical recovery. A database operator performs t
 
 On the isolated target, and with an authorized reviewer:
 
-1. Run `python check_db_schema.py` and `python verify_db.py` from the release being considered. Confirm expected tables and migration revision; investigate any failures.
+1. Run `python scripts/check_db_schema.py` and `python scripts/verify_db.py` from the release being considered. Confirm expected tables and migration revision; investigate any failures.
 2. Start the application against the isolated database and confirm `/health` succeeds. Exercise sign-in and representative workflows without sending real customer notifications or external payment actions.
 3. Verify representative business, user, transaction, audit, and period-close records around the recovery point. Check business/tenant isolation and confirm that no unrelated tenant's access has changed.
 4. Run the accounting integrity verification for affected businesses. Reconcile record counts and financial reports with the last approved close evidence and independent records; identify transactions after the recovery point that must be re-entered.
@@ -62,7 +62,7 @@ On the isolated target, and with an authorized reviewer:
 
 ## Prohibited recovery shortcuts
 
-- Do not run `seed.py`, `db.drop_all()`, destructive SQL, or migration/bootstrap commands as a recovery shortcut.
+- Do not run `scripts/seed.py`, `db.drop_all()`, destructive SQL, or migration/bootstrap commands as a recovery shortcut.
 - Do not restore a multi-tenant full database dump over production to recover one business.
 - Do not point the demo application at production data or the recovery target.
 - Do not declare recovery successful based solely on the app starting or `/health` returning 200.

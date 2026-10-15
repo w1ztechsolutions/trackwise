@@ -9,7 +9,7 @@ from flask_login import current_user, login_required
 from app.models import Product, Setting, db
 from app.models.accounting import Branch, ChartOfAccounts, CostCenter
 from app.models import ImportRun
-from services.fifo_service import get_inventory_valuation, get_profit_loss
+from app.services.fifo_service import get_inventory_valuation, get_profit_loss
 from app.services.reports import (
     get_income_statement,
     get_balance_sheet,

@@ -1,7 +1,7 @@
 import pytest
 from datetime import date, datetime
 from models import Product, Sale, Purchase, Expense, Customer, Invoice, InvoiceItem, Supplier, Bill, db
-from services.fifo_service import record_purchase, record_sale, record_expense
+from app.services.fifo_service import record_purchase, record_sale, record_expense
 
 
 class TestDashboardRoutes:
@@ -1187,7 +1187,7 @@ class TestTaxPerLineItem:
     def test_invoice_creation_with_tax(self, client, app, business):
         from models import db, Customer, Product
         from app.models.accounting import ChartOfAccounts, JournalEntry
-        from services.fifo_service import get_tax_rate
+        from app.services.fifo_service import get_tax_rate
         with app.app_context():
             customer = Customer(name='Tax Customer', business_id=business.id)
             product = Product(sku='TAX-INV', name='Tax Product', default_selling_price=100.0, business_id=business.id)
@@ -1222,7 +1222,7 @@ class TestTaxPerLineItem:
     def test_sale_accounting_posts_tax_payable(self, client, app, business):
         from models import db, Customer, Product
         from app.models.accounting import ChartOfAccounts, JournalEntry, JournalLine
-        from services.fifo_service import record_purchase, get_tax_rate
+        from app.services.fifo_service import record_purchase, get_tax_rate
         with app.app_context():
             customer = Customer(name='Tax Sale Customer', business_id=business.id)
             product = Product(sku='TAX-SALE', name='Tax Sale Product', default_selling_price=200.0, business_id=business.id)

@@ -6,7 +6,7 @@ from flask import flash, redirect, render_template, request, url_for, abort
 
 from models import Product, Sale, SaleItem, Customer, Invoice, InvoiceItem, Receipt, db
 from app.models.approval import ApprovalRequest
-from services.fifo_service import InventoryException, record_sale, get_tax_rate
+from app.services.fifo_service import InventoryException, record_sale, get_tax_rate
 from app.services.accounting_service import AccountingException, post_entry, get_account_by_code
 from app.auth.decorators import role_required
 from app.services.import_service import (

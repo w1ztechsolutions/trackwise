@@ -2,7 +2,7 @@ import unittest
 from datetime import date, datetime, timedelta, timezone
 from flask import Flask
 from models import db, Product, User, FinancialCategory
-from services.fifo_service import record_purchase, record_sale, record_expense
+from app.services.fifo_service import record_purchase, record_sale, record_expense
 from app.services.accounting_service import (
     AccountingException,
     post_entry,

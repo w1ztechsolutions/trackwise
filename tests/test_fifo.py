@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from models import db, Product, StockTransaction, Invoice, Setting
-from services.fifo_service import (
+from app.services.fifo_service import (
     record_purchase, record_sale, record_expense,
     get_profit_loss, get_inventory_valuation, set_tax_rate,
     InventoryException

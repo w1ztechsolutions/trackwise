@@ -291,7 +291,7 @@ The legacy `/expenses` route (`app/expenses/routes.py`) now redirects to `/payme
 |------|---------|
 | `models.py` | FinancialCategory, LineItem, Staff, updated Payment |
 | `app/models/__init__.py` | Updated model imports |
-| `services/fifo_service.py` | `_post_payment_accounting()` method |
+| `app/services/fifo_service.py` | `_post_payment_accounting()` method |
 | `app/purchases/routes.py` | Payments route (GET/POST) |
 | `app/dashboard/routes.py` | Recent payments data for dashboard |
 | `templates/payments.html` | Payment form and table |

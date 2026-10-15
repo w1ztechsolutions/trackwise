@@ -2,7 +2,7 @@ from flask_login import current_user, login_required
 from flask import flash, redirect, render_template, request, url_for
 
 from models import Product, Warehouse, db
-from services.fifo_service import get_inventory_valuation
+from app.services.fifo_service import get_inventory_valuation
 from app.services.inventory_service import (
     adjust_stock,
     transfer_stock,

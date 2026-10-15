@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from flask import Flask
 from models import db, Product, Setting, User
 from app.services.accounting_service import post_entry
-from services.fifo_service import record_purchase, record_sale, record_expense
+from app.services.fifo_service import record_purchase, record_sale, record_expense
 from app.services.reports import (
     get_income_statement,
     get_balance_sheet,

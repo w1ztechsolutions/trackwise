@@ -7,7 +7,7 @@ from flask_login import login_required, current_user
 
 from models import Product, Purchase, PurchaseItem, Supplier, Payment, Staff, FinancialCategory, LineItem, Bill, db
 from app.models.approval import ApprovalConfig, ApprovalRequest, ApprovalAction
-from services.fifo_service import record_purchase
+from app.services.fifo_service import record_purchase
 from app.auth.permissions import can_approve_at_level
 from app.auth.decorators import role_required
 from app.services.accounting_service import AccountingException, reverse_payment
@@ -178,7 +178,7 @@ def payments():
             db.session.commit()
             flash('Payment submitted for approval. It will be processed once approved.', 'info')
         else:
-            from services.fifo_service import _post_payment_accounting
+            from app.services.fifo_service import _post_payment_accounting
             _post_payment_accounting(
                 payment_date=payment.payment_date,
                 amount=float(amount),
