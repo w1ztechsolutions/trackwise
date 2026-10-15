@@ -1,8 +1,11 @@
+from datetime import date
+
 from flask import jsonify
 from flask_login import current_user, login_required
 
 from app.models import Product, Supplier
 from app.services.accounting_service import verify_balances
+from app.services.tax_service import list_tax_codes
 
 from . import api_bp
 
@@ -38,6 +41,24 @@ def api_suppliers():
         query = query.filter_by(business_id=business_id)
     suppliers = query.order_by(Supplier.name.asc()).all()
     return jsonify([{'id': s.id, 'name': s.name} for s in suppliers])
+
+
+@api_bp.route('/api/tax-codes')
+@login_required
+def api_tax_codes():
+    business_id = _business_id()
+    codes = list_tax_codes(business_id)
+    today = date.today()
+    return jsonify([
+        {
+            'id': tc.id,
+            'code': tc.code,
+            'name': tc.name,
+            'treatment': tc.treatment,
+            'rate': float(tc.rate_on(today) or 0),
+        }
+        for tc in codes
+    ])
 
 
 @api_bp.route('/api/accounting/verify')

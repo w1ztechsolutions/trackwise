@@ -192,14 +192,23 @@ def _post_sale_accounting(sale_date, customer_name, total_revenue, total_cogs, s
         )
 
 
-def _post_purchase_accounting(purchase_date, total_amount, purchase_id, business_id, created_by):
+def _post_purchase_accounting(purchase_date, total_amount, purchase_id, business_id, created_by, tax_amount=0.0):
     if business_id is None:
         return
+
+    total_amount = float(total_amount)
+    tax_amount = float(tax_amount or 0)
+    net_amount = total_amount - tax_amount
 
     lines = []
     inventory_acct = get_account_by_code(business_id, ACCOUNT_CODE_INVENTORY)
     if inventory_acct:
-        lines.append({'account_id': inventory_acct.id, 'debit_amount': total_amount, 'credit_amount': 0})
+        lines.append({'account_id': inventory_acct.id, 'debit_amount': net_amount, 'credit_amount': 0})
+
+    if tax_amount > 0:
+        tax_acct = get_account_by_code(business_id, ACCOUNT_CODE_TAX_PAYABLE)
+        if tax_acct:
+            lines.append({'account_id': tax_acct.id, 'debit_amount': tax_amount, 'credit_amount': 0})
 
     ap_acct = get_account_by_code(business_id, ACCOUNT_CODE_AP)
     cash_acct = get_account_by_code(business_id, ACCOUNT_CODE_CASH)
@@ -249,9 +258,10 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
     if not items_data:
         raise ValueError("Purchase must contain at least one item.")
 
-    total_amount = 0.0
-    purchase_items = []
+    from app.services.tax_service import compute_document_tax
 
+    # Normalize and validate lines first so tax computation sees line totals.
+    normalized = []
     for item in items_data:
         product_id = item['product_id']
         quantity = int(item['quantity'])
@@ -262,14 +272,36 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
         if unit_cost < 0:
             raise ValueError("Unit cost cannot be negative.")
 
+        normalized.append({
+            'product_id': product_id,
+            'quantity': quantity,
+            'unit_cost': unit_cost,
+            'line_total': quantity * unit_cost,
+            'tax_code_id': item.get('tax_code_id'),
+        })
+
+    tax_input = compute_document_tax(
+        normalized, business_id, purchase_date, tax_inclusive=False
+    ) if any(item.get('tax_code_id') for item in normalized) else None
+
+    total_amount = 0.0
+    total_tax = float(tax_input['total_tax']) if tax_input else 0.0
+    purchase_items = []
+
+    for item_idx, item in enumerate(normalized):
+        product_id = item['product_id']
+        quantity = item['quantity']
+        unit_cost = item['unit_cost']
+
         product = db.session.get(Product, product_id)
         if not product:
             raise ValueError(f"Product ID {product_id} not found.")
 
-        total_amount += quantity * unit_cost
+        line_total = item['line_total']
+        total_amount += line_total
 
         pi = PurchaseItem(business_id=business_id, product_id=product_id, quantity=quantity, unit_cost=unit_cost)
-        purchase_items.append((pi, product))
+        purchase_items.append((pi, product, item_idx))
 
     purchase = Purchase(
         business_id=business_id,
@@ -298,16 +330,16 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
             bill_number=f"BILL-{purchase.purchase_date.strftime('%Y%m%d')}-{purchase.id}",
             bill_date=purchase.purchase_date,
             due_date=purchase.purchase_date,
-            subtotal=total_amount,
-            tax_amount=0.0,
-            total_amount=total_amount,
+            subtotal=round(total_amount, 2),
+            tax_amount=round(total_tax, 2),
+            total_amount=round(total_amount + total_tax, 2),
             status='received',
             notes=notes,
         )
         db.session.add(bill)
         db.session.flush()
 
-    for pi, product in purchase_items:
+    for pi, product, orig_idx in purchase_items:
         pi.purchase_id = purchase.id
         db.session.add(pi)
         db.session.flush()
@@ -328,7 +360,7 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
         db.session.add(tx)
 
         if bill is not None:
-            bi = BillItem(
+            bi_kwargs = dict(
                 business_id=business_id,
                 bill_id=bill.id,
                 product_id=product.id,
@@ -337,12 +369,21 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
                 unit_cost=pi.unit_cost,
                 line_total=float(pi.quantity) * float(pi.unit_cost),
             )
-            db.session.add(bi)
+            if tax_input is not None:
+                tax_line = tax_input['lines'][orig_idx]
+                if tax_line['tax_code_id'] is not None:
+                    bi_kwargs.update(
+                        tax_code_id=tax_line['tax_code_id'],
+                        tax_rate=tax_line['tax_rate'],
+                        tax_amount=tax_line['tax_amount'],
+                    )
+            db.session.add(BillItem(**bi_kwargs))
 
+    purchase.total_amount = round(total_amount + total_tax, 2)
     db.session.commit()
 
     _post_purchase_accounting(
-        purchase.purchase_date, total_amount, purchase.id, business_id, created_by
+        purchase.purchase_date, purchase.total_amount, purchase.id, business_id, created_by, tax_amount=total_tax
     )
 
     return purchase

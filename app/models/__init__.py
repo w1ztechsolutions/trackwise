@@ -25,6 +25,8 @@ from .inventory import (
     FinishedGoodOutput,
     Plan,
     Subscription,
+    TaxCode,
+    TaxRate,
     FinancialCategory,
     LineItem,
     Staff,

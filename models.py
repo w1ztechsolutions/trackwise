@@ -236,11 +236,13 @@ class InvoiceItem(db.Model):
     quantity = db.Column(db.Integer, nullable=False, default=1)
     unit_price = db.Column(db.Numeric(12, 2), nullable=False, default=0.0)
     line_total = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
+    tax_code_id = db.Column(db.Integer, db.ForeignKey('tax_codes.id'), nullable=True)
     tax_rate = db.Column(db.Numeric(5, 2), nullable=False, default=0.0)
     tax_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     tax_inclusive = db.Column(db.Boolean, nullable=False, default=False)
 
     invoice = db.relationship('Invoice', backref='items')
+    tax_code = db.relationship('TaxCode', backref='invoice_items')
     product = db.relationship('Product', backref='invoice_items')
 
 
@@ -287,11 +289,13 @@ class BillItem(db.Model):
     quantity = db.Column(db.Integer, nullable=False, default=1)
     unit_cost = db.Column(db.Numeric(12, 2), nullable=False, default=0.0)
     line_total = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
+    tax_code_id = db.Column(db.Integer, db.ForeignKey('tax_codes.id'), nullable=True)
     tax_rate = db.Column(db.Numeric(5, 2), nullable=False, default=0.0)
     tax_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     tax_inclusive = db.Column(db.Boolean, nullable=False, default=False)
 
     bill = db.relationship('Bill', backref='items')
+    tax_code = db.relationship('TaxCode', backref='bill_items')
     product = db.relationship('Product', backref='bill_items')
 
 
@@ -409,6 +413,39 @@ class Subscription(db.Model):
 
     plan = db.relationship('Plan', backref='subscriptions')
     business = db.relationship('Business', backref='subscriptions', foreign_keys=[business_id])
+
+
+# Malawi tax engine: effective-dated tax codes (VAT standard/zero-rated/exempt, WHT)
+class TaxCode(db.Model):
+    __tablename__ = 'tax_codes'
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, db.ForeignKey('businesses.id', ondelete='CASCADE'), nullable=False, index=True)
+    code = db.Column(db.String(20), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    tax_type = db.Column(db.String(20), nullable=False, default='vat')  # vat | wht
+    treatment = db.Column(db.String(20), nullable=False, default='standard')  # standard | zero_rated | exempt
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    __table_args__ = (db.UniqueConstraint('business_id', 'code', name='uq_tax_code_business_code'),)
+
+    rates = db.relationship('TaxRate', backref='tax_code', order_by='TaxRate.effective_from')
+
+    def rate_on(self, on_date):
+        """Return the Decimal rate effective for the given date, or None."""
+        if on_date is None:
+            return None
+        if hasattr(on_date, 'date'):
+            on_date = on_date.date()
+        applicable = [r for r in self.rates if r.effective_from <= on_date]
+        return applicable[-1].rate if applicable else None
+
+
+class TaxRate(db.Model):
+    __tablename__ = 'tax_rates'
+    id = db.Column(db.Integer, primary_key=True)
+    tax_code_id = db.Column(db.Integer, db.ForeignKey('tax_codes.id', ondelete='CASCADE'), nullable=False, index=True)
+    rate = db.Column(db.Numeric(6, 4), nullable=False)
+    effective_from = db.Column(db.Date, nullable=False)
+    __table_args__ = (db.UniqueConstraint('tax_code_id', 'effective_from', name='uq_tax_rate_code_effective'),)
 
 
 # Financial Statement Categories for accounting classification
