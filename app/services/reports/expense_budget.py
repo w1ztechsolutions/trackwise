@@ -1,3 +1,4 @@
+# REVIEW: Expense budget monitoring report generator highlighting over-budget expense categories.
 """Backward-compatible expense budget maintenance backed by the variance engine.
 
 New budget writes should go through ``app.services.budget_service.create_budget``.

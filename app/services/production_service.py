@@ -1,3 +1,12 @@
+# REVIEW: Manufacturing production lifecycle and inventory costing engine.
+# REVIEW: Accounting rationale: Tracks raw material consumption into Work In Progress (WIP, 1450) and transfer of
+# REVIEW: finished goods from WIP to Finished Goods Inventory (1460).
+# REVIEW: Double-entry postings:
+# REVIEW:   1. Material Consumption: Debit WIP (1450) / Credit Raw Materials (1410).
+# REVIEW:   2. Batch Completion: Debit Finished Goods (1460) / Credit WIP (1450).
+# REVIEW: Tenant isolation & Stock Invariants: All batches, stock transactions, and GL postings are scoped
+# REVIEW: by business_id; stock availability is verified prior to material deduction.
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -12,6 +21,8 @@ ACCOUNT_CODE_FINISHED_GOODS = '1460'
 ACCOUNT_CODE_INVENTORY = '1400'
 
 
+# REVIEW: Helper to ensure core manufacturing GL accounts (Raw Materials 1410, WIP 1450, Finished Goods 1460) exist
+# REVIEW: for the business before posting production entries.
 def _ensure_account(business_id: int | None, code: str, name: str, account_type: str = 'asset'):
     if business_id is None:
         return None
@@ -36,6 +47,7 @@ class ProductionServiceException(Exception):
     pass
 
 
+# REVIEW: Creates a new production batch with status 'planned' and a timestamped batch number prefix (PB-YYYYMMDD...).
 def create_batch(*, business_id: int | None, product_id: int, quantity_produced: int, notes: str | None = None, created_by: int | None = None, production_date: datetime | None = None):
     product = db.session.get(Product, product_id)
     if not product:
@@ -59,6 +71,8 @@ def create_batch(*, business_id: int | None, product_id: int, quantity_produced:
     return batch
 
 
+# REVIEW: Consumes raw material for a production batch: validates stock availability, deducts inventory,
+# REVIEW: records a negative StockTransaction ('PRODUCTION_CONSUMPTION'), and posts a WIP debit / Raw Materials credit entry.
 def consume_material(*, business_id: int | None, production_batch_id: int, product_id: int, quantity: int, unit_cost: float | int, created_by: int | None = None):
     batch = db.session.get(ProductionBatch, production_batch_id)
     if not batch:
@@ -120,6 +134,9 @@ def consume_material(*, business_id: int | None, production_batch_id: int, produ
     return usage
 
 
+# REVIEW: Finalizes a production batch: calculates unit production cost from material usage, increases finished
+# REVIEW: goods stock, records a positive StockTransaction ('PRODUCTION_OUTPUT'), marks batch 'completed', and
+# REVIEW: posts Finished Goods debit / WIP credit entry. Idempotent if already completed.
 def complete_batch(*, business_id: int | None, production_batch_id: int, unit_cost: float | int, created_by: int | None = None):
     batch = db.session.get(ProductionBatch, production_batch_id)
     if not batch:

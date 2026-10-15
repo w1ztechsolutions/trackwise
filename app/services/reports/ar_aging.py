@@ -1,3 +1,4 @@
+# REVIEW: Accounts Receivable aging report generator computing customer balances grouped by due date buckets.
 """Accounts receivable aging based on invoice balances and linked receipts."""
 
 from app.models import Customer, Invoice, Receipt

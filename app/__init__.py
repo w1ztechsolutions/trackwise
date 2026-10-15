@@ -82,6 +82,8 @@ limiter = Limiter(
 )
 
 
+# REVIEW: Idempotent schema migration helper inspecting users table and adding missing columns
+# REVIEW: (e.g. must_change_password, custom_tasks, role) for legacy PostgreSQL/SQLite upgrades.
 def ensure_required_user_columns():
     """Repair legacy database schemas that are missing required `users` columns."""
     try:
@@ -161,6 +163,8 @@ def ensure_accounting_columns():
         db.session.rollback()
 
 
+# REVIEW: Application factory initializing Flask, SQLAlchemy, Migrations, LoginManager, and CSRF protection.
+# REVIEW: Binds database routing and audit listeners before registering domain route blueprints.
 def create_app(config_object=None):
     app = Flask(
         __name__,

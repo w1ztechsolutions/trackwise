@@ -4,6 +4,10 @@ Mirrors the raw ``zipfile`` + ``xml.etree.ElementTree`` approach used by
 :mod:`app.services.reports.xlsx_export` so no new dependency is required.
 """
 
+# REVIEW: Dependency-free OpenXML (.xlsx) spreadsheet parser using zipfile and xml.etree.ElementTree.
+# REVIEW: Key features: Shared strings table resolution, XML namespace handling, column index calculation from
+# REVIEW: cell references (e.g. 'A1', 'BC12'), repeated header disambiguation, and Excel epoch date serial conversion.
+
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 from datetime import date, datetime, timedelta
@@ -24,6 +28,7 @@ class XlsxParseError(ValueError):
     """Raised when an uploaded workbook cannot be parsed."""
 
 
+# REVIEW: Converts Excel column letter references (A, B, ..., Z, AA, AB...) into zero-based column indexes.
 def _column_index(reference):
     letters = ''.join(ch for ch in reference if ch.isalpha())
     index = 0
@@ -32,6 +37,7 @@ def _column_index(reference):
     return index - 1
 
 
+# REVIEW: Extracts the shared strings table (xl/sharedStrings.xml) used by Excel to store text values.
 def _shared_strings(workbook):
     try:
         raw = workbook.read('xl/sharedStrings.xml')
@@ -46,6 +52,7 @@ def _shared_strings(workbook):
     return strings
 
 
+# REVIEW: Resolves worksheet names to XML file paths inside the XLSX zip container via workbook.xml and rels.
 def _sheet_targets(workbook):
     """Return ``(sheet_name, part_path)`` pairs in workbook order."""
     workbook_xml = fromstring(workbook.read('xl/workbook.xml'))
@@ -79,6 +86,8 @@ def _coerce_number(text):
         return None
 
 
+# REVIEW: Decodes individual cell values based on cell type attribute ('s' for shared string, 'b' for boolean,
+# REVIEW: 'inlineStr', or raw numeric values).
 def _cell_value(cell, shared_strings):
     cell_type = cell.get('t')
 
@@ -112,6 +121,7 @@ def read_sheet_rows(file_stream):
     return _read_worksheet(file_stream, sheet_index=0)
 
 
+# REVIEW: Parses worksheet XML data into a 2D grid array of strings, normalizing varying row lengths.
 def _read_worksheet(file_stream, sheet_index=0):
     try:
         workbook = ZipFile(BytesIO(file_stream.read()))
@@ -152,6 +162,8 @@ def _read_worksheet(file_stream, sheet_index=0):
     return [row + [''] * (width - len(row)) for row in rows]
 
 
+# REVIEW: Deduplicates column header names by appending numeric suffixes e.g., 'Amount (2)' to prevent silent
+# REVIEW: dictionary key overwrites when parsing rows into records.
 def _disambiguate_headers(headers):
     """Return header names made unique by suffixing repeats with ``(2)``, ``(3)``, ...
 
@@ -172,6 +184,7 @@ def _disambiguate_headers(headers):
     return unique
 
 
+# REVIEW: Primary file import parser converting uploaded XLSX FileStorage streams into (sheet_names, record_dicts).
 def parse_xlsx_file(file_storage, sheet_index=0):
     """Parse an uploaded workbook into ``(sheet_names, rows)``.
 
@@ -231,6 +244,8 @@ def _serial_to_date(number):
         return None
 
 
+# REVIEW: Multi-format date parser supporting ISO strings, MDY/DMY date order patterns, and Excel serial numbers
+# REVIEW: based on EXCEL_EPOCH (1899-12-30).
 def parse_date(value, date_order='MDY'):
     """Parse a cell into a date, tolerating Excel serials and ISO strings.
 
@@ -267,6 +282,8 @@ def parse_date(value, date_order='MDY'):
     return None
 
 
+# REVIEW: Robust Decimal parser handling standard floats/ints, formatted strings with commas, and accounting
+# REVIEW: parenthesized negative numbers e.g. '(100.00)' -> -100.00.
 def parse_decimal(value):
     """Parse a cell into a Decimal, returning None when the value is unusable."""
     if value in (None, ''):

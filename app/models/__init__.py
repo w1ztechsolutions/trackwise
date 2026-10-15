@@ -1,3 +1,4 @@
+# REVIEW: Domain model package initialization exporting operational and accounting entities.
 from models import db
 
 # Import models from app/models submodules

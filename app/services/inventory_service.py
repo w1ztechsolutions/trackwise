@@ -62,6 +62,8 @@ def _get_default_unit_cost(product: Product) -> Decimal:
     return Decimal(str(layer.unit_cost))
 
 
+# REVIEW: Inventory adjustment handler for shrinkage, spoilage, or physical audit reconciliation.
+# REVIEW: Updates stock quantities and posts inventory adjustment journal entries.
 def adjust_stock(
     *,
     business_id: int | None,

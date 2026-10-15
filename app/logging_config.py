@@ -6,6 +6,7 @@ import sys
 from datetime import datetime, timezone
 
 
+# REVIEW: Production log formatter outputting structured JSON entries with request_id, user_id, and business_id attributes.
 class JSONFormatter(logging.Formatter):
     """Format log records as JSON for production log aggregation."""
 

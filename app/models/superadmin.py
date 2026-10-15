@@ -5,6 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from app.models import db
 
 
+# REVIEW: System platform administrator accounts operating outside individual business tenant scope.
 class SuperAdmin(db.Model):
     """Platform-level super administrator who creates businesses and their admins."""
     __tablename__ = 'super_admins'

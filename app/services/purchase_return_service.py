@@ -95,6 +95,8 @@ def returnable_bills(business_id):
     return result
 
 
+# REVIEW: Purchase return and vendor debit note handler.
+# REVIEW: Decrements inventory quantities and reduces Accounts Payable (or generates vendor credit).
 def process_purchase_return(
     business_id,
     bill_id,

@@ -1,3 +1,4 @@
+# REVIEW: Report services package exporting financial reporting and statement generators.
 """Report services for TrackWise accounting system.
 
 All reports are dynamically derived from journal entries.

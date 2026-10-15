@@ -24,6 +24,8 @@ db = _db
 @auth_bp.route('/users/create', methods=['GET', 'POST'])
 @login_required
 @permission_required('manage_settings')
+# REVIEW: Admin-only user provisioning endpoint.
+# REVIEW: Enforces business_id tenant isolation and sets must_change_password=True on new accounts.
 def create_user():
     from app.models import User
     from app.database import DATABASE_CONTEXT_KEY, DEMO_CONTEXT
@@ -116,6 +118,8 @@ def user_management():
 
 @auth_bp.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
 @login_required
+# REVIEW: User account editing endpoint strictly scoped by business_id ownership.
+# REVIEW: Prevents cross-tenant user modification attempts (returns 404 on biz_id mismatch).
 def edit_user(user_id):
     if current_user.role != 'admin':
         flash('Only administrators can edit users.', 'danger')

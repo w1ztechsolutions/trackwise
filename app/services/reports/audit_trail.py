@@ -1,3 +1,4 @@
+# REVIEW: Audit trail report generator querying system change logs filtered by business tenant.
 """Audit Trail report derived from immutable AuditLog records."""
 
 import json

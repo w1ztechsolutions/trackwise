@@ -65,6 +65,8 @@ def create_demo_user(business_id, role):
     return user
 
 
+# REVIEW: Isolated sandbox bootstrap utility generating sample accounting data for product demos.
+# REVIEW: ADR-0011 / ADR-0012: Prevents demo data pollution in production tenant databases.
 def create_demo_workspace(display_name, normalized_name, role):
     """Create the business, starter ledger accounts, and first selected-role user."""
     business = Business(name=display_name, currency="MWK")

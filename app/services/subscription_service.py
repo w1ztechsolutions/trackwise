@@ -3,6 +3,9 @@
 Handles plan selection, subscription lifecycle, and feature access control.
 """
 
+# REVIEW: SaaS subscription tiering, plan management, and entitlement enforcement service.
+# REVIEW: Security & Access Control: Enforces plan feature access and maximum active user limits per tenant (business_id).
+
 import json
 from datetime import datetime, timezone, timedelta
 from app.models import db, Plan, Subscription
@@ -61,6 +64,7 @@ DEFAULT_PLANS = [
 ]
 
 
+# REVIEW: Idempotent seeder for standard subscription tiers (Free, Starter, Business, Enterprise) with feature matrices.
 def seed_default_plans():
     """Seed default subscription plans if none exist."""
     if Plan.query.first() is not None:
@@ -78,6 +82,7 @@ def seed_default_plans():
     db.session.commit()
 
 
+# REVIEW: Lookup helpers for active subscription plans by name or primary key ID.
 def get_plan_by_name(name):
     """Get a plan by name."""
     return Plan.query.filter_by(name=name, is_active=True).first()
@@ -93,6 +98,7 @@ def get_available_plans():
     return Plan.query.filter_by(is_active=True).order_by(Plan.price.asc()).all()
 
 
+# REVIEW: Multi-tenant active subscription lookup for a given business_id.
 def get_current_subscription(business_id):
     """Get the active subscription for a business."""
     if business_id is None:
@@ -103,6 +109,7 @@ def get_current_subscription(business_id):
     ).first()
 
 
+# REVIEW: Creates or updates (upserts) an active subscription for a business_id, establishing a 30-day renewal cycle.
 def subscribe(business_id, plan_id, payment_method=None):
     """Subscribe a business to a plan.
 
@@ -142,6 +149,7 @@ def subscribe(business_id, plan_id, payment_method=None):
     return sub
 
 
+# REVIEW: Marks a business subscription status as 'cancelled'.
 def cancel_subscription(business_id):
     """Cancel an active subscription."""
     sub = get_current_subscription(business_id)
@@ -151,6 +159,7 @@ def cancel_subscription(business_id):
     return sub
 
 
+# REVIEW: Feature flag entitlement check reading JSON-encoded feature parameters from the tenant's active plan.
 def check_access(business_id, feature_name):
     """Check if a business has access to a feature based on their plan."""
     if business_id is None:
@@ -167,6 +176,7 @@ def check_access(business_id, feature_name):
         return False
 
 
+# REVIEW: User limit gatekeeper comparing current active user count for business_id against plan max_users limit.
 def enforce_user_limit(business_id):
     """Check if the business has reached its user limit.
 

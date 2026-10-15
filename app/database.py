@@ -33,6 +33,8 @@ def database_identity(uri):
     return dialect, host, parsed.port, database
 
 
+# REVIEW: Request-scoped SQLAlchemy session routing session queries dynamically between
+# REVIEW: production database engine and isolated demo database engine based on flask_session context.
 class DatabaseRoutingSession(FlaskSession):
     def get_bind(self, mapper=None, clause=None, bind=None, **kwargs):
         if bind is not None:
