@@ -30,7 +30,7 @@
         </div>
         <div class="table-container">
             <table class="custom-table">
-                <thead><tr><th scope="col">Product</th><th scope="col">Qty</th><th scope="col">Unit Price</th><th scope="col">Tax Rate %</th></tr></thead>
+                <thead><tr><th scope="col">Product</th><th scope="col">Qty</th><th scope="col">Unit Price</th><th scope="col">Tax Code</th></tr></thead>
                 <tbody id="invoiceItemsBody">
                     <tr>
                         <td>
@@ -42,11 +42,18 @@
                         </td>
                         <td><input type="number" name="quantity[]" value="1" min="1" class="form-control" aria-label="Quantity"></td>
                         <td><input type="number" step="0.01" name="unit_price[]" value="0" class="form-control" aria-label="Unit Price"></td>
-                        <td><input type="number" step="0.01" name="tax_rate[]" value="30" min="0" max="100" class="form-control" aria-label="Tax Rate" aria-describedby="tax-rate-hint"></td>
+                        <td>
+                            <select name="tax_code[]" class="form-control" aria-label="Tax Code" aria-describedby="tax-rate-hint">
+                                <option value="">None (0%)</option>
+                                {% for tc in tax_codes %}
+                                <option value="{{ tc.id }}">{{ tc.code }} — {{ tc.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
                     </tr>
                 </tbody>
             </table>
-            <span id="tax-rate-hint" class="field-hint">Tax rate (default from Settings). Tax is posted to the Tax Payable liability account (2200).</span>
+            <span id="tax-rate-hint" class="field-hint">Tax is resolved by the code's effective rate on the invoice date and posted to the VAT Payable account (2200).</span>
         </div>
         <button type="submit" class="btn-primary btn-sm">Create Invoice</button>
     </form>

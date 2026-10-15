@@ -1193,7 +1193,9 @@ class TestTaxPerLineItem:
             product = Product(sku='TAX-INV', name='Tax Product', default_selling_price=100.0, business_id=business.id)
             db.session.add_all([customer, product])
             db.session.commit()
-            tax_rate = get_tax_rate(business_id=business.id)
+            from app.services.tax_service import list_tax_codes
+            std_code = next(tc for tc in list_tax_codes(business.id) if tc.code == 'VAT-S')
+            tax_rate = std_code.rate_on(datetime.now().date())
 
             resp = client.post('/invoices', data={
                 'customer_id': str(customer.id),
@@ -1202,21 +1204,22 @@ class TestTaxPerLineItem:
                 'product_id[]': [str(product.id)],
                 'quantity[]': ['1'],
                 'unit_price[]': ['100.0'],
-                'tax_rate[]': [str(tax_rate)],
+                'tax_code[]': [str(std_code.id)],
             }, follow_redirects=True)
             assert resp.status_code == 200
 
             invoice = Invoice.query.filter_by(business_id=business.id).first()
             assert invoice is not None
             expected_subtotal = 100.0
-            expected_tax = round(expected_subtotal * (tax_rate / 100.0), 2)
+            expected_tax = round(expected_subtotal * (float(tax_rate) / 100.0), 2)
             assert float(invoice.subtotal) == expected_subtotal
             assert float(invoice.tax_amount) == expected_tax
             assert float(invoice.total_amount) == expected_subtotal + expected_tax
 
             item = InvoiceItem.query.filter_by(invoice_id=invoice.id).first()
             assert item is not None
-            assert float(item.tax_rate) == tax_rate
+            assert item.tax_code_id == std_code.id
+            assert float(item.tax_rate) == float(tax_rate)
             assert float(item.tax_amount) == expected_tax
 
     def test_sale_accounting_posts_tax_payable(self, client, app, business):
@@ -1237,7 +1240,9 @@ class TestTaxPerLineItem:
                 business_id=business.id,
             )
 
-            tax_rate = get_tax_rate(business_id=business.id)
+            from app.services.tax_service import list_tax_codes
+            std_code = next(tc for tc in list_tax_codes(business.id) if tc.code == 'VAT-S')
+            tax_rate = float(std_code.rate_on(datetime.now().date()))
             tax_amount = round(200.0 * (tax_rate / 100.0), 2)
 
             resp = client.post('/invoices', data={
@@ -1247,7 +1252,7 @@ class TestTaxPerLineItem:
                 'product_id[]': [str(product_id)],
                 'quantity[]': ['1'],
                 'unit_price[]': ['200.0'],
-                'tax_rate[]': [str(tax_rate)],
+                'tax_code[]': [str(std_code.id)],
             }, follow_redirects=True)
             invoice = Invoice.query.filter_by(business_id=business.id).first()
 

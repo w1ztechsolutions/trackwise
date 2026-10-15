@@ -1,6 +1,7 @@
 (function () {
     let productsList = [];
     let suppliersList = [];
+    let taxCodesList = [];
 
     const container = document.getElementById('purchase-items-container');
     if (!container) return;
@@ -39,6 +40,13 @@
                 '<label class="form-label">Unit Cost (MWK)</label>' +
                 '<input type="number" name="unit_cost[]" step="0.01" min="0" required class="form-control price-input" data-row-id="' + rowId + '" placeholder="0.00">' +
                 '<span class="field-error" id="price-error-' + rowId + '" role="alert"></span>' +
+            '</div>' +
+            '<div class="form-group">' +
+                '<label class="form-label">VAT Code</label>' +
+                '<select name="tax_code[]" class="form-control tax-code-select" data-row-id="' + rowId + '">' +
+                    '<option value="">None (0%)</option>' +
+                    taxCodesList.map(function (tc) { return '<option value="' + tc.id + '">' + tc.code + ' — ' + tc.name + ' (' + tc.rate + '%)</option>'; }).join('') +
+                '</select>' +
             '</div>' +
             '<button type="button" class="btn-remove-row" data-row-id="' + rowId + '" aria-label="Remove item">' +
                 '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
@@ -97,11 +105,24 @@
         }
     }
 
+    function seedFirstRow() {
+        if (productsList && taxCodesList && container.children.length === 0) {
+            addPurchaseRow();
+        }
+    }
+
     fetch('/api/products')
         .then(function (res) { return res.json(); })
         .then(function (data) {
             productsList = data;
-            addPurchaseRow();
+            seedFirstRow();
+        });
+
+    fetch('/api/tax-codes')
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            taxCodesList = data;
+            seedFirstRow();
         });
 
     fetch('/api/suppliers')

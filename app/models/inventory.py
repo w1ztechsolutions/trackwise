@@ -29,6 +29,8 @@ from models import (
     FinishedGoodOutput,
     Plan,
     Subscription,
+    TaxCode,
+    TaxRate,
     FinancialCategory,
     LineItem,
     Staff,

@@ -7,6 +7,7 @@ from flask import flash, redirect, render_template, request, url_for, abort
 from models import Product, Sale, SaleItem, Customer, Invoice, InvoiceItem, Receipt, db
 from app.models.approval import ApprovalRequest
 from app.services.fifo_service import InventoryException, record_sale, get_tax_rate
+from app.services.tax_service import compute_document_tax, list_tax_codes
 from app.services.accounting_service import AccountingException, post_entry, get_account_by_code
 from app.auth.decorators import role_required
 from app.services.import_service import (
@@ -195,40 +196,27 @@ def invoices():
         product_ids = request.form.getlist('product_id[]')
         quantities = request.form.getlist('quantity[]')
         unit_prices = request.form.getlist('unit_price[]')
-        tax_rates = request.form.getlist('tax_rate[]')
+        # REVIEW: the form submits a tax CODE id per line, never a rate —
+        # REVIEW: the rate is resolved server-side from the code's effective
+        # REVIEW: history by invoice date (ADR-0015). A malformed POST can
+        # REVIEW: therefore not inject an arbitrary percentage.
+        tax_codes = request.form.getlist('tax_code[]')
 
         biz_id = getattr(current_user, 'business_id', None)
-        default_tax_rate = get_tax_rate(business_id=biz_id)
 
         items_data = []
-        line_items_data = []
-        subtotal = 0.0
-        total_tax = 0.0
         for i in range(len(product_ids)):
             if not product_ids[i] or not quantities[i] or not unit_prices[i]:
                 continue
-            qty = int(quantities[i])
-            unit_price = float(unit_prices[i])
-            line_total = qty * unit_price
-            try:
-                rate = float(tax_rates[i]) if i < len(tax_rates) and tax_rates[i] else float(default_tax_rate)
-            except (TypeError, ValueError):
-                rate = float(default_tax_rate)
-            line_tax = round(line_total * (rate / 100.0), 2)
-            subtotal += line_total
-            total_tax += line_tax
             items_data.append({
                 'product_id': int(product_ids[i]),
-                'quantity': qty,
-                'unit_price': unit_price,
-            })
-            line_items_data.append({
-                'product_id': int(product_ids[i]),
-                'quantity': qty,
-                'unit_price': unit_price,
-                'line_total': line_total,
-                'tax_rate': rate,
-                'tax_amount': line_tax,
+                'quantity': int(quantities[i]),
+                'unit_price': float(unit_prices[i]),
+                'line_total': int(quantities[i]) * float(unit_prices[i]),
+                # REVIEW: index-aligned with the other line arrays; a
+                # REVIEW: missing/blank entry maps to None = "no tax on this
+                # REVIEW: line" rather than an error.
+                'tax_code_id': tax_codes[i] if i < len(tax_codes) and tax_codes[i] else None,
             })
 
         if not customer_id or not items_data:
@@ -237,6 +225,20 @@ def invoices():
 
         invoice_date = datetime.fromisoformat(invoice_date_str) if invoice_date_str else datetime.now(timezone.utc)
         due_date = datetime.fromisoformat(due_date_str) if due_date_str else invoice_date
+
+        # REVIEW: one call resolves every line's rate by the INVOICE date
+        # REVIEW: (not today) — back-dating an invoice applies the rate that
+        # REVIEW: was in force then. get_tax_code() inside the service
+        # REVIEW: enforces business_id ownership, so a foreign code id in a
+        # REVIEW: crafted POST resolves to zero tax, not another tenant's.
+        tax_input = compute_document_tax(items_data, biz_id, invoice_date)
+        line_items_data = []
+        for item, tax_line in zip(items_data, tax_input['lines']):
+            item['tax_rate'] = float(tax_line['tax_rate'])
+            item['tax_amount'] = float(tax_line['tax_amount'])
+            line_items_data.append(item)
+        subtotal = float(tax_input['subtotal'])
+        total_tax = float(tax_input['total_tax'])
 
         invoice = Invoice(
             business_id=biz_id,
@@ -263,6 +265,7 @@ def invoices():
                 quantity=li['quantity'],
                 unit_price=li['unit_price'],
                 line_total=li['line_total'],
+                tax_code_id=li.get('tax_code_id'),
                 tax_rate=li['tax_rate'],
                 tax_amount=li['tax_amount'],
                 tax_inclusive=False,
@@ -277,7 +280,7 @@ def invoices():
     customers = Customer.query.filter_by(business_id=biz_id).order_by(Customer.name.asc()).all()
     products = Product.query.filter_by(business_id=biz_id).order_by(Product.name.asc()).all()
     invoices = Invoice.query.filter_by(business_id=biz_id).order_by(Invoice.invoice_date.desc()).paginate(page=page, per_page=10)
-    return render_template('invoices.html', customers=customers, products=products, invoices=invoices)
+    return render_template('invoices.html', customers=customers, products=products, invoices=invoices, tax_codes=list_tax_codes(biz_id))
 
 
 @sales_bp.route('/sales', methods=['GET', 'POST'])
@@ -342,7 +345,7 @@ def sales():
     invoices = Invoice.query.filter_by(business_id=biz_id).order_by(Invoice.invoice_date.desc()).all()
     page = request.args.get('page', 1, type=int)
     sale_records = Sale.query.filter_by(business_id=biz_id).order_by(Sale.sale_date.desc()).paginate(page=page, per_page=10)
-    return render_template('sales.html', products=products, sales=sale_records, invoices=invoices)
+    return render_template('sales.html', products=products, sales=sale_records, invoices=invoices, tax_codes=list_tax_codes(biz_id))
 
 
 @sales_bp.route('/invoices/<int:invoice_id>/receipt')

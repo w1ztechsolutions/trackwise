@@ -8,6 +8,7 @@ from flask_login import login_required, current_user
 from models import Product, Purchase, PurchaseItem, Supplier, Payment, Staff, FinancialCategory, LineItem, Bill, db
 from app.models.approval import ApprovalConfig, ApprovalRequest, ApprovalAction
 from app.services.fifo_service import record_purchase
+from app.services.tax_service import list_tax_codes
 from app.auth.permissions import can_approve_at_level
 from app.auth.decorators import role_required
 from app.services.accounting_service import AccountingException, reverse_payment
@@ -237,6 +238,12 @@ def purchases():
         quantities = request.form.getlist('quantity[]')
         unit_costs = request.form.getlist('unit_cost[]')
 
+        # REVIEW: same contract as the invoice form: per-line tax CODE id,
+        # REVIEW: rate resolved server-side by purchase date. This is what
+        # REVIEW: makes recoverable input VAT possible (see the debit to
+        # REVIEW: account 2200 in _post_purchase_accounting).
+        tax_codes = request.form.getlist('tax_code[]')
+
         items_data = []
         for i in range(len(product_ids)):
             if not product_ids[i] or not quantities[i] or not unit_costs[i]:
@@ -244,7 +251,8 @@ def purchases():
             items_data.append({
                 'product_id': int(product_ids[i]),
                 'quantity': int(quantities[i]),
-                'unit_cost': float(unit_costs[i])
+                'unit_cost': float(unit_costs[i]),
+                'tax_code_id': int(tax_codes[i]) if i < len(tax_codes) and tax_codes[i] else None,
             })
 
         if not items_data:
@@ -273,7 +281,7 @@ def purchases():
     products = Product.query.filter_by(business_id=biz_id).order_by(Product.name.asc()).all()
     page = request.args.get('page', 1, type=int)
     purchase_records = Purchase.query.filter_by(business_id=biz_id).order_by(Purchase.purchase_date.desc()).paginate(page=page, per_page=10)
-    return render_template('purchases.html', products=products, purchases=purchase_records)
+    return render_template('purchases.html', products=products, purchases=purchase_records, tax_codes=list_tax_codes(current_user.business_id))
 
 
 @purchases_bp.route('/purchases/import/suppliers', methods=['GET', 'POST'])
