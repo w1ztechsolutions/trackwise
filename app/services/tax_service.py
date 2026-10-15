@@ -20,7 +20,10 @@ from models import db, TaxCode, TaxRate
 
 TWO_PLACES = Decimal('0.01')
 
-# Malawi statutory VAT history. Oldest-first.
+# REVIEW: Malawi statutory VAT history, oldest-first.
+# REVIEW: append-only — a future rate change adds a NEW (date, rate) row here
+# REVIEW: and never edits an existing one, so back-dated documents keep
+# REVIEW: resolving to the rate that was legally in force on their date.
 _MALAWI_VAT_STANDARD_HISTORY = [
     (date(2000, 1, 1), Decimal('16.5000')),
     (date(2026, 1, 1), Decimal('17.5000')),
@@ -41,6 +44,9 @@ def ensure_default_tax_codes(business_id):
     Safe to call repeatedly; existing codes and any rates the user has edited
     are left untouched.
     """
+    # REVIEW: every TaxCode row is scoped by business_id (tenant isolation);
+    # REVIEW: this function is the single place codes get created, so there is
+    # REVIEW: no path to cross-tenant seeding.
     if business_id is None:
         return []
     created = []
@@ -95,9 +101,16 @@ def resolve_rate(tax_code_id, on_date):
 
     Returns None when the code has no rate effective on or before on_date.
     """
+    # REVIEW: NOTE — this lookup is NOT business-scoped by design: callers
+    # REVIEW: (calculate_line_tax) only receive ids they got from
+    # REVIEW: get_tax_code(), which IS scoped. If you call this directly,
+    # REVIEW: scope it yourself or use get_tax_code() first.
     tax_code = db.session.get(TaxCode, tax_code_id) if tax_code_id is not None else None
     if tax_code is None:
         return None
+    # REVIEW: None means "no rate in force on that date" (e.g. a pre-2000
+    # REVIEW: backfill) and deliberately maps to zero tax downstream rather
+    # REVIEW: than raising — keeps import/backfill paths working.
     return tax_code.rate_on(on_date)
 
 
@@ -110,6 +123,10 @@ def calculate_line_tax(line_amount, tax_code_id, on_date, tax_inclusive=False):
     Returns (net, tax, gross) as Decimals rounded to 2 places. A missing or
     unrated tax code yields zero tax and the input back as net.
     """
+    # REVIEW: all money math is Decimal, quantized to 2 places with
+    # REVIEW: ROUND_HALF_UP — the rounding convention accountants expect;
+    # REVIEW: float is only used at the route/model boundary where legacy
+    # REVIEW: columns store floats.
     amount = Decimal(str(line_amount)).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
     rate = resolve_rate(tax_code_id, on_date)
     if rate is None or amount == 0:
@@ -117,6 +134,10 @@ def calculate_line_tax(line_amount, tax_code_id, on_date, tax_inclusive=False):
 
     fraction = (rate / Decimal('100')).quantize(Decimal('0.000001'))
     if tax_inclusive:
+        # REVIEW: tax-inclusive gross: extract the net by dividing out the
+        # REVIEW: fraction (gross / (1 + r)), then derive tax as the
+        # REVIEW: remainder — so net + tax always reconciles to the gross
+        # REVIEW: exactly, with rounding absorbed into the tax figure.
         net = (amount / (Decimal('1') + fraction)).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
         tax = (amount - net).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
         return net, tax, amount

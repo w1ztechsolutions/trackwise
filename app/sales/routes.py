@@ -196,6 +196,10 @@ def invoices():
         product_ids = request.form.getlist('product_id[]')
         quantities = request.form.getlist('quantity[]')
         unit_prices = request.form.getlist('unit_price[]')
+        # REVIEW: the form submits a tax CODE id per line, never a rate —
+        # REVIEW: the rate is resolved server-side from the code's effective
+        # REVIEW: history by invoice date (ADR-0015). A malformed POST can
+        # REVIEW: therefore not inject an arbitrary percentage.
         tax_codes = request.form.getlist('tax_code[]')
 
         biz_id = getattr(current_user, 'business_id', None)
@@ -209,6 +213,9 @@ def invoices():
                 'quantity': int(quantities[i]),
                 'unit_price': float(unit_prices[i]),
                 'line_total': int(quantities[i]) * float(unit_prices[i]),
+                # REVIEW: index-aligned with the other line arrays; a
+                # REVIEW: missing/blank entry maps to None = "no tax on this
+                # REVIEW: line" rather than an error.
                 'tax_code_id': tax_codes[i] if i < len(tax_codes) and tax_codes[i] else None,
             })
 
@@ -219,6 +226,11 @@ def invoices():
         invoice_date = datetime.fromisoformat(invoice_date_str) if invoice_date_str else datetime.now(timezone.utc)
         due_date = datetime.fromisoformat(due_date_str) if due_date_str else invoice_date
 
+        # REVIEW: one call resolves every line's rate by the INVOICE date
+        # REVIEW: (not today) — back-dating an invoice applies the rate that
+        # REVIEW: was in force then. get_tax_code() inside the service
+        # REVIEW: enforces business_id ownership, so a foreign code id in a
+        # REVIEW: crafted POST resolves to zero tax, not another tenant's.
         tax_input = compute_document_tax(items_data, biz_id, invoice_date)
         line_items_data = []
         for item, tax_line in zip(items_data, tax_input['lines']):

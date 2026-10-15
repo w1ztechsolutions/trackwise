@@ -238,6 +238,10 @@ def purchases():
         quantities = request.form.getlist('quantity[]')
         unit_costs = request.form.getlist('unit_cost[]')
 
+        # REVIEW: same contract as the invoice form: per-line tax CODE id,
+        # REVIEW: rate resolved server-side by purchase date. This is what
+        # REVIEW: makes recoverable input VAT possible (see the debit to
+        # REVIEW: account 2200 in _post_purchase_accounting).
         tax_codes = request.form.getlist('tax_code[]')
 
         items_data = []

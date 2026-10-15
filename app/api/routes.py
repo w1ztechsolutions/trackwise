@@ -46,6 +46,10 @@ def api_suppliers():
 @api_bp.route('/api/tax-codes')
 @login_required
 def api_tax_codes():
+    # REVIEW: read-only tenant endpoint: _business_id() scopes to the
+    # REVIEW: logged-in user's business, and the rate served is TODAY's
+    # REVIEW: resolved rate for display only — the authoritative rate is
+    # REVIEW: always re-resolved server-side per document date at POST.
     business_id = _business_id()
     codes = list_tax_codes(business_id)
     today = date.today()
