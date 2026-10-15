@@ -1,6 +1,5 @@
 """Income Statement report derived from journal entries."""
 
-from datetime import datetime
 from app.models import db, ChartOfAccounts, JournalLine, JournalEntry, Setting
 
 
