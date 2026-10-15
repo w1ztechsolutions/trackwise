@@ -537,12 +537,14 @@ class Staff(db.Model):
 
     payments = db.relationship('Payment', backref='staff_member', lazy='select', foreign_keys='Payment.staff_id')
 
-
-from app.models.accounting import (
-    Business,
-    ChartOfAccounts,
-    JournalEntry,
-    JournalLine,
-    AuditLog,
-    ExpenseBudget,
+# REVIEW: re-export block — the canonical definitions live in app/models/accounting.py;
+# REVIEW: root models.py re-exports them so legacy `from models import Business` callers
+# REVIEW: (scripts/seed.py and friends) keep working. Explicit `as` aliases mark intent.
+from app.models.accounting import (  # noqa: E402  # end-of-file by design: avoids circular import with app.models.accounting
+    Business as Business,
+    ChartOfAccounts as ChartOfAccounts,
+    JournalEntry as JournalEntry,
+    JournalLine as JournalLine,
+    AuditLog as AuditLog,
+    ExpenseBudget as ExpenseBudget,
 )

@@ -5,7 +5,7 @@ from datetime import date, datetime
 from sqlalchemy import select
 
 from models import db
-from app.models.accounting import BankReconciliationPeriod, Business, ChartOfAccounts
+from app.models.accounting import BankReconciliationPeriod, ChartOfAccounts
 
 
 class ReconciliationPeriodClosedError(Exception):

@@ -11,6 +11,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Lint with Ruff (errors only)
+        run: |
+          pip install ruff
+          ruff check app/ models.py config.py --select E4,E7,E9,F --ignore E741
+
   pytest:
     runs-on: ubuntu-latest
     steps:

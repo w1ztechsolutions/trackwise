@@ -5,11 +5,10 @@ from datetime import datetime, timezone
 from flask import flash, redirect, render_template, request, url_for, abort
 from flask_login import login_required, current_user
 
-from models import Product, Purchase, PurchaseItem, Supplier, Payment, Staff, FinancialCategory, LineItem, Bill, db
-from app.models.approval import ApprovalConfig, ApprovalRequest, ApprovalAction
+from models import Product, Purchase, Supplier, Payment, Staff, FinancialCategory, LineItem, Bill, db
+from app.models.approval import ApprovalRequest
 from app.services.fifo_service import record_purchase
 from app.services.tax_service import list_tax_codes
-from app.auth.permissions import can_approve_at_level
 from app.auth.decorators import role_required
 from app.services.accounting_service import AccountingException, reverse_payment
 from app.models import PurchaseReturn
@@ -205,7 +204,6 @@ def payments():
     bills = Bill.query.filter(Bill.business_id == biz_id).order_by(Bill.bill_date.desc()).all()
     payments = Payment.query.filter_by(business_id=biz_id).order_by(Payment.payment_date.desc()).paginate(page=page, per_page=10)
 
-    import json
     line_items_json = json.dumps([{
         'id': item.id,
         'name': item.name,
@@ -523,7 +521,6 @@ def edit_supplier(supplier_id):
         abort(404)
 
     biz_id = getattr(current_user, 'business_id', None)
-    import json
     data = json.dumps({
         'name': request.form.get('name', '').strip(),
         'phone': request.form.get('phone', '').strip() or None,

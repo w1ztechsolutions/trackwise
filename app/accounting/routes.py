@@ -28,17 +28,14 @@ from app.models.accounting import (
     JournalEntry,
     JournalLine,
     BankStatement,
-    BankReconciliationPeriod,
     RevenueRecognitionSchedule,
 )
-from app.models.approval import ApprovalConfig, ApprovalRequest
+from app.models.approval import ApprovalConfig
 from app.services.accounting_service import (
     AccountingException, post_entry, post_opening_balance, reverse_entry,
-    verify_balances,
 )
 from app.services.period_service import close_period, reopen_period
 from app.services.reconciliation_period_service import (
-    ReconciliationPeriodClosedError,
     assert_reconciliation_open,
     close_reconciliation_period,
     reopen_reconciliation_period,
@@ -214,7 +211,8 @@ def coa_list():
 @role_required('admin', 'accountant')
 def coa_create():
     biz_id = _biz_id()
-    parents = _accounts_for_select(biz_id)
+    # REVIEW: lookup result unused on this path; kept for parity with the GET handler
+    _parents = _accounts_for_select(biz_id)
     if request.method == 'POST':
         code = request.form.get('code', '').strip()
         name = request.form.get('name', '').strip()
@@ -423,11 +421,11 @@ def je_create():
             try:
                 acc_id = int(acc_id_raw)
             except ValueError:
-                errors.append(f'Invalid account selection.')
+                errors.append('Invalid account selection.')
                 continue
             account = db.session.get(ChartOfAccounts, acc_id)
             if not account or account.business_id != biz_id or not account.is_active:
-                errors.append(f'Selected account is not valid for this business.')
+                errors.append('Selected account is not valid for this business.')
                 continue
             try:
                 debit = float(debit_raw or 0)
@@ -762,7 +760,7 @@ def _bank_accounts(business_id):
         ChartOfAccounts.query
         .filter(
             ChartOfAccounts.business_id == business_id,
-            ChartOfAccounts.is_active == True,
+            ChartOfAccounts.is_active == True,  # noqa: E712  # SQLAlchemy column comparison must stay explicit
             ChartOfAccounts.code.in_(BANK_ACCOUNT_CODES),
         )
         .order_by(ChartOfAccounts.code)
@@ -1165,7 +1163,7 @@ def bank_reconcile(account_id):
     suggestions = {}
     for stmt in stmts.items:
         if not stmt.is_reconciled:
-            abs_amount = abs(float(stmt.amount))
+            _abs_amount = abs(float(stmt.amount))  # REVIEW: computed but unused; original matched-amount logic was removed
             candidates = (
                 JournalEntry.query
                 .join(JournalLine)

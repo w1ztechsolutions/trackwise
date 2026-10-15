@@ -3,13 +3,13 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import wraps
-from flask import abort, render_template, request, redirect, url_for, flash, Response, send_file
+from flask import abort, render_template, request, redirect, url_for, flash, send_file
 from flask_login import current_user, login_required
 
-from app.models import Product, Setting, db
+from app.models import db
 from app.models.accounting import Branch, ChartOfAccounts, CostCenter
 from app.models import ImportRun
-from app.services.fifo_service import get_inventory_valuation, get_profit_loss
+from app.services.fifo_service import get_profit_loss
 from app.services.reports import (
     get_vat_return,
     get_income_statement,
@@ -321,7 +321,6 @@ def general_ledger():
         gl_data = {'entries': [], 'accounts': [], 'selected_account': None}
 
     # Paginate entries
-    from flask import request as flask_request
     per_page = min(max(per_page, 10), 100)
     total = len(gl_data.get('entries', []))
     start_idx = (page - 1) * per_page

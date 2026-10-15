@@ -1,6 +1,5 @@
 """Background tasks for report generation and email sending."""
 
-import json
 import os
 from datetime import datetime, timezone
 
@@ -125,7 +124,7 @@ def precompute_dashboard(business_id):
             valuation = get_inventory_valuation()
 
             # Store in Redis for quick retrieval
-            cache_key = f'dashboard:{business_id}'
+            _cache_key = f'dashboard:{business_id}'  # REVIEW: built but the Redis SET was never wired; kept for that work
             cache_data = {
                 'total_sales': pl['total_sales'],
                 'total_cogs': pl['total_cogs'],

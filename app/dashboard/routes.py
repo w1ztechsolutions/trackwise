@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 from flask_login import login_required
 from flask import redirect, render_template, url_for
 

@@ -35,7 +35,7 @@ def get_cashbook(business_id, start_date=None, end_date=None):
         .filter(
             ChartOfAccounts.business_id == business_id,
             ChartOfAccounts.code.in_(CASHBOOK_ACCOUNT_CODES),
-            ChartOfAccounts.is_active == True,
+            ChartOfAccounts.is_active == True,  # noqa: E712  # SQLAlchemy column comparison must stay explicit
         )
         .order_by(ChartOfAccounts.code)
         .all()

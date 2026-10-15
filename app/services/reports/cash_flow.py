@@ -1,8 +1,7 @@
 # REVIEW: Cash flow statement generator computing cash inflows and outflows from operating activities.
 """Cash Flow Statement report derived from journal entries."""
 
-from datetime import datetime
-from app.models import db, ChartOfAccounts, JournalLine, JournalEntry, Invoice, Bill
+from app.models import db, ChartOfAccounts, JournalLine, JournalEntry
 
 
 def get_cash_flow(business_id, start_date=None, end_date=None):
@@ -22,10 +21,10 @@ def get_cash_flow(business_id, start_date=None, end_date=None):
     ).all()
     
     # Build account code mapping
-    cash_acct = next((a for a in accounts if a.code == '1000'), None)
-    ar_acct = next((a for a in accounts if a.code == '1200'), None)
-    inventory_acct = next((a for a in accounts if a.code == '1400'), None)
-    ap_acct = next((a for a in accounts if a.code == '2100'), None)
+    _cash_acct = next((a for a in accounts if a.code == '1000'), None)  # REVIEW: unused here, kept for upcoming indirect-method section
+    _ar_acct = next((a for a in accounts if a.code == '1200'), None)
+    _inventory_acct = next((a for a in accounts if a.code == '1400'), None)
+    _ap_acct = next((a for a in accounts if a.code == '2100'), None)
     revenue_acct = next((a for a in accounts if a.code == '4000'), None)
     cogs_acct = next((a for a in accounts if a.code == '5000'), None)
     

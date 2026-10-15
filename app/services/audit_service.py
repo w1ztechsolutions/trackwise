@@ -145,7 +145,6 @@ def _before_flush(session, flush_context, instances):
         raise AuditLogImmutableError("Audit log records cannot be changed or deleted")
     _guard_closed_periods(session, flush_context, instances)
 
-    from app.models.accounting import AuditLog
 
     connection = session.connection()
     actor_snapshots = {}

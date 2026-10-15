@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 
 from flask import (
-    abort, flash, jsonify, redirect, render_template, request, url_for,
+    abort, flash, redirect, render_template, request, url_for,
 )
 from flask_login import current_user, login_required
 
@@ -308,7 +308,7 @@ def _execute_approval(req):
 
     elif transaction_type == 'payment':
         # When a payment is fully approved, post the accounting entries
-        from models import Payment, FinancialCategory, LineItem
+        from models import Payment
         payment = db.session.get(Payment, transaction_id)
         if payment:
             payment.status = 'approved'

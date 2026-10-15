@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [Unreleased]
+### Changed
+- Lint cleanup: `ruff check app/ models.py config.py --select E4,E7,E9,F --ignore E741` (the CI gate) now passes. Dead imports removed, intentional re-exports made explicit (`__all__` in `app/models/__init__.py`, redundant aliases in `models.py` / `app/models/inventory.py`), SQLAlchemy `== True` filters kept with `noqa: E712`, unused locals renamed with `_` prefix. No behavior change — 276 tests pass.
+
+### Flagged for review (behavior-neutral here, likely real bugs)
+- `app/services/inventory_service.py`: a `StockTransaction` is constructed but never added to the session (line ~120); `portion_cogs_cost` is computed in two FIFO paths but never accumulated into COGS.
+- `app/tasks/report_tasks.py`: `cache_key` for the Redis dashboard cache is built but the cache write was never wired.
+
 
 ### Added
 

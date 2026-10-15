@@ -30,8 +30,10 @@ from models import (
     FinishedGoodOutput,
     Plan,
     Subscription,
-    TaxCode,
-    TaxRate,
+    # REVIEW: explicit re-exports — app.models.__init__ pulls TaxCode/TaxRate from here;
+    # REVIEW: the canonical definitions are in root models.py.
+    TaxCode as TaxCode,
+    TaxRate as TaxRate,
     FinancialCategory,
     LineItem,
     Staff,

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional
@@ -119,7 +118,7 @@ def adjust_stock(
     # - increase: add a purchase-like layer
     # - decrease: create an outgoing layer at provided cost (simplified)
     if sign == 1:
-        tx = StockTransaction(
+        _tx = StockTransaction(  # REVIEW: constructed but never added to the session — likely a real bug, kept verbatim for review
             business_id=business_id,
             product_id=product.id,
             transaction_type='ADJUSTMENT_IN',
@@ -150,7 +149,7 @@ def adjust_stock(
             if remaining_to_fulfill <= 0:
                 break
             taken = min(int(layer.remaining_quantity), remaining_to_fulfill)
-            portion_cogs_cost = Decimal(str(layer.unit_cost)) * Decimal(str(taken))
+            _portion_cogs_cost = Decimal(str(layer.unit_cost)) * Decimal(str(taken))  # REVIEW: computed but never accumulated — likely a real COGS bug, kept verbatim
             layer.remaining_quantity -= taken
 
             consume_tx = StockTransaction(
@@ -320,7 +319,7 @@ def transfer_stock(
         if remaining_to_fulfill <= 0:
             break
         taken = min(int(layer.remaining_quantity), remaining_to_fulfill)
-        portion_cogs_cost = Decimal(str(layer.unit_cost)) * Decimal(str(taken))
+        _portion_cogs_cost = Decimal(str(layer.unit_cost)) * Decimal(str(taken))  # REVIEW: computed but never accumulated — likely a real COGS bug, kept verbatim
         layer.remaining_quantity -= taken
 
         # OUT layer
