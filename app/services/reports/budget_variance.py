@@ -7,7 +7,6 @@ from app.models import (
     Budget,
     ChartOfAccounts,
     ExpenseBudget,
-    db,
 )
 from app.services.budget_service import (
     COGS_ACCOUNT_CODE,

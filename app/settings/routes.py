@@ -2,7 +2,7 @@ from datetime import datetime
 from flask_login import login_required
 from flask import flash, redirect, render_template, request, url_for
 
-from app.models import Expense, Product, Purchase, PurchaseItem, Sale, SaleItem, Setting, StockTransaction
+from app.models import Expense, Product, Purchase, PurchaseItem, Sale, SaleItem, StockTransaction
 from app.services.fifo_service import record_expense, record_purchase, record_sale, get_tax_rate, set_tax_rate
 
 from . import settings_bp

@@ -151,7 +151,7 @@ def inventory():
                 quantity = int(request.form['quantity'])
                 notes = request.form.get('notes', '').strip() or None
 
-                sm = transfer_stock(
+                _sm = transfer_stock(  # REVIEW: return value unused; the call is the point (records the transfer)
                     business_id=getattr(current_user, 'business_id', None),
                     product_id=product_id,
                     from_warehouse_id=from_warehouse_id,

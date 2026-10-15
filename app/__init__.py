@@ -3,7 +3,7 @@ import click
 import importlib
 import os
 from flask import Flask, g, request, redirect
-from flask_sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy  # noqa: F401  # legacy import kept for existing from app import db callers
 from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_wtf import CSRFProtect
@@ -54,14 +54,14 @@ for _env_path in [
     if os.path.exists(_env_path):
         load_dotenv(_env_path, override=True)
 
-from app.models import db as _db
-from config import (
+from app.models import db as _db  # noqa: E402  # imports follow load_dotenv on purpose: config reads env vars
+from config import (  # noqa: E402
     DevelopmentConfig,
     ProductionConfig,
     TestingConfig,
     _normalize_database_uri,
 )
-from .template_filters import register_template_filters
+from .template_filters import register_template_filters  # noqa: E402
 
 # Shared database handle so app-level startup checks can safely inspect and repair
 # legacy PostgreSQL schemas without depending on routes importing a different module.
