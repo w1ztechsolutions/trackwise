@@ -9,7 +9,7 @@ net VAT payable to MRA — or reclaimable when negative.
 from datetime import date, datetime
 from decimal import Decimal
 
-from app.models import ChartOfAccounts, JournalEntry, JournalLine, db
+from app.models import ChartOfAccounts, JournalEntry, JournalLine
 
 VAT_ACCOUNT_CODE = '2200'
 

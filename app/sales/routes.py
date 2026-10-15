@@ -4,9 +4,9 @@ from datetime import datetime, timezone
 from flask_login import login_required, current_user
 from flask import flash, redirect, render_template, request, url_for, abort
 
-from models import Product, Sale, SaleItem, Customer, Invoice, InvoiceItem, Receipt, db
+from models import Product, Sale, Customer, Invoice, InvoiceItem, Receipt, db
 from app.models.approval import ApprovalRequest
-from app.services.fifo_service import InventoryException, record_sale, get_tax_rate
+from app.services.fifo_service import InventoryException, record_sale
 from app.services.tax_service import compute_document_tax, list_tax_codes
 from app.services.accounting_service import AccountingException, post_entry, get_account_by_code
 from app.auth.decorators import role_required

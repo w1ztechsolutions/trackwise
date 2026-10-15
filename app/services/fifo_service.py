@@ -9,16 +9,13 @@ from models import (
     SaleItem,
     Expense,
     Setting,
-    Customer,
     Supplier,
     Invoice,
-    InvoiceItem,
-    Receipt,
     Bill,
     BillItem,
     Payment,
 )
-from app.services.accounting_service import AccountingException, post_entry, get_account_by_code
+from app.services.accounting_service import post_entry, get_account_by_code
 
 
 class InventoryException(Exception):

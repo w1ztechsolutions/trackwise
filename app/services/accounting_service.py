@@ -96,7 +96,7 @@ def post_entry(
     accounts = ChartOfAccounts.query.filter(
         ChartOfAccounts.id.in_(account_ids),
         ChartOfAccounts.business_id == business_id,
-        ChartOfAccounts.is_active == True,
+        ChartOfAccounts.is_active == True,  # noqa: E712  # SQLAlchemy column comparison must stay explicit
     ).all()
     found_ids = {a.id for a in accounts}
     missing = set(account_ids) - found_ids
@@ -398,7 +398,7 @@ def post_opening_balance(business_id, account_id, amount, created_by=None):
     equity = (
         ChartOfAccounts.query.filter(
             ChartOfAccounts.business_id == business_id,
-            ChartOfAccounts.is_active == True,
+            ChartOfAccounts.is_active == True,  # noqa: E712  # SQLAlchemy column comparison must stay explicit
             ChartOfAccounts.code.in_(("3000", "3100")),
         )
         .order_by(ChartOfAccounts.code)
