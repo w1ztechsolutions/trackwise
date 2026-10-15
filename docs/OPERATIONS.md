@@ -45,13 +45,13 @@ python scripts/run_migration.py
 
 ## Database Schema Verification
 
-**File:** `check_db_schema.py`  
+**File:** `scripts/check_db_schema.py`  
 **Purpose:** Verify that the Neon PostgreSQL database has the expected tables and migration status.
 
 ### Usage
 
 ```bash
-python check_db_schema.py
+python scripts/check_db_schema.py
 ```
 
 ### What it does
@@ -73,13 +73,13 @@ python check_db_schema.py
 
 ## Invoice ID Column Verification
 
-**File:** `verify_invoice_id.py`  
+**File:** `scripts/verify_invoice_id.py`  
 **Purpose:** Verify that the `invoice_id` column was successfully added to the `sales` table.
 
 ### Usage
 
 ```bash
-python verify_invoice_id.py
+python scripts/verify_invoice_id.py
 ```
 
 ### What it does
@@ -97,7 +97,7 @@ python verify_invoice_id.py
 
 ## Seed Demo Data
 
-**File:** `seed.py`  
+**File:** `scripts/seed.py`  
 **Purpose:** Seed the database with sample data for development and testing.
 
 ### Usage
@@ -110,7 +110,7 @@ flask shell
 >>> exit()
 
 # Or run directly (also runs migrations first)
-python seed.py
+python scripts/seed.py
 ```
 
 ### What it does
@@ -130,13 +130,13 @@ python seed.py
 
 ## Quick Database Connectivity Check
 
-**File:** `verify_db.py`  
+**File:** `scripts/verify_db.py`  
 **Purpose:** Quick sanity check that the app can connect to the database and the `users` table exists.
 
 ### Usage
 
 ```bash
-python verify_db.py
+python scripts/verify_db.py
 ```
 
 ### What it does
@@ -201,17 +201,17 @@ flask db downgrade -1
 rm -rf migrations/versions/*
 flask db migrate -m "initial"
 flask db upgrade
-python seed.py
+python scripts/seed.py
 ```
 
 ### Checking Database Health
 
 ```bash
 # Quick check
-python verify_db.py
+python scripts/verify_db.py
 
 # Full schema audit
-python check_db_schema.py
+python scripts/check_db_schema.py
 ```
 
 ### Verifying Accounting Integrity

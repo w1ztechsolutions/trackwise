@@ -115,7 +115,7 @@ def precompute_dashboard(business_id):
     """Precompute and cache dashboard KPIs for faster loading."""
     try:
         from app import create_app
-        from services.fifo_service import get_profit_loss, get_inventory_valuation
+        from app.services.fifo_service import get_profit_loss, get_inventory_valuation
 
         app = create_app()
         with app.app_context():

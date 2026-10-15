@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timedelta
 from app import create_app
 from models import db, Product, StockTransaction, Purchase, PurchaseItem, Sale, SaleItem, Expense, Setting, User, FinancialCategory, LineItem, Staff
-from services.fifo_service import record_purchase, record_sale, record_expense, set_tax_rate
+from app.services.fifo_service import record_purchase, record_sale, record_expense, set_tax_rate
 from app.models.accounting import Business, ChartOfAccounts
 
 
