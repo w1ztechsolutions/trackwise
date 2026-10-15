@@ -255,3 +255,124 @@ class TestOutputVatPosting:
             if line.account_id == acct.id
         )
         assert tax_credits == Decimal('175.00')
+
+
+# ---------- VAT return report ----------
+
+class TestVatReturn:
+    def _vat_lines(self, business):
+        from app.services.reports import get_vat_return
+        acct = ChartOfAccounts.query.filter_by(business_id=business.id, code='2200').one()
+        report = get_vat_return(business.id, datetime(2026, 2, 1), datetime(2026, 3, 1))
+        return report
+
+    def test_return_net_tax_from_purchase_and_sale(self, app, business):
+        tax_service.ensure_default_tax_codes(business.id)
+        std = TaxCode.query.filter_by(business_id=business.id, code='VAT-S').one()
+        product = Product(
+            business_id=business.id,
+            name='VAT Report Item',
+            sku='VR-1',
+            default_selling_price=Decimal('200.00'),
+        )
+        db.session.add(product)
+        db.session.commit()
+
+        # Feb 2026: purchase 10 @ 100 (input VAT 175.00), sell 10 @ 200 (output VAT 350.00)
+        record_purchase(
+            purchase_date=datetime(2026, 2, 5, 9, 0),
+            supplier='Wholesale Ltd',
+            notes='',
+            items_data=[{'product_id': product.id, 'quantity': 10, 'unit_cost': 100.0, 'tax_code_id': std.id}],
+            business_id=business.id,
+            created_by=None,
+        )
+        record_sale(
+            sale_date=datetime(2026, 2, 20, 14, 0),
+            customer_name='Walk-in',
+            items_data=[{'product_id': product.id, 'quantity': 10, 'unit_price': 200.0}],
+            business_id=business.id,
+            created_by=None,
+            tax_amount=350.00,
+        )
+
+        report = self._vat_lines(business)
+        assert report['input_tax'] == Decimal('175.00')
+        assert report['output_tax'] == Decimal('350.00')
+        assert report['net_vat'] == Decimal('175.00')
+        assert report['is_payable'] is True
+        assert len(report['lines']) == 2
+
+    def test_return_excludes_lines_outside_period(self, app, business):
+        tax_service.ensure_default_tax_codes(business.id)
+        product = Product(
+            business_id=business.id,
+            name='Out of Period Item',
+            sku='OP-1',
+            default_selling_price=Decimal('100.00'),
+        )
+        db.session.add(product)
+        db.session.commit()
+
+        record_purchase(
+            purchase_date=datetime(2026, 1, 10, 8, 0),
+            supplier='January Supplier',
+            notes='',
+            items_data=[{'product_id': product.id, 'quantity': 5, 'unit_cost': 100.0}],
+            business_id=business.id,
+            created_by=None,
+        )
+        record_purchase(
+            purchase_date=datetime(2026, 3, 10, 8, 0),
+            supplier='March Supplier',
+            notes='',
+            items_data=[{'product_id': product.id, 'quantity': 5, 'unit_cost': 100.0}],
+            business_id=business.id,
+            created_by=None,
+        )
+
+        from app.services.reports import get_vat_return
+        report = get_vat_return(business.id, datetime(2026, 2, 1), datetime(2026, 3, 1))
+        assert report['input_tax'] == Decimal('0.00')
+        assert report['output_tax'] == Decimal('0.00')
+        assert report['lines'] == []
+
+    def test_return_without_vat_account_is_wellformed(self, app, business):
+        acct = ChartOfAccounts.query.filter_by(business_id=business.id, code='2200').one()
+        db.session.delete(acct)
+        db.session.commit()
+
+        from app.services.reports import get_vat_return
+        report = get_vat_return(business.id)
+        assert report['vat_account'] is None
+        assert report['net_vat'] == Decimal('0.00')
+
+    def test_route_renders_and_scopes_period(self, app, business, client):
+        tax_service.ensure_default_tax_codes(business.id)
+        std = TaxCode.query.filter_by(business_id=business.id, code='VAT-S').one()
+        product = Product(
+            business_id=business.id,
+            name='Route Item',
+            sku='RT-1',
+            default_selling_price=Decimal('150.00'),
+        )
+        db.session.add(product)
+        db.session.commit()
+        record_purchase(
+            purchase_date=datetime(2026, 2, 5, 9, 0),
+            supplier='Wholesale Ltd',
+            notes='',
+            items_data=[{'product_id': product.id, 'quantity': 4, 'unit_cost': 100.0, 'tax_code_id': std.id}],
+            business_id=business.id,
+            created_by=None,
+        )
+
+        resp = client.get('/reports/vat-return?start_date=2026-02-01&end_date=2026-02-28')
+        assert resp.status_code == 200
+        body = resp.data.decode()
+        assert 'Input VAT (recoverable)' in body
+        assert '70.00' in body  # 4 x 100 x 17.5%
+
+    def test_route_defaults_to_current_month(self, app, business, client):
+        resp = client.get('/reports/vat-return')
+        assert resp.status_code == 200

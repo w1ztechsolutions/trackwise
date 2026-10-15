@@ -9,7 +9,7 @@
         <p>Generate financial statements and view account balances</p>
     </div>
 </div>
-{% if report_type in ['expense_budget_variance', 'budget_variance', 'expenditure_returns'] %}
+{% if report_type in ['expense_budget_variance', 'budget_variance', 'expenditure_returns', 'vat_return'] %}
 <div class="d-flex justify-content-end mb-3">
     <a class="btn-secondary d-inline-flex align-items-center justify-content-center h-46"
     href="{{ url_for('reports.export_report_xlsx', report_type=report_type.replace('_', '-'), start_date=request.args.get('start_date'), end_date=request.args.get('end_date'), as_of_date=request.args.get('as_of_date'), account_id=request.args.get('account_id'), branch_id=request.args.get('branch_id'), cost_center_id=request.args.get('cost_center_id'), action=request.args.get('action')) }}">Export Excel</a>
@@ -25,6 +25,7 @@
             <option value="{{ url_for('reports.balance_sheet') }}" {% if report_type == 'balance_sheet' %}selected{% endif %}>Balance Sheet</option>
             <option value="{{ url_for('reports.cash_flow') }}" {% if report_type == 'cash_flow' %}selected{% endif %}>Cash Flow</option>
             <option value="{{ url_for('reports.trial_balance') }}" {% if report_type == 'trial_balance' %}selected{% endif %}>Trial Balance</option>
+            <option value="{{ url_for('reports.vat_return') }}" {% if report_type == 'vat_return' %}selected{% endif %}>VAT Return</option>
             <option value="{{ url_for('reports.general_ledger') }}" {% if report_type == 'general_ledger' %}selected{% endif %}>General Ledger</option>
             <option value="{{ url_for('reports.cashbook') }}" {% if report_type == 'cashbook' %}selected{% endif %}>Cashbook</option>
             <option value="{{ url_for('reports.ar_aging') }}" {% if report_type == 'ar_aging' %}selected{% endif %}>AR Aging</option>
@@ -38,7 +39,7 @@
 </div>
 
 <!-- Date Range Filter (for applicable reports) -->
-{% if report_type in ['income_statement', 'cash_flow', 'general_ledger', 'audit_log', 'cashbook'] %}
+{% if report_type in ['income_statement', 'cash_flow', 'general_ledger', 'audit_log', 'cashbook', 'vat_return'] %}
 <div class="glass-card mb-4">
     <h3 class="section-title">Filter Report Period</h3>
     <form method="GET" action="{{ url_for('reports.' + report_type) }}" class="report-filter-form">
@@ -336,6 +337,60 @@
     </table>
 </div>
 {% endif %}
+{% endif %}
+
+<!-- Trial Balance -->
+{% if report_type == 'vat_return' %}
+<div class="glass-card">
+    <h3 class="section-title">VAT Return{% if vat and vat.start_date %} — {{ vat.start_date.strftime('%d %b %Y') }} to {{ vat.end_date.strftime('%d %b %Y') }}{% endif %}</h3>
+    {% if vat and vat.vat_account %}
+    <div class="mb-3">
+        <div class="pl-row">
+            <span class="label">Output VAT (sales)</span>
+            <span class="value">{{ vat.output_tax | currency }}</span>
+        </div>
+        <div class="pl-row">
+            <span class="label">Input VAT (recoverable)</span>
+            <span class="value">{{ vat.input_tax | currency }}</span>
+        </div>
+        <div class="pl-row fw-bold">
+            <span class="label">{{ 'Net VAT payable to MRA' if vat.is_payable else 'Net VAT reclaimable' }}</span>
+            <span class="value">{{ vat.net_vat | currency }}</span>
+        </div>
+    </div>
+    <div class="table-container">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Reference</th>
+                    <th scope="col">Description</th>
+                    <th scope="col" class="text-end">Input VAT (debit)</th>
+                    <th scope="col" class="text-end">Output VAT (credit)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for line in vat.lines %}
+                <tr>
+                    <td>{{ line.entry_date.strftime('%d %b %Y') }}</td>
+                    <td>{{ line.reference_type or '' }}</td>
+                    <td>{{ line.description }}</td>
+                    <td class="text-end">{% if line.debit %}{{ line.debit | currency }}{% else %}—{% endif %}</td>
+                    <td class="text-end">{% if line.credit %}{{ line.credit | currency }}{% else %}—{% endif %}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted">No VAT activity in this period</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="text-muted mt-2 mb-0 field-hint">Output VAT posts as credits and recoverable input VAT as debits on the VAT Payable account ({{ vat.vat_account.code }}). The period balance is the net VAT {{ 'payable to MRA' if vat.is_payable else 'reclaimable from MRA' }} per the monthly return.</p>
+    {% else %}
+    <p class="text-muted mb-0">No VAT control account (code 2200) is configured for this business yet.</p>
+    {% endif %}
+</div>
 {% endif %}
 
 <!-- Trial Balance -->

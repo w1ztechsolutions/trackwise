@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- VAT return report (`/reports/vat-return`): period-scoped output VAT (credits) and recoverable input VAT (debits) on the VAT Payable account, with the net VAT payable/reclaimable total, line detail, Excel export, and a current-month default. Completes the Phase 1 tax engine's reporting leg
 - Malawi tax engine (Phase 1): per-business `TaxCode` and effective-dated `TaxRate` models seeded with the statutory VAT history (17.5% standard from 1 Jan 2026; 16.5% baseline; zero-rated and exempt codes). Rates resolve by document date, so back-dated entries apply the rate actually in force (ADR-0015)
 - Input VAT recovery: purchase lines with a VAT code post the recoverable input tax as a debit to the VAT Payable account (2200), so its balance becomes net VAT payable; bill lines store the applied code, rate, and amount
 - Per-line Tax Code select on the invoice form and VAT Code select on the purchase form (served by `GET /api/tax-codes`), replacing free-typed client-side percentages

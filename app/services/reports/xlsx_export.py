@@ -171,6 +171,21 @@ def build_report_rows(report_type, report):
         ])
         return rows
 
+    if report_type == 'vat_return':
+        rows = [['Date', 'Reference', 'Description', 'Input VAT (debit)', 'Output VAT (credit)']]
+        rows.extend([
+            [line['entry_date'], line['reference_type'] or '', line['description'],
+             line['debit'], line['credit']]
+            for line in report['lines']
+        ])
+        rows.extend([
+            ['', 'Total output VAT', '', '', report['output_tax']],
+            ['', 'Total input VAT (recoverable)', '', report['input_tax'], ''],
+            ['', 'Net VAT payable' if report['is_payable'] else 'Net VAT reclaimable',
+             '', '', report['net_vat']],
+        ])
+        return rows
+
     if report_type == 'trial_balance':
         rows = [['Account Code', 'Account', 'Type', 'Debit', 'Credit', 'Balance']]
         rows.extend([

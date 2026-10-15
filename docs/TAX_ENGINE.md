@@ -59,6 +59,13 @@ month.
 - `compute_document_tax(items, business_id, on_date, tax_inclusive=False)` —
   per-line results plus subtotal / total_tax / total
 
+## VAT return report
+
+`/reports/vat-return` (also in Reports → VAT Return, Excel-exportable) reads
+the 2200 lines for a chosen period: credits = output VAT, debits = input
+VAT, and the balance = net VAT payable to MRA (or reclaimable when
+negative). This is the figure a monthly Msonkho Online return asks for.
+
 ## UI / API surface
 
 - Invoice form (`templates/invoices.html`): per-line **Tax Code** select;
