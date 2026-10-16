@@ -10,7 +10,7 @@ Werkzeug==3.1.9
 Jinja2==3.1.6
 SQLAlchemy==2.0.51
 alembic==1.18.5
-WeasyPrint==65.0
+WeasyPrint==70.0
 celery>=5.4.0
 redis>=5.0.0
 gunicorn>=23.0.0
