@@ -2,6 +2,7 @@ import secrets
 import click
 import importlib
 import os
+from urllib.parse import urlsplit
 from flask import Flask, g, request, redirect
 from flask_sqlalchemy import SQLAlchemy  # noqa: F401  # legacy import kept for existing from app import db callers
 from flask_migrate import Migrate
@@ -374,12 +375,15 @@ def create_app(config_object=None):
         if allowed_hosts and request.host not in allowed_hosts:
             from flask import abort
             abort(400)
-        safe_path = request.path or '/'
+        safe_path = (request.path or '/').replace('\\', '/')
+        parsed_path = urlsplit(safe_path)
+        if parsed_path.scheme or parsed_path.netloc:
+            safe_path = '/'
         if not safe_path.startswith('/'):
             safe_path = f'/{safe_path}'
         if safe_path.startswith('//'):
             safe_path = '/'
-        query = request.query_string.decode('utf-8', errors='ignore')
+        query = request.query_string.decode('utf-8', errors='ignore').replace('\\', '')
         if query:
             safe_path = f'{safe_path}?{query}'
         return redirect(f'https://{target_host}{safe_path}', code=301)
