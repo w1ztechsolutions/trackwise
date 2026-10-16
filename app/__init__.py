@@ -299,9 +299,12 @@ def create_app(config_object=None):
             health_status['database'] = 'connected'
         except Exception as e:
             _db.session.rollback()
+            # REVIEW: log the real error server-side; the health endpoint must stay
+            # REVIEW: anonymous-safe — no driver/connection details to clients (CodeQL
+            # REVIEW: py/stack-trace-exposure).
+            app.logger.error('Health check DB probe failed: %s', e)
             health_status['database'] = 'disconnected'
-            health_status['status'] = 'degraded'
-            health_status['database_error'] = str(e)
+            health_status['status'] = 'degraded' 
 
         return jsonify(health_status)
 
@@ -360,7 +363,17 @@ def create_app(config_object=None):
             return
         if request.is_secure:
             return
-        return redirect(request.url.replace('http://', 'https://', 1), code=301)
+        # REVIEW: build the https upgrade URL from SERVER_NAME (server-configured,
+        # REVIEW: trusted) instead of echoing the client-supplied Host header, which
+        # REVIEW: a poisoned Host could turn into an open redirect (CodeQL
+        # REVIEW: py/url-redirection). Falls back to request.host only when no
+        # REVIEW: SERVER_NAME is configured, matching Flask's own external-URL logic.
+        target_host = app.config.get('SERVER_NAME') or request.host
+        allowed_hosts = app.config.get('ALLOWED_HOSTS')
+        if allowed_hosts and request.host not in allowed_hosts:
+            from flask import abort
+            abort(400)
+        return redirect(f'https://{target_host}{request.full_path}', code=301)
 
     @app.context_processor
     def _inject_nav():

@@ -97,6 +97,11 @@ def _get_pool_options(is_neon: bool = False) -> dict:
 # REVIEW: Base configuration class establishing session lifetimes, cookie security policies,
 # REVIEW: and optional demo database isolation flags (DEMO_MODE_ENABLED).
 class Config:
+    # REVIEW: host hardening for the https-upgrade redirect (CodeQL py/url-redirection).
+    # REVIEW: SERVER_NAME is the trusted host used to build external URLs; ALLOWED_HOSTS
+    # REVIEW: (comma-separated) rejects requests with any other Host header.
+    SERVER_NAME = os.environ.get("SERVER_NAME") or None
+    ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h.strip()]
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 300}
     DEMO_MODE_ENABLED = os.environ.get("DEMO_MODE_ENABLED", "").strip().lower() in {

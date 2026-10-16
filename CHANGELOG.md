@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [Unreleased]
+### Security
+- CodeQL alert triage: `app.py` dev server no longer defaults to debug mode (opt-in via `FLASK_ENV=development`); health endpoint and balances API no longer return raw exception text (logged server-side instead); https-upgrade redirect no longer echoes the client Host header (`SERVER_NAME`/`ALLOWED_HOSTS` config added); report navigation JS only accepts same-origin relative URLs; tests workflow gained a least-privilege `permissions: contents: read` block. Closes 6 of 7 CodeQL findings on main.
+
 ### Changed
 - Lint cleanup: `ruff check app/ models.py config.py --select E4,E7,E9,F --ignore E741` (the CI gate) now passes. Dead imports removed, intentional re-exports made explicit (`__all__` in `app/models/__init__.py`, redundant aliases in `models.py` / `app/models/inventory.py`), SQLAlchemy `== True` filters kept with `noqa: E712`, unused locals renamed with `_` prefix. No behavior change — 276 tests pass.
 

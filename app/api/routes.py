@@ -81,7 +81,12 @@ def api_accounting_verify():
             return jsonify({'error': 'No active business context'}), 400
         result = verify_balances(business_id)
         return jsonify(result)
-    except Exception as e:
+    except Exception:
+        from flask import current_app
         from app.models import db
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        # REVIEW: full exception logged server-side; clients get a generic message —
+        # REVIEW: str(e) can leak SQL, table names, or file paths (CodeQL
+        # REVIEW: py/stack-trace-exposure). logger.exception captures the traceback.
+        current_app.logger.exception('verify_balances failed for business %s', business_id)
+        return jsonify({'error': 'An internal error occurred while verifying balances'}), 500

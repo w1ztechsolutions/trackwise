@@ -11,4 +11,7 @@ app = create_app()
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # REVIEW: dev entrypoint only — production serves via gunicorn/Vercel (api/index.py).
+    # REVIEW: debug must never default on; CodeQL flags it as RCE-adjacent (py/flask-debug).
+    import os
+    app.run(debug=os.environ.get('FLASK_ENV') == 'development')

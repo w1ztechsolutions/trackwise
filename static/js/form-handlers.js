@@ -15,7 +15,10 @@ document.addEventListener('change', function (e) {
     }
     if (target.matches('[data-nav-url]')) {
         const url = target.value;
-        if (url) {
+        // REVIEW: nav select values are server-rendered app routes, but never trust
+        // REVIEW: DOM values for navigation — only same-origin relative paths
+        // REVIEW: (blocks javascript: and protocol-relative //evil.com payloads).
+        if (url && url.charAt(0) === '/' && url.charAt(1) !== '/') {
             window.location.href = url;
         }
     }
