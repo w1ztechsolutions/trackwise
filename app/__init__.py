@@ -363,17 +363,26 @@ def create_app(config_object=None):
             return
         if request.is_secure:
             return
-        # REVIEW: build the https upgrade URL from SERVER_NAME (server-configured,
-        # REVIEW: trusted) instead of echoing the client-supplied Host header, which
-        # REVIEW: a poisoned Host could turn into an open redirect (CodeQL
-        # REVIEW: py/url-redirection). Falls back to request.host only when no
-        # REVIEW: SERVER_NAME is configured, matching Flask's own external-URL logic.
-        target_host = app.config.get('SERVER_NAME') or request.host
+        # Build the https upgrade URL from SERVER_NAME (server-configured, trusted)
+        # and a normalized relative path; do not echo request.host/request.full_path
+        # directly into the redirect target.
+        target_host = app.config.get('SERVER_NAME')
+        if not target_host:
+            from flask import abort
+            abort(500)
         allowed_hosts = app.config.get('ALLOWED_HOSTS')
         if allowed_hosts and request.host not in allowed_hosts:
             from flask import abort
             abort(400)
-        return redirect(f'https://{target_host}{request.full_path}', code=301)
+        safe_path = request.path or '/'
+        if not safe_path.startswith('/'):
+            safe_path = f'/{safe_path}'
+        if safe_path.startswith('//'):
+            safe_path = '/'
+        query = request.query_string.decode('utf-8', errors='ignore')
+        if query:
+            safe_path = f'{safe_path}?{query}'
+        return redirect(f'https://{target_host}{safe_path}', code=301)
 
     @app.context_processor
     def _inject_nav():
