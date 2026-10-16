@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from models import db
 
 
+# REVIEW: Tenant root model representing an independent business organization.
+# REVIEW: Holds fiscal year boundaries, base currency (default MWK), and period close metadata.
 class Business(db.Model):
     __tablename__ = 'businesses'
 
@@ -34,6 +36,8 @@ class DemoWorkspace(db.Model):
     )
 
 
+# REVIEW: General Ledger account chart master. Governs double-entry accounting structure.
+# REVIEW: Unique constraint uq_business_account_code prevents duplicate account codes per tenant.
 class ChartOfAccounts(db.Model):
     __tablename__ = 'chart_of_accounts'
 
@@ -88,6 +92,8 @@ class CostCenter(db.Model):
     )
 
 
+# REVIEW: Double-entry accounting voucher header. Groups debit and credit journal lines.
+# REVIEW: Implements soft-deletion and reversal tracking (reversed_by_entry_id) for auditability.
 class JournalEntry(db.Model):
     __tablename__ = 'journal_entries'
 
@@ -121,6 +127,8 @@ class JournalEntry(db.Model):
     )
 
 
+# REVIEW: Individual debits and credits forming a balanced financial transaction.
+# REVIEW: Invariant: Sum(debit_amount) must equal Sum(credit_amount) for every JournalEntry.
 class JournalLine(db.Model):
     __tablename__ = 'journal_lines'
 
@@ -140,6 +148,8 @@ class JournalLine(db.Model):
     cost_center = db.relationship('CostCenter', backref='journal_lines')
 
 
+# REVIEW: Immutable audit trail log recording entity creations, updates, and deletions
+# REVIEW: alongside actor snapshots (actor_name, actor_email) for compliance.
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
 
@@ -156,6 +166,8 @@ class AuditLog(db.Model):
     timestamp = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
+# REVIEW: Lifecycle record for bulk spreadsheet imports (ADR-0013).
+# REVIEW: Stages raw rows before validation and commit to ensure transactional safety.
 class ImportRun(db.Model):
     """Lifecycle record for one spreadsheet import (ADR-0013)."""
 
@@ -209,6 +221,7 @@ class BankStatement(db.Model):
     journal_entry = db.relationship('JournalEntry', backref='bank_statement_matches')
 
 
+# REVIEW: Financial control lock preventing statement modification in closed reconciliation periods.
 class BankReconciliationPeriod(db.Model):
     """Lock records for bank reconciliation periods (per account, per period).
 

@@ -15,6 +15,7 @@ REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 
 
 # Create a mock Celery app for serverless mode
+# REVIEW: Mock Celery implementation for serverless/Vercel environments executing tasks synchronously.
 class MockCelery:
     """Mock Celery that executes tasks synchronously in serverless mode."""
     

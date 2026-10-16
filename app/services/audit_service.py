@@ -362,6 +362,8 @@ def _session_class(target):
     return target
 
 
+# REVIEW: Connects SQLAlchemy ORM session event listeners (after_flush / after_commit).
+# REVIEW: Ensures non-intrusive automatic auditing of model insertions, updates, and deletions.
 def install_audit_listeners(target=None):
     """Register the audit listeners on ``target``'s session class.
 

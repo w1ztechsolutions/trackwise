@@ -3,6 +3,9 @@ from flask import abort, current_app
 from flask_login import current_user
 
 
+# REVIEW: Role-based authorization decorator.
+# REVIEW: Enforces current_user.role in allowed_roles; returns 401 if unauthenticated, 403 if unauthorized.
+# REVIEW: Bypassed when testing with LOGIN_DISABLED=True.
 def role_required(*allowed_roles):
     def decorator(f):
         @wraps(f)

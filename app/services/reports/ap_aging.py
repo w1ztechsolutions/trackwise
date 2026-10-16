@@ -1,3 +1,4 @@
+# REVIEW: Accounts Payable aging report generator computing vendor balances grouped by due date buckets.
 """Accounts payable aging based on bill balances, payments, and expenditure returns."""
 
 from decimal import Decimal

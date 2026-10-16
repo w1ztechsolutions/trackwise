@@ -1,3 +1,4 @@
+# REVIEW: Income statement (P&L) generator computing Net Income = Revenue - Cost of Goods Sold - Operating Expenses.
 """Income Statement report derived from journal entries."""
 
 from app.models import db, ChartOfAccounts, JournalLine, JournalEntry, Setting

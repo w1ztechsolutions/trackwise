@@ -1,6 +1,7 @@
 from datetime import datetime
 
 
+# REVIEW: Jinja2 template filter registration for localized MWK currency and ISO date formatting.
 def register_template_filters(app):
     @app.template_filter("currency")
     def format_currency(value):

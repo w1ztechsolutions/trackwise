@@ -1,5 +1,13 @@
 """Straight-line time-based deferral and recognition of invoice revenue."""
 
+# REVIEW: Revenue recognition engine supporting ASC 606 / IFRS 15 straight-line time-based deferral and recognition.
+# REVIEW: Multi-tenant boundary: All schedules, invoices, and journal entries are strictly scoped by business_id.
+# REVIEW: Accounting rationale:
+# REVIEW:   1. Deferral: Debit Income / Credit Deferred Revenue Liability.
+# REVIEW:   2. Recognition: Debit Deferred Revenue Liability / Credit Earned Income.
+# REVIEW: Safety Invariants: Prevents deferring more revenue than posted on the invoice sale entry; uses DB row locking
+# REVIEW: (with_for_update) during recognition to avoid concurrent recognition races.
+
 from datetime import date, datetime, time, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from decimal import InvalidOperation
@@ -21,6 +29,7 @@ class RevenueRecognitionError(ValueError):
     pass
 
 
+# REVIEW: Helper quantizing monetary values to Decimal 0.01 with ROUND_HALF_UP rounding.
 def _money(value):
     try:
         result = Decimal(str(value)).quantize(CENT, rounding=ROUND_HALF_UP)
@@ -31,6 +40,7 @@ def _money(value):
     return result
 
 
+# REVIEW: Tenant-scoped lookup validating that revenue and deferred revenue accounts exist and match expected GL types.
 def _account_for_schedule(business_id, account_id, expected_type):
     account = ChartOfAccounts.query.filter_by(
         id=account_id,
@@ -45,6 +55,8 @@ def _account_for_schedule(business_id, account_id, expected_type):
     return account
 
 
+# REVIEW: Calculates net posted income for an invoice from its Sale entries and Reversals.
+# REVIEW: Enforces invariant that schedule creation cannot defer more revenue than was actually posted for that invoice.
 def _posted_revenue_for_invoice(business_id, invoice_id, account_id):
     sale_ids = [
         row[0]
@@ -94,6 +106,8 @@ def _posted_revenue_for_invoice(business_id, invoice_id, account_id):
     return _money(balance or 0)
 
 
+# REVIEW: Creates a revenue recognition schedule for an active invoice, validating dates (start >= today, end >= start),
+# REVIEW: verifying revenue <= income posted, and posting the initial revenue deferral journal entry.
 def create_revenue_schedule(
     business_id,
     invoice_id,
@@ -181,6 +195,9 @@ def create_revenue_schedule(
     return schedule
 
 
+# REVIEW: Pro-rata straight-line revenue recognition handler. Acquires row lock via with_for_update(),
+# REVIEW: computes earned revenue based on elapsed days, posts the recognition journal entry, and marks complete
+# REVIEW: when schedule end date is reached (absorbing rounding cents on the final period).
 def recognize_revenue(schedule_id, business_id, through_date, created_by=None):
     if not isinstance(through_date, date):
         raise RevenueRecognitionError("A recognition-through date is required")

@@ -1,3 +1,4 @@
+# REVIEW: General ledger report generator retrieving chronological journal entries for specified accounts.
 """General Ledger report derived from journal entries."""
 
 from app.models import db, ChartOfAccounts, JournalLine, JournalEntry, User

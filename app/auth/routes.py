@@ -14,6 +14,9 @@ db = _db
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 @limiter.limit("5 per minute")
+# REVIEW: Authenticates user credentials using werkzeug check_password_hash.
+# REVIEW: Rate limited to 5 attempts per minute to prevent brute-force credential stuffing.
+# REVIEW: Writes LOGIN and LOGIN_FAILED events to the AuditLog for compliance tracking.
 def login():
     from app.models import User
     from app.database import PRODUCTION_CONTEXT, select_database
@@ -220,6 +223,8 @@ def demo_change_business():
 
 @auth_bp.route('/change-password', methods=['GET', 'POST'])
 @login_required
+# REVIEW: Authenticated password change handler verifying current password and strength rules.
+# REVIEW: Resets must_change_password flag to False upon successful update.
 def change_password():
     from flask_login import current_user
 

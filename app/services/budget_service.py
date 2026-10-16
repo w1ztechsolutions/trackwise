@@ -1,5 +1,11 @@
 """Budget planning, validation, and actual-amount computation."""
 
+# REVIEW: Budget planning, line-item validation, period control, and actuals comparison engine.
+# REVIEW: Multi-tenant security boundary: All budget operations, COA account eligibility filters,
+# REVIEW: cost center lookups, and journal entry actual queries are scoped strictly by business_id.
+# REVIEW: Accounting rationale: Revenue budgets map to income accounts (Actual = Credits - Debits);
+# REVIEW: Expense budgets map to operating expense accounts (Actual = Debits - Credits, excluding COGS code 5000).
+
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -20,6 +26,8 @@ class BudgetError(ValueError):
     """Raised when budget input fails validation."""
 
 
+# REVIEW: Calculates start (00:00:00) and end (00:00:00 next month) datetime bounds for monthly budgets.
+# REVIEW: Enforces that monthly budget periods start on the 1st day of the month.
 def month_bounds(period_start):
     """Return the half-open datetime bounds for a month starting at period_start."""
     if not isinstance(period_start, date) or period_start.day != 1:
@@ -36,6 +44,8 @@ def month_bounds(period_start):
     )
 
 
+# REVIEW: Converts an inclusive date range [period_start, period_end] into half-open datetime bounds
+# REVIEW: [start 00:00:00, end+1 00:00:00) for standard SQL >= and < datetime comparison.
 def period_datetime_bounds(period_start, period_end):
     """Return half-open datetime bounds covering an inclusive date range."""
     if not isinstance(period_start, date) or not isinstance(period_end, date):
@@ -48,6 +58,8 @@ def period_datetime_bounds(period_start, period_end):
     return start_at, end_at
 
 
+# REVIEW: Input validation for budget line amounts ensuring finite, non-negative Decimal values,
+# REVIEW: capped at MAX_BUDGET_AMOUNT (999,999,999,999.99) and quantized strictly to 2 decimal places.
 def normalize_amount(value, field='Amount'):
     """Parse a budget amount into a non-negative two-decimal Decimal."""
     try:
@@ -65,6 +77,9 @@ def normalize_amount(value, field='Amount'):
     return amount
 
 
+# REVIEW: Tenant-scoped eligibility filter for budgetable GL accounts.
+# REVIEW: Revenue budgets include active income accounts; Expense budgets include active operating
+# REVIEW: expense accounts while excluding COGS (5000) which is driven by FIFO sales, not operating budgets.
 def budget_account_filter(business_id, budget_type):
     """Return a query filter selecting accounts eligible for a budget type."""
     if budget_type == 'revenue':
@@ -90,6 +105,8 @@ def eligible_budget_accounts(business_id, budget_type):
     )
 
 
+# REVIEW: Validates that a user-selected account ID exists, is active, belongs to the calling tenant (business_id),
+# REVIEW: and matches the expected budget type classification.
 def resolve_budget_account(business_id, budget_type, account_id):
     account = ChartOfAccounts.query.filter(
         ChartOfAccounts.id == account_id,
@@ -102,6 +119,8 @@ def resolve_budget_account(business_id, budget_type, account_id):
     return account
 
 
+# REVIEW: Budget creation workflow enforcing business_id tenant scoping, open period status via
+# REVIEW: assert_period_open(), line-item uniqueness per (account_id, cost_center_id), and cost center ownership.
 def create_budget(
     business_id,
     name,
@@ -206,6 +225,7 @@ def create_budget(
     return budget
 
 
+# REVIEW: Single line amount update ensuring the budget's start period is open before mutating.
 def update_budget_amount(budget_id, line_id, amount, commit=True):
     """Update a single budget line amount, keeping the rest of the budget intact."""
     from app.services.period_service import assert_period_open
@@ -227,6 +247,9 @@ def update_budget_amount(budget_id, line_id, amount, commit=True):
     return line
 
 
+# REVIEW: Queries posted, non-deleted JournalEntry and JournalLine records for given account IDs within
+# REVIEW: the period. Returns signed actuals matching account nature: Income = Credits - Debits,
+# REVIEW: Expense = Debits - Credits.
 def compute_actuals(business_id, account_ids, period_start, period_end, cost_center_id=None):
     """Return signed actual totals per account for a period.
 
@@ -274,6 +297,7 @@ def compute_actuals(business_id, account_ids, period_start, period_end, cost_cen
     return actuals
 
 
+# REVIEW: Annotates budget lines with posted actuals and calculates budget variance (Budget - Actual).
 def get_budget_lines(budget_id):
     """Return a budget's lines annotated with actuals and variance."""
     budget = db.session.get(Budget, budget_id)
@@ -360,6 +384,7 @@ def get_monthly_budget_vs_actual(business_id, period_start):
     }
 
 
+# REVIEW: Aggregates 6-month historical/current expense budget vs actual trend data for dashboard utilization charts.
 def get_dashboard_budget_summary(business_id, period_start, months=6):
     """Return monthly budget totals, actuals, and utilization for dashboard charts."""
     rows = []
