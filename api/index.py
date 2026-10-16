@@ -1,3 +1,4 @@
+# REVIEW: Serverless WSGI adapter for Vercel deployment configuring ephemeral /tmp paths.
 """
 Vercel WSGI entry point for TrackWise Flask application.
 

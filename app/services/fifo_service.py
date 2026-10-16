@@ -395,6 +395,10 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
     return purchase
 
 
+# REVIEW: FIFO sale recording engine.
+# REVIEW: Consumes available inventory batches in chronological order (First-In, First-Out).
+# REVIEW: Computes exact COGS based on batch cost layers and posts double-entry journal entries
+# REVIEW: (Debit AR/Cash, Credit Revenue; Debit COGS, Credit Inventory).
 def record_sale(sale_date, customer_name, items_data, business_id=None, created_by=None, invoice_id=None, tax_amount=0.0):
     if not items_data:
         raise ValueError("Sale must contain at least one item.")
@@ -539,6 +543,8 @@ def record_sale(sale_date, customer_name, items_data, business_id=None, created_
     return sale
 
 
+# REVIEW: Expense voucher recorder mapping operational expenses to GL account codes (5100-5900).
+# REVIEW: Posts Debit Expense / Credit Cash or Accounts Payable.
 def record_expense(expense_date, category, description, amount, business_id=None, created_by=None):
     if amount < 0:
         raise ValueError("Expense amount cannot be negative.")

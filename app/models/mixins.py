@@ -5,6 +5,8 @@ from sqlalchemy.orm import declared_attr
 from app.models import db
 
 
+# REVIEW: Multi-tenant security isolation mixin.
+# REVIEW: Enforces business_id FK on tables and overrides query() to automatically inject tenant filtering.
 class BusinessScopedMixin:
     """Mixin that adds business_id FK and auto-scopes queries.
 
@@ -23,6 +25,9 @@ class BusinessScopedMixin:
             index=True,
         )
 
+    # REVIEW: Resolves the tenant filter from Flask request context (g.business_id).
+    # REVIEW: Falls back to checking business_id isnot None outside HTTP requests (e.g. CLI/tests)
+    # REVIEW: to prevent cross-tenant data leaks.
     @classmethod
     def _business_filter(cls):
         """Return the filter expression for the current business."""

@@ -1,3 +1,4 @@
+# REVIEW: Balance sheet report generator computing Asset = Liabilities + Equity balances as of statement date.
 """Balance Sheet report derived from journal entries."""
 
 from app.models import db, ChartOfAccounts, JournalLine, JournalEntry

@@ -15,6 +15,9 @@ def as_date(value):
     return value
 
 
+# REVIEW: Financial period close guard.
+# REVIEW: Compares transaction date against business.last_closed_period_date.
+# REVIEW: Raises AccountingException if attempting to post into a closed financial period.
 def assert_period_open(business_id, transaction_date):
     business = Business.query.filter_by(id=business_id).first()
     if business and business.last_closed_period_date:

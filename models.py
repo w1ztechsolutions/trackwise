@@ -5,6 +5,8 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
+# REVIEW: Custom SQLAlchemy handle that automatically binds audit listeners to all sessions.
+# REVIEW: Guarantees that model mutations across all HTTP requests and background tasks generate AuditLog entries.
 class AuditedSQLAlchemy(SQLAlchemy):
     """SQLAlchemy handle whose sessions are always audited.
 
@@ -23,6 +25,8 @@ class AuditedSQLAlchemy(SQLAlchemy):
 
 db = AuditedSQLAlchemy()
 
+# REVIEW: Core inventory master record. Multi-tenant isolated via business_id FK.
+# REVIEW: quantity_in_stock represents current available units, updated via FIFO purchase/sale operations.
 class Product(db.Model):
     __tablename__ = 'products'
     id = db.Column(db.Integer, primary_key=True)
@@ -56,6 +60,8 @@ class Product(db.Model):
         }
 
 
+# REVIEW: Inventory purchase transaction header representing incoming inventory from suppliers.
+# REVIEW: Associated items are automatically removed via cascade delete-orphan when the purchase is deleted.
 class Purchase(db.Model):
     __tablename__ = 'purchases'
     id = db.Column(db.Integer, primary_key=True)
@@ -78,6 +84,8 @@ class PurchaseItem(db.Model):
     product = db.relationship('Product', backref='purchase_items')
 
 
+# REVIEW: Point-of-sale or invoice transaction header recording revenue and cost of goods sold (COGS).
+# REVIEW: Tracks total_revenue and total_cogs simultaneously for instant gross profit margin analysis.
 class Sale(db.Model):
     __tablename__ = 'sales'
     id = db.Column(db.Integer, primary_key=True)
@@ -103,6 +111,8 @@ class SaleItem(db.Model):
     product = db.relationship('Product', backref='sale_items')
 
 
+# REVIEW: Direct operating expense voucher. Categorized by operational expense type
+# REVIEW: and mapped to corresponding General Ledger expense accounts (5100-5900) during posting.
 class Expense(db.Model):
     __tablename__ = 'expenses'
     id = db.Column(db.Integer, primary_key=True)
@@ -113,6 +123,8 @@ class Expense(db.Model):
     amount = db.Column(db.Numeric(12, 2), nullable=False)
 
 
+# REVIEW: Tenant configuration table. Unique constraint uq_business_setting_key enforces
+# REVIEW: strict key uniqueness per business tenant, preventing setting collisions.
 class Setting(db.Model):
     __tablename__ = 'settings'
     id = db.Column(db.Integer, primary_key=True)
@@ -125,6 +137,8 @@ class Setting(db.Model):
     )
 
 
+# REVIEW: FIFO inventory ledger record. Tracks cost layers and remaining_quantity for each batch.
+# REVIEW: Depleted chronologically during sales to enforce First-In, First-Out costing rules.
 class StockTransaction(db.Model):
     __tablename__ = 'stock_transactions'
     id = db.Column(db.Integer, primary_key=True)
@@ -140,6 +154,7 @@ class StockTransaction(db.Model):
     product = db.relationship('Product', backref='stock_transactions')
 
 
+# REVIEW: Physical storage location master. Allows multi-warehouse inventory segregation and transfer tracking.
 class Warehouse(db.Model):
     __tablename__ = 'warehouses'
     id = db.Column(db.Integer, primary_key=True)
@@ -151,6 +166,8 @@ class Warehouse(db.Model):
     products = db.relationship('Product', backref='warehouse', lazy='select')
 
 
+# REVIEW: Internal stock transfer or adjustment voucher moving inventory between warehouses
+# REVIEW: or adjusting stock levels for shrinkage, damage, or audit reconciliation.
 class StockMovement(db.Model):
     __tablename__ = 'stock_movements'
     id = db.Column(db.Integer, primary_key=True)
@@ -175,6 +192,8 @@ class StockMovement(db.Model):
     creator = db.relationship('User', backref='created_stock_movements')
 
 
+# REVIEW: Accounts Receivable customer record. Maintains credit limits and opening balances
+# REVIEW: for debt tracking and aging analysis.
 class Customer(db.Model):
     __tablename__ = 'customers'
     id = db.Column(db.Integer, primary_key=True)
@@ -192,6 +211,8 @@ class Customer(db.Model):
     is_active = db.Column(db.Boolean, nullable=False, default=True)
 
 
+# REVIEW: Accounts Payable vendor/supplier record. Stores banking details and credit terms
+# REVIEW: for payables reconciliation.
 class Supplier(db.Model):
     __tablename__ = 'suppliers'
     id = db.Column(db.Integer, primary_key=True)
@@ -209,6 +230,8 @@ class Supplier(db.Model):
     is_active = db.Column(db.Boolean, nullable=False, default=True)
 
 
+# REVIEW: Accounts Receivable invoice model tracking billing status (draft, sent, paid, void).
+# REVIEW: Drives revenue recognition, customer statements, and AR aging reports.
 class Invoice(db.Model):
     __tablename__ = 'invoices'
     id = db.Column(db.Integer, primary_key=True)
@@ -226,6 +249,7 @@ class Invoice(db.Model):
     customer = db.relationship('Customer', backref='invoices')
 
 
+# REVIEW: Invoice line item storing net amount, tax code reference, and unit pricing.
 class InvoiceItem(db.Model):
     __tablename__ = 'invoice_items'
     id = db.Column(db.Integer, primary_key=True)
@@ -246,6 +270,7 @@ class InvoiceItem(db.Model):
     product = db.relationship('Product', backref='invoice_items')
 
 
+# REVIEW: Customer payment receipt voucher linked to invoices. Triggers AR control account credit.
 class Receipt(db.Model):
     __tablename__ = 'receipts'
     id = db.Column(db.Integer, primary_key=True)
@@ -262,6 +287,7 @@ class Receipt(db.Model):
     invoice = db.relationship('Invoice', backref='receipts')
 
 
+# REVIEW: Accounts Payable vendor bill model tracking payables due dates and payment status.
 class Bill(db.Model):
     __tablename__ = 'bills'
     id = db.Column(db.Integer, primary_key=True)
@@ -279,6 +305,7 @@ class Bill(db.Model):
     supplier = db.relationship('Supplier', backref='bills')
 
 
+# REVIEW: Vendor bill line item detail recording cost expense/inventory allocations.
 class BillItem(db.Model):
     __tablename__ = 'bill_items'
     id = db.Column(db.Integer, primary_key=True)
@@ -299,6 +326,7 @@ class BillItem(db.Model):
     product = db.relationship('Product', backref='bill_items')
 
 
+# REVIEW: Supplier/vendor payment voucher linked to bills or direct expenses. Triggers AP control account debit.
 class Payment(db.Model):
     __tablename__ = 'payments'
     id = db.Column(db.Integer, primary_key=True)
@@ -325,6 +353,8 @@ class Payment(db.Model):
     line_item = db.relationship('LineItem', backref='payments', lazy='select')
 
 
+# REVIEW: User account model supporting Flask-Login session management and RBAC permissions.
+# REVIEW: Scoped to business_id for tenant isolation.
 class User(db.Model, UserMixin):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
@@ -347,6 +377,7 @@ class User(db.Model, UserMixin):
         return str(self.id)
 
 
+# REVIEW: Manufacturing batch header tracking assembly of raw materials into finished goods.
 class ProductionBatch(db.Model):
     __tablename__ = 'production_batches'
     id = db.Column(db.Integer, primary_key=True)
@@ -365,6 +396,7 @@ class ProductionBatch(db.Model):
     outputs = db.relationship('FinishedGoodOutput', backref='production_batch', cascade='all, delete-orphan')
 
 
+# REVIEW: Raw material inputs consumed during a production batch run.
 class MaterialUsage(db.Model):
     __tablename__ = 'material_usages'
     id = db.Column(db.Integer, primary_key=True)
@@ -377,6 +409,7 @@ class MaterialUsage(db.Model):
     product = db.relationship('Product', backref='material_usages')
 
 
+# REVIEW: Finished goods yielded from a production batch run, capitalized into inventory.
 class FinishedGoodOutput(db.Model):
     __tablename__ = 'finished_good_outputs'
     id = db.Column(db.Integer, primary_key=True)
@@ -390,6 +423,7 @@ class FinishedGoodOutput(db.Model):
 
 
 # Plan model for subscription plans
+# REVIEW: SaaS subscription plan definition specifying seat limits and feature capabilities.
 class Plan(db.Model):
     __tablename__ = 'plans'
     id = db.Column(db.Integer, primary_key=True)
@@ -401,6 +435,7 @@ class Plan(db.Model):
 
 
 # Subscription model for business subscriptions
+# REVIEW: Tenant subscription status tracking recurring billing state and renewal terms.
 class Subscription(db.Model):
     __tablename__ = 'subscriptions'
     id = db.Column(db.Integer, primary_key=True)
@@ -459,6 +494,7 @@ class TaxRate(db.Model):
 
 
 # Financial Statement Categories for accounting classification
+# REVIEW: Budget and financial reporting expense classification master record.
 class FinancialCategory(db.Model):
     __tablename__ = 'financial_categories'
     id = db.Column(db.Integer, primary_key=True)
@@ -472,6 +508,7 @@ class FinancialCategory(db.Model):
     line_items = db.relationship('LineItem', backref='category', cascade='all, delete-orphan', lazy='select')
 
 
+# REVIEW: Generic budget and expense line item mapping line descriptions to GL account codes.
 class LineItem(db.Model):
     __tablename__ = 'line_items'
     id = db.Column(db.Integer, primary_key=True)
@@ -485,6 +522,7 @@ class LineItem(db.Model):
     is_active = db.Column(db.Boolean, nullable=False, default=True)
 
 
+# REVIEW: Staff payroll master record tracking employee profiles and compensation details.
 class Staff(db.Model):
     __tablename__ = 'staff'
     id = db.Column(db.Integer, primary_key=True)

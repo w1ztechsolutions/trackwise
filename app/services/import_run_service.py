@@ -6,6 +6,12 @@ imports the rows, and closes the run. Staged row contents are purged when the ru
 completes, so only counts and the rejected-row list are retained.
 """
 
+# REVIEW: Staged spreadsheet import lifecycle engine (ADR-0013).
+# REVIEW: Multi-tenant security boundary: ImportRun records and staged JSON payloads are strictly isolated
+# REVIEW: by business_id; load_staged() returns 404 on tenant mismatch to prevent ID guessing.
+# REVIEW: Privacy & Performance: Staged raw spreadsheet rows are purged (staged_rows = None) upon import
+# REVIEW: completion or failure, leaving only counts and rejected error records for audit.
+
 import json
 from datetime import datetime, timedelta, timezone
 
@@ -24,12 +30,14 @@ VALID_DATE_ORDERS = {'MDY', 'DMY'}
 MAX_FLASHED_ERRORS = 10
 
 
+# REVIEW: Normalizes date parsing convention preference ('MDY' vs 'DMY'), defaulting to 'MDY'.
 def normalize_date_order(value):
     """Return ``'MDY'`` or ``'DMY'``; anything else resolves to ``'MDY'``."""
     order = str(value or '').strip().upper()
     return order if order in VALID_DATE_ORDERS else 'MDY'
 
 
+# REVIEW: Persists uploaded spreadsheet rows in JSON form under status 'staged' prior to user column mapping.
 def stage_import(
     business_id,
     user_id,
@@ -57,6 +65,8 @@ def stage_import(
     return run
 
 
+# REVIEW: Tenant-isolated lookup for staged runs. Mismatched tenant or non-staged status returns HTTP 404
+# REVIEW: to prevent cross-tenant enumeration of staged import runs.
 def load_staged(business_id, run_id):
     """Return the caller's staged run, or abort with 404.
 
@@ -75,6 +85,7 @@ def load_staged(business_id, run_id):
     return run
 
 
+# REVIEW: Decodes JSON array stored in staged_rows into raw dictionary records.
 def staged_records(run):
     """Decode the rows staged against a run."""
     if not run.staged_rows:
@@ -86,6 +97,8 @@ def staged_records(run):
     return records if isinstance(records, list) else []
 
 
+# REVIEW: Closes an import run, records execution metrics (imported, duplicate, error counts), and purges
+# REVIEW: the temporary staged_rows payload to maintain database hygiene.
 def complete_import(run, result=None, status=COMMITTED_STATUS, error=None):
     """Close a staged run, record its outcome, and purge the staged rows."""
     result = result or {}
@@ -102,6 +115,8 @@ def complete_import(run, result=None, status=COMMITTED_STATUS, error=None):
     return run
 
 
+# REVIEW: Maintenance garbage collection for abandoned staged runs older than 24 hours.
+# REVIEW: Committed and failed import runs are preserved permanently for audit compliance.
 def purge_stale_staged_runs(older_than_hours=24):
     """Delete abandoned ``staged`` runs older than the cutoff.
 
@@ -118,6 +133,8 @@ def purge_stale_staged_runs(older_than_hours=24):
     return len(stale)
 
 
+# REVIEW: Atomic transaction commit helper pairing complete_import() with record_user_action()
+# REVIEW: to ensure import data changes and audit trail entries commit in a single DB transaction (ADR-0009).
 def commit_import(business_id, user_id, run, action, result):
     """Stage the successful outcome of a run alongside its audit entry.
 
@@ -142,6 +159,8 @@ def commit_import(business_id, user_id, run, action, result):
     return run
 
 
+# REVIEW: Rollback recovery handler that re-fetches the ImportRun record after transaction rollback,
+# REVIEW: marking it as failed and recording an audit trail entry.
 def fail_import(business_id, user_id, run_id, action, error):
     """Close a run as failed and audit the attempt after a rollback.
 
@@ -163,6 +182,8 @@ def fail_import(business_id, user_id, run_id, action, error):
     return run
 
 
+# REVIEW: Prepares user-facing UI notifications for import results, capping individual flashed error
+# REVIEW: messages at MAX_FLASHED_ERRORS (10) and providing a download link for full rejected error Excel logs.
 def flash_import_result(label, result, run=None):
     """Flash an import summary, with a link to the full rejected-row list."""
     message = (

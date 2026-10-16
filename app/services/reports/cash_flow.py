@@ -1,3 +1,4 @@
+# REVIEW: Cash flow statement generator computing cash inflows and outflows from operating activities.
 """Cash Flow Statement report derived from journal entries."""
 
 from app.models import db, ChartOfAccounts, JournalLine, JournalEntry

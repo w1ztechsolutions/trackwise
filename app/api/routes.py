@@ -10,6 +10,8 @@ from app.services.tax_service import list_tax_codes
 from . import api_bp
 
 
+# REVIEW: Multi-tenant tenant resolver for API queries.
+# REVIEW: Extracts business_id from current_user session to prevent cross-tenant data access.
 def _business_id():
     """Return the authenticated user's business_id, or None.
 
@@ -23,6 +25,8 @@ def _business_id():
 
 @api_bp.route('/api/products')
 @login_required
+# REVIEW: JSON endpoint serving product catalog options for UI selects and forms.
+# REVIEW: Scoped strictly by business_id.
 def api_products():
     business_id = _business_id()
     query = Product.query
@@ -34,6 +38,8 @@ def api_products():
 
 @api_bp.route('/api/suppliers')
 @login_required
+# REVIEW: JSON endpoint serving supplier options for purchasing forms.
+# REVIEW: Scoped strictly by business_id.
 def api_suppliers():
     business_id = _business_id()
     query = Supplier.query
@@ -67,6 +73,7 @@ def api_tax_codes():
 
 @api_bp.route('/api/accounting/verify')
 @login_required
+# REVIEW: Accounting balance audit endpoint running trial balance debit/credit balance checks.
 def api_accounting_verify():
     try:
         business_id = _business_id()

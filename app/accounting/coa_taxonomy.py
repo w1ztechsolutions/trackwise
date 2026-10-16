@@ -1,3 +1,4 @@
+# REVIEW: Standardized Chart of Accounts taxonomy structure organizing major categories (Revenue, Expenses, Assets, Liabilities, Equity).
 COA_TAXONOMY = [
     {
         "major_category": "Revenue",

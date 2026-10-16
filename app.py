@@ -1,3 +1,4 @@
+# REVIEW: Legacy root entry point instantiating the Flask application via create_app().
 """Legacy entrypoint.
 
 Phase 1 refactor moves routes into Blueprints under app/*.

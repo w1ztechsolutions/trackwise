@@ -18,6 +18,11 @@ class AccountingException(Exception):
     pass
 
 
+# REVIEW: Fundamental double-entry posting engine.
+# REVIEW: Invariants enforced:
+# REVIEW: 1. Financial period open check via assert_period_open().
+# REVIEW: 2. Sum(debits) == Sum(credits) balancing check within 0.01 tolerance.
+# REVIEW: 3. Business_id tenant scoping on all accounts and cost centers.
 def post_entry(
     business_id,
     entry_date,
@@ -150,6 +155,9 @@ def post_entry(
     return entry
 
 
+# REVIEW: Audit-compliant entry reversal engine.
+# REVIEW: Preserves original entry and posts a balanced contra entry swapping debits/credits.
+# REVIEW: Uses DB row-locking (with_for_update) to prevent race conditions during simultaneous reversals.
 def reverse_entry(business_id, entry_id, reason, created_by=None, reversal_date=None):
     """Post a balanced opposite entry while preserving the original posted entry."""
     reason = (reason or "").strip()
@@ -224,6 +232,8 @@ def get_payment_refunded_amount(business_id, payment_id):
     return total
 
 
+# REVIEW: Payment reversal and refund handler.
+# REVIEW: Supports full or partial refunds while preventing refund amounts from exceeding the net payment balance.
 def reverse_payment(business_id, payment_id, reason, created_by=None, reversal_date=None, amount=None):
     """Reverse a payment's journal entry, in full or in part.
 

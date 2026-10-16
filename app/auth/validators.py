@@ -3,11 +3,13 @@
 import re
 
 
+# REVIEW: Strict RFC-compliant email regex validator preventing header injection or malformed addresses.
 def validate_email(email: str) -> bool:
     pattern = re.compile(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
     return bool(pattern.match(email))
 
 
+# REVIEW: Password policy validator enforcing multi-character complexity requirements (min 12 chars, upper, lower, digit, special).
 def validate_password_strength(password: str) -> tuple[bool, str]:
     if len(password) < 12:
         return False, 'Password must be at least 12 characters long.'

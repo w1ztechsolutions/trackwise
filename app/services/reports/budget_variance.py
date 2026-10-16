@@ -1,3 +1,4 @@
+# REVIEW: Budget variance report generator comparing actual GL expenditure against planned budget lines.
 """Generalized budget variance engine for revenue and expense budgets."""
 
 from datetime import date, timedelta
