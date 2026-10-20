@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [Unreleased]
+### UI
+- Navigation sidebar reorganized from a flat 18-link list into labeled sections: Sales (Checkout, Customers, Invoices), Purchases (Restock, Suppliers, Payments, Expenditure Returns), Inventory & Production, Accounting (COA, Journal Entries, Bank Reconciliation, Branches & Cost Centers, Approvals — admin/manager/accountant only), and Administration (Workflows, User Management — admin only). Dashboard and Reports remain standalone; Settings/Logout stay in the header; the mobile bottom-nav is unchanged.
+
 ### Security
 - CodeQL alert triage: `app.py` dev server no longer defaults to debug mode (opt-in via `FLASK_ENV=development`); health endpoint and balances API no longer return raw exception text (logged server-side instead); https-upgrade redirect no longer echoes the client Host header (`SERVER_NAME`/`ALLOWED_HOSTS` config added); report navigation JS only accepts same-origin relative URLs; tests workflow gained a least-privilege `permissions: contents: read` block. Closes 6 of 7 CodeQL findings on main.
 
