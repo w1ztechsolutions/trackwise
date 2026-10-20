@@ -41,6 +41,7 @@ codes exist). Users can edit rates; seeding never overwrites existing rates.
 | Event | Journal |
 |---|---|
 | Sale/invoice line with tax | Dr AR/Cash (gross), Cr Revenue (net), Cr 2200 VAT Payable (output tax), plus COGS/inventory lines |
+| Walk-in cash sale (ADR-0016) | Same rule — `record_sale` computes the tax from per-line codes at sale date when no invoice is linked; legacy no-code sales post exactly as before |
 | Purchase line with tax | Dr Inventory (net), Dr 2200 VAT Payable (input tax), Cr AP/Cash (gross) |
 
 Account 2200 therefore carries output tax (credits) minus recoverable input
@@ -72,6 +73,11 @@ negative). This is the figure a monthly Msonkho Online return asks for.
   server resolves the rate by invoice date.
 - Purchase form (`static/js/purchases.js`): per-line **VAT Code** select
   (fetched from `GET /api/tax-codes`).
+- Sales checkout (`static/js/sales.js`): per-line **VAT Code** select, with
+  the standard-rate code (VAT-S) preselected — a VAT-registered retailer's
+  walk-in sales are taxable by default, "None (0%)" is one click away. The
+  rate is resolved server-side by sale date (ADR-0016); invoice-linked sales
+  keep using the invoice's own tax.
 - `GET /api/tax-codes`: the business's codes with today's resolved rate.
 
 ## Verification log
@@ -79,3 +85,4 @@ negative). This is the figure a monthly Msonkho Online return asks for.
 | Date | Verified by | Notes |
 |---|---|---|
 | 2026-10-15 | Agent (web research) | 17.5% standard rate from Jan 2026; 16.5% prior; threshold MK 25m; EIS mandatory from ~1 May 2026. Sources: MRA/VAT news coverage. Re-verify on mra.mw before release. |
+| 2026-10-20 | Agent (Phase B) | Walk-in cash sale 800.00 net + VAT-S → Dr Cash 940.00, Cr Revenue 800.00, Cr 2200 140.00; VAT return nets 140.00 output − 175.00 input (purchase) correctly. 7 new tests, suite 283 green. |

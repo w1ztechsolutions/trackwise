@@ -82,11 +82,11 @@
         </div>
         <div class="summary-row">
             <span>Tax</span>
-            <strong>{% if receipt_type == 'invoice' %}{{ invoice.tax_amount }}{% else %}0.00{% endif %}</strong>
+            <strong>{% if receipt_type == 'invoice' %}{{ invoice.tax_amount }}{% else %}{{ '%.2f'|format(sale.tax_amount or 0) }}{% endif %}</strong>
         </div>
         <div class="summary-row grand-total">
             <span>Total</span>
-            <strong>{% if receipt_type == 'invoice' %}{{ invoice.total_amount }}{% else %}{{ sale.total_revenue }}{% endif %}</strong>
+            <strong>{% if receipt_type == 'invoice' %}{{ invoice.total_amount }}{% else %}{{ '%.2f'|format((sale.total_revenue or 0) + (sale.tax_amount or 0)) }}{% endif %}</strong>
         </div>
     </div>
 

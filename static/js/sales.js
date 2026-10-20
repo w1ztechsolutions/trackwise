@@ -1,5 +1,6 @@
 (function () {
     let productsList = [];
+    let taxCodesList = [];
     const container = document.getElementById('sale-items-container');
     if (!container) return;
 
@@ -30,6 +31,19 @@
                 '<label class="form-label">Unit Price (MWK)</label>' +
                 '<input type="number" name="unit_price[]" step="0.01" min="0" required class="form-control price-input" data-row-id="' + rowId + '" placeholder="0.00…">' +
                 '<span class="field-error" id="price-error-' + rowId + '" role="alert"></span>' +
+            '</div>' +
+            '<div class="form-group">' +
+                '<label class="form-label">VAT Code</label>' +
+                '<select name="tax_code[]" class="form-control tax-code-select" data-row-id="' + rowId + '">' +
+                    '<option value="">None (0%)</option>' +
+                    taxCodesList.map(function (tc) {
+                        // REVIEW: the standard-rate code is preselected because the
+                        // REVIEW: target user is a VAT-registered Malawian retailer;
+                        // REVIEW: the rate shown is resolved server-side at posting.
+                        var isStd = tc.code === 'VAT-S';
+                        return '<option value="' + tc.id + '"' + (isStd ? ' selected' : '') + '>' + tc.code + ' — ' + tc.name + ' (' + tc.rate + '%)</option>';
+                    }).join('') +
+                '</select>' +
             '</div>' +
             '<button type="button" class="btn-remove-row" data-row-id="' + rowId + '" aria-label="Remove item">' +
                 '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
@@ -185,12 +199,16 @@
         return isValid;
     }
 
-    fetch('/api/products')
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
-            productsList = data;
-            addSaleRow();
-        });
+    // REVIEW: fetch products and tax codes in parallel; the first row is only
+    // REVIEW: added once both resolve so the VAT select renders with options.
+    Promise.all([
+        fetch('/api/products').then(function (res) { return res.json(); }),
+        fetch('/api/tax-codes').then(function (res) { return res.json(); }),
+    ]).then(function (results) {
+        productsList = results[0];
+        taxCodesList = results[1];
+        addSaleRow();
+    });
 
     const addBtn = document.getElementById('add-sale-row');
     if (addBtn) {

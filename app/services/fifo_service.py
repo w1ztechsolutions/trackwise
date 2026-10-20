@@ -405,6 +405,18 @@ def record_purchase(purchase_date, supplier, notes, items_data, business_id=None
 # REVIEW: Computes exact COGS based on batch cost layers and posts double-entry journal entries
 # REVIEW: (Debit AR/Cash, Credit Revenue; Debit COGS, Credit Inventory).
 def record_sale(sale_date, customer_name, items_data, business_id=None, created_by=None, invoice_id=None, tax_amount=0.0):
+    """Record a sale, consuming FIFO stock layers and posting double entries.
+
+    Tax precedence (Phase B):
+    1. invoice_id given — the linked invoice's tax_amount (caller-supplied)
+       wins; per-line codes are ignored (the invoice already booked its tax).
+    2. explicit tax_amount != 0 — legacy callers (imports) keep working.
+    3. items carry tax_code_id — output VAT is computed per line via the
+       effective-dated tax engine (ADR-0015) at sale_date, the same contract
+       as the invoice and purchase forms.
+    Revenue is always NET; tax posts as a credit to 2200 VAT Payable and the
+    customer/cash side is debited the GROSS (net + tax).
+    """
     if not items_data:
         raise ValueError("Sale must contain at least one item.")
 
@@ -417,6 +429,30 @@ def record_sale(sale_date, customer_name, items_data, business_id=None, created_
         invoice_record = db.session.get(Invoice, invoice_id)
         if invoice_record is None or invoice_record.business_id != business_id:
             raise ValueError(f"Invoice ID {invoice_id} not found for this business.")
+
+    # REVIEW: walk-in sales compute their own output VAT from per-line tax
+    # REVIEW: codes (same server-side contract as invoices/purchases: a code
+    # REVIEW: id is submitted, the rate is resolved by sale_date). Skipped
+    # REVIEW: entirely when no line carries a code — legacy callers and
+    # REVIEW: invoice-linked sales keep their existing behavior.
+    computed_tax = 0.0
+    if invoice_id is None and not tax_amount and any(item.get('tax_code_id') for item in items_data):
+        from app.services.tax_service import compute_document_tax
+        tax_input = compute_document_tax(
+            [
+                {
+                    'product_id': item['product_id'],
+                    'line_total': float(item['quantity']) * float(item['unit_price']),
+                    'tax_code_id': item.get('tax_code_id'),
+                }
+                for item in items_data
+            ],
+            business_id,
+            sale_date,
+            tax_inclusive=False,
+        )
+        computed_tax = float(tax_input['total_tax'])
+        tax_amount = computed_tax
 
     for item in items_data:
         product_id = item['product_id']
@@ -447,6 +483,7 @@ def record_sale(sale_date, customer_name, items_data, business_id=None, created_
         invoice_id=invoice_id,
         total_revenue=total_revenue,
         total_cogs=0.0,
+        tax_amount=tax_amount,
     )
     db.session.add(sale)
     db.session.flush()
