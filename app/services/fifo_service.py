@@ -16,6 +16,7 @@ from models import (
     Payment,
 )
 from app.services.accounting_service import post_entry, get_account_by_code
+from app.services.inventory_service import available_quantity
 
 
 class InventoryException(Exception):
@@ -463,7 +464,21 @@ def record_sale(sale_date, customer_name, items_data, business_id=None, created_
         if not product:
             raise ValueError(f"Product ID {product_id} not found.")
 
-        if product.quantity_in_stock < quantity:
+        # REVIEW: Phase C (ADR-0017) — walk-in sales may only consume the
+        # REVIEW: AVAILABLE stock: on-hand minus units promised to open
+        # REVIEW: invoices. Fulfilling an invoice's own reservation
+        # REVIEW: (invoice_id given) checks on-hand instead, since the
+        # REVIEW: reserved units are physically on the shelf.
+        if invoice_id is None:
+            available = available_quantity(business_id, product_id)
+            if available < quantity:
+                raise InventoryException(
+                    f"Insufficient stock for product '{product.name}'. "
+                    f"Requested: {quantity}, Available: {available} "
+                    f"({product.quantity_in_stock} on hand, "
+                    f"{product.quantity_in_stock - available} reserved for open invoices)."
+                )
+        elif product.quantity_in_stock < quantity:
             raise InventoryException(
                 f"Insufficient stock for product '{product.name}'. "
                 f"Requested: {quantity}, Available: {product.quantity_in_stock}."

@@ -17,7 +17,11 @@
                     '<option value="">-- Choose --</option>' +
                     productsList.map(function (p) {
                         const stockBadge = p.quantity_in_stock <= 0 ? ' (OUT OF STOCK)' : ' (' + p.quantity_in_stock + ' available)';
-                        return '<option value="' + p.id + '" data-price="' + p.default_selling_price + '" data-stock="' + p.quantity_in_stock + '">' + p.name + stockBadge + '</option>';
+                        // REVIEW: data-available = on hand MINUS open-invoice
+                        // REVIEW: reservations (ADR-0017); data-stock stays the
+                        // REVIEW: raw on-hand figure for invoice fulfilment.
+                        var avail = (typeof p.available_quantity === 'number') ? p.available_quantity : p.quantity_in_stock;
+                        return '<option value="' + p.id + '" data-price="' + p.default_selling_price + '" data-stock="' + p.quantity_in_stock + '" data-available="' + avail + '">' + p.name + stockBadge + '</option>';
                     }).join('') +
                 '</select>' +
                 '<span class="stock-info" id="stock-info-' + rowId + '"></span>' +
@@ -96,6 +100,17 @@
         calculateTotal();
     }
 
+    // REVIEW: fulfilling an invoice consumes ITS OWN reservation, so the
+    // REVIEW: limit is raw on-hand; a walk-in sale must respect the units
+    // REVIEW: already promised to open invoices.
+    function rowStockLimit(selectedOption) {
+        var invoiceSelect = document.getElementById('invoice_id');
+        var fulfilling = invoiceSelect && invoiceSelect.value;
+        if (fulfilling) return parseInt(selectedOption.getAttribute('data-stock')) || 0;
+        var avail = parseInt(selectedOption.getAttribute('data-available'));
+        return isNaN(avail) ? (parseInt(selectedOption.getAttribute('data-stock')) || 0) : avail;
+    }
+
     function validateQuantity(rowId) {
         const row = document.getElementById('row-' + rowId);
         if (!row) return;
@@ -107,7 +122,7 @@
         if (!selectElem.value) return;
 
         const selectedOption = selectElem.options[selectElem.selectedIndex];
-        const stock = parseInt(selectedOption.getAttribute('data-stock')) || 0;
+        const stock = rowStockLimit(selectedOption);
         const qty = parseInt(qtyInput.value) || 0;
 
         if (qty > stock) {
@@ -121,7 +136,7 @@
             if (qtyError) qtyError.textContent = 'Only ' + stock + ' units available';
         } else {
             if (stockInfo) {
-                stockInfo.textContent = stock + ' units in stock';
+                stockInfo.textContent = stock + ' units available';
                 stockInfo.classList.add('text-success');
                 stockInfo.classList.remove('text-danger');
             }
@@ -171,7 +186,7 @@
 
             const selectedOption = selectElem.options[selectElem.selectedIndex];
             if (selectedOption) {
-                const stock = parseInt(selectedOption.getAttribute('data-stock')) || 0;
+                const stock = rowStockLimit(selectedOption);
                 const qty = parseInt(qtyInput.value) || 0;
 
                 if (qty <= 0) {

@@ -7,9 +7,95 @@ from typing import Optional
 from app.models import db, Product, StockTransaction, StockMovement, Warehouse
 from app.services.accounting_service import post_entry, get_account_by_code
 
+from sqlalchemy import func
+
+from models import Invoice, InvoiceItem, Sale
+
 
 class InventoryServiceException(Exception):
     pass
+
+
+# REVIEW: Phase C — credit-sale stock reservation (ADR-0017). Reservations are
+# REVIEW: DERIVED live from invoice lines rather than stored: an invoice
+# REVIEW: reserves its lines while its status is open AND no Sale has been
+# REVIEW: recorded against it. This needs no reservation table, no migration,
+# REVIEW: and no backfill for existing open invoices — historical data is
+# REVIEW: correct the moment the code ships. Fulfilment (Sale linked),
+# REVIEW: voiding, or manually marking an invoice paid releases the units.
+RESERVED_INVOICE_STATUSES = ('draft', 'issued', 'sent', 'partially_paid')
+
+
+def reserved_quantities(business_id, product_ids=None):
+    """Units promised on open credit invoices but not yet delivered.
+
+    Returns {product_id: reserved_qty}. Only invoices with a status in
+    RESERVED_INVOICE_STATUSES and no linked Sale are counted; aggregation
+    across multiple invoices per product is handled in SQL.
+    """
+    unfulfilled = ~db.session.query(Sale.id).filter(
+        Sale.invoice_id == Invoice.id
+    ).exists()
+    query = (
+        db.session.query(
+            InvoiceItem.product_id,
+            func.coalesce(func.sum(InvoiceItem.quantity), 0),
+        )
+        .join(Invoice, Invoice.id == InvoiceItem.invoice_id)
+        .filter(
+            Invoice.business_id == business_id,
+            Invoice.status.in_(RESERVED_INVOICE_STATUSES),
+            unfulfilled,
+            InvoiceItem.product_id.isnot(None),
+        )
+        .group_by(InvoiceItem.product_id)
+    )
+    if product_ids is not None:
+        query = query.filter(InvoiceItem.product_id.in_(product_ids))
+    return {int(pid): int(qty) for pid, qty in query.all()}
+
+
+def available_quantity(business_id, product_id):
+    """On-hand stock minus open-invoice reservations.
+
+    This is what a NEW sale (cash or credit) may promise. Fulfilling an
+    existing invoice's own reservation goes through record_sale with
+    invoice_id, which checks on-hand instead.
+    """
+    product = db.session.get(Product, product_id)
+    if product is None or (business_id is not None and product.business_id != business_id):
+        return 0
+    reserved = reserved_quantities(business_id, [product_id]).get(product_id, 0)
+    return int(product.quantity_in_stock) - reserved
+
+
+def ensure_lines_available(business_id, items):
+    """Raise InventoryServiceException if the line items over-promise stock.
+
+    `items` is any iterable of dicts with product_id and quantity. Quantities
+    are aggregated per product first, so two lines of the same product are
+    checked against their combined demand.
+    """
+    demanded = {}
+    for item in items:
+        pid = item.get('product_id')
+        qty = int(item.get('quantity') or 0)
+        if pid is None or qty <= 0:
+            continue
+        demanded[pid] = demanded.get(pid, 0) + qty
+    if not demanded:
+        return
+    for pid, qty in demanded.items():
+        available = available_quantity(business_id, pid)
+        if available < qty:
+            product = db.session.get(Product, pid)
+            name = product.name if product else f'product {pid}'
+            on_hand = int(product.quantity_in_stock) if product else 0
+            raise InventoryServiceException(
+                f'Insufficient available stock for {name}: requested {qty}, '
+                f'available {available} ({on_hand} on hand, '
+                f'{on_hand - available} reserved for open invoices).'
+            )
 
 
 # Accounting account codes (must exist in Chart of Accounts)

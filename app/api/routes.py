@@ -5,6 +5,7 @@ from flask_login import current_user, login_required
 
 from app.models import Product, Supplier
 from app.services.accounting_service import verify_balances
+from app.services.inventory_service import reserved_quantities
 from app.services.tax_service import list_tax_codes
 
 from . import api_bp
@@ -33,7 +34,18 @@ def api_products():
     if business_id is not None:
         query = query.filter_by(business_id=business_id)
     products = query.order_by(Product.name.asc()).all()
-    return jsonify([p.to_dict() for p in products])
+    # REVIEW: Phase C — the sales checkout blocks over-selling reserved units
+    # REVIEW: client-side using these figures; the server re-validates on
+    # REVIEW: every record_sale (available = on hand - open invoices, ADR-0017).
+    reserved = reserved_quantities(business_id) if business_id is not None else {}
+    payload = []
+    for p in products:
+        d = p.to_dict()
+        r = reserved.get(p.id, 0)
+        d['reserved_quantity'] = r
+        d['available_quantity'] = int(p.quantity_in_stock) - r
+        payload.append(d)
+    return jsonify(payload)
 
 
 @api_bp.route('/api/suppliers')

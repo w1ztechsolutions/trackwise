@@ -7,6 +7,7 @@ from flask import flash, redirect, render_template, request, url_for, abort
 from models import Product, Sale, Customer, Invoice, InvoiceItem, Receipt, db
 from app.models.approval import ApprovalRequest
 from app.services.fifo_service import InventoryException, record_sale
+from app.services.inventory_service import ensure_lines_available, InventoryServiceException
 from app.services.tax_service import compute_document_tax, list_tax_codes
 from app.services.accounting_service import AccountingException, post_entry, get_account_by_code
 from app.auth.decorators import role_required
@@ -221,6 +222,17 @@ def invoices():
 
         if not customer_id or not items_data:
             flash('Please select a customer and at least one item.', 'danger')
+            return redirect(url_for('sales.invoices'))
+
+        # REVIEW: Phase C (ADR-0017) — issuing a credit invoice RESERVES
+        # REVIEW: the stock: the units may no longer be sold over the counter
+        # REVIEW: while the invoice is open. The availability check happens
+        # REVIEW: BEFORE any rows are created, so a rejected invoice leaves
+        # REVIEW: no partial data behind.
+        try:
+            ensure_lines_available(biz_id, items_data)
+        except InventoryServiceException as exc:
+            flash(str(exc), 'danger')
             return redirect(url_for('sales.invoices'))
 
         invoice_date = datetime.fromisoformat(invoice_date_str) if invoice_date_str else datetime.now(timezone.utc)

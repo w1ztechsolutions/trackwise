@@ -42,7 +42,9 @@ Retrieve a list of all products for the current business.
     "cost_price": "0.80",
     "stock_quantity": 500,
     "low_stock_threshold": 100,
-    "category": "Building Materials"
+    "category": "Building Materials",
+    "reserved_quantity": 80,
+    "available_quantity": 420
   }
 ]
 ```
@@ -58,6 +60,8 @@ Retrieve a list of all products for the current business.
 | `unit_price` | String | Selling price (decimal string) |
 | `cost_price` | String | Current cost price via FIFO (decimal string) |
 | `stock_quantity` | Integer | Current stock level |
+| `reserved_quantity` | Integer | Units promised on open credit invoices (ADR-0017) |
+| `available_quantity` | Integer | `stock_quantity` minus `reserved_quantity` — what a new sale may promise |
 | `low_stock_threshold` | Integer | Alert threshold |
 | `category` | String | Product category |
 
