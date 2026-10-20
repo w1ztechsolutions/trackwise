@@ -121,8 +121,14 @@ def suppliers():
 @login_required
 def payments():
     if request.method == 'POST':
+        # REVIEW: payee_type allowlist — 'expense' (Phase A) lets operational
+        # REVIEW: costs like electricity post Dr <line-item account> / Cr Cash
+        # REVIEW: instead of forcing them through AP (supplier) or payroll (staff).
         payee_type = request.form.get('payee_type', 'supplier').strip()
+        if payee_type not in ('supplier', 'staff', 'expense'):
+            payee_type = 'expense'
         supplier_id = request.form.get('supplier_id', '').strip()
+        payee_name = request.form.get('payee_name', '').strip()
         bill_id = request.form.get('bill_id', '').strip()
         staff_id = request.form.get('staff_id', '').strip()
         category_id = request.form.get('category_id', '').strip()
@@ -147,6 +153,11 @@ def payments():
         if not category_id or not line_item_id:
             flash('Please select a financial category and line item.', 'danger')
             return redirect(url_for('purchases.payments'))
+
+        # REVIEW: expense payments record the counterparty name (e.g. 'ESCOM')
+        # REVIEW: in the description — no schema change needed.
+        if payee_type == 'expense' and payee_name:
+            description = f"{payee_name}: {description}" if description else payee_name
 
         biz_id = getattr(current_user, 'business_id', None)
 

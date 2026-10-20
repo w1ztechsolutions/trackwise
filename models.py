@@ -344,7 +344,7 @@ class Payment(db.Model):
     line_item_id = db.Column(db.Integer, db.ForeignKey('line_items.id'), nullable=True)
     staff_id = db.Column(db.Integer, db.ForeignKey('staff.id'), nullable=True)
     payment_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
-    payee_type = db.Column(db.String(20), nullable=False, default='supplier')  # 'supplier' or 'staff'
+    payee_type = db.Column(db.String(20), nullable=False, default='supplier')  # 'supplier', 'staff' or 'expense'
     description = db.Column(db.Text, nullable=True)
     amount = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     payment_mode = db.Column(db.String(30), nullable=False, default='cash')

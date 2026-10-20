@@ -6,10 +6,12 @@
         const payeeType = document.querySelector('input[name="payee_type"]:checked').value;
         const supplierGroup = document.getElementById('supplierGroup');
         const staffGroup = document.getElementById('staffGroup');
+        const expenseGroup = document.getElementById('expenseGroup');
         const billGroup = document.getElementById('billGroup');
 
         if (supplierGroup) supplierGroup.style.display = payeeType === 'supplier' ? 'block' : 'none';
         if (staffGroup) staffGroup.style.display = payeeType === 'staff' ? 'block' : 'none';
+        if (expenseGroup) expenseGroup.style.display = payeeType === 'expense' ? 'block' : 'none';
         if (billGroup) billGroup.style.display = 'none';
     }
 
