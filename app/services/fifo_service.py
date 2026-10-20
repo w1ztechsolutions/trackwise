@@ -106,8 +106,13 @@ def _post_payment_accounting(payment_date, amount, payment_id, business_id, crea
     """Post double-entry accounting for a payment.
     
     For supplier payments: Debit Accounts Payable, Credit Cash
-    For staff/expense payments: Debit Expense Account, Credit Cash
+    For staff/expense payments (incl. Phase A 'expense' payee type such as
+    utilities): Debit the line item's mapped Expense Account, Credit Cash
     """
+    # REVIEW: 'expense' payee_type intentionally shares the staff accounting
+    # REVIEW: branch — both debit the line item's account_code (e.g. 5200
+    # REVIEW: Utilities) and credit Cash. The route enforces that category and
+    # REVIEW: line item are always present, so the 5900 fallback is a safety net.
     if business_id is None:
         return
 

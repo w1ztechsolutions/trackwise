@@ -68,7 +68,7 @@ The `Payment` model was extended with new fields:
 | `line_item_id` | Integer | FK to LineItem |
 | `description` | Text | Payment description/notes |
 | `staff_id` | Integer | FK to Staff (nullable) |
-| `payee_type` | String | `supplier` or `staff` |
+| `payee_type` | String | `supplier`, `staff` or `expense` |
 | `business_id` | Integer | Multi-tenant scoping |
 
 ---
@@ -127,7 +127,7 @@ When `payee_type = supplier`:
 | Accounts Payable (AP) | ✓ | |
 | Cash/Bank | | ✓ |
 
-### 4.2 Staff/Expense Payments
+### 4.2 Staff Payments
 
 When `payee_type = staff`:
 
@@ -137,6 +137,29 @@ When `payee_type = staff`:
 | Cash/Bank | | ✓ |
 
 The expense account is determined by the selected `line_item_id` mapping.
+
+### 4.3 Expense Payments (Phase A)
+
+When `payee_type = expense` — operational costs paid to non-suppliers,
+non-staff payees (e.g. ESCOM electricity, Airtel airtime, rent paid directly
+to a landlord):
+
+| Account | Debit | Credit |
+|---------|-------|--------|
+| Expense Account (by line item) | ✓ | |
+| Cash/Bank | | ✓ |
+
+The expense account is determined by the selected `line_item_id`'s
+`account_code` mapping (e.g. the seeded `Utilities` line item maps to
+account `5200`). The payee's name is captured in the free-text **Paid To**
+field and stored with the payment description; no supplier or staff record
+is required. If no line item account mapping resolves, the posting falls
+back to `5900 Other Expenses`.
+
+Expense payments must **never** post to Accounts Payable — AP is reserved
+for obligations booked through the Purchases flow. This is enforced by the
+`payee_type` allowlist (`supplier`, `staff`, `expense`) on the route;
+unknown values are treated as `expense`.
 
 ---
 
@@ -157,9 +180,10 @@ Create a new payment.
 | `category_id` | Integer | Yes | FK to FinancialCategory |
 | `line_item_id` | Integer | Yes | FK to LineItem |
 | `description` | String | No | Payment description |
-| `payee_type` | String | Yes | `supplier` or `staff` |
+| `payee_type` | String | Yes | `supplier`, `staff` or `expense` |
 | `staff_id` | Integer | Conditional | Required if `payee_type = staff` |
 | `supplier_id` | Integer | Conditional | Required if `payee_type = supplier` |
+| `payee_name` | String | No | Payee display name for `payee_type = expense` (e.g. `ESCOM`); stored with the description |
 
 **Response:**
 
