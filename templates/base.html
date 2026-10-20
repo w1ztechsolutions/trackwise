@@ -70,7 +70,8 @@
             {% if current_user.is_authenticated %}
             <!-- REVIEW: nav reorganized into labelled sections (Sales, Purchases,
             REVIEW: Inventory & Production, Accounting, Administration) instead of one
-            REVIEW: flat list of 18 links. Role gates: Accounting = admin/manager/
+            REVIEW: flat list of 18 links. Approvals stays standalone (per owner
+            REVIEW: decision). Role gates: Accounting = admin/manager/
             REVIEW: accountant, Administration = admin only. Dashboard and Reports stay
             REVIEW: standalone (no natural group); Settings/Logout live in the header.
             REVIEW: Mobile bottom-nav stays a flat 5-tab bar by design. -->
@@ -206,6 +207,7 @@
                                         Bank Reconciliation
                                     </a>
                                 </li>
+
                 <li>
                                     <a href="{{ url_for('accounting.dimensions') }}" class="nav-link nav-sub {% if request.endpoint and 'dimension' in request.endpoint %}active{% endif %}">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -215,15 +217,18 @@
                                         Branches &amp; Cost Centers
                                     </a>
                                 </li>
+                {% endif %}
+                
+                {% if current_user.role in ['admin', 'manager', 'accountant'] %}
                 <li>
-                                    <a href="{{ url_for('approvals.pending_approvals') }}" class="nav-link nav-sub {% if request.endpoint and 'approvals' in request.endpoint %}active{% endif %}">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M9 11l3 3 L22 4"></path>
-                                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path>
-                                        </svg>
-                                        Approvals
-                                    </a>
-                                </li>
+                    <a href="{{ url_for('approvals.pending_approvals') }}" class="nav-link {% if request.endpoint and 'approvals' in request.endpoint %}active{% endif %}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 11l3 3 L22 4"></path>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path>
+                        </svg>
+                        Approvals
+                    </a>
+                </li>
                 {% endif %}
                 <li>
                     <a href="{{ url_for('reports.reports') }}" class="nav-link {% if request.endpoint == 'reports.reports' %}active{% endif %}">
