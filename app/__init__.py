@@ -2,6 +2,7 @@ import secrets
 import click
 import importlib
 import os
+from urllib.parse import urlsplit
 from flask import Flask, g, request, redirect
 from flask_sqlalchemy import SQLAlchemy  # noqa: F401  # legacy import kept for existing from app import db callers
 from flask_migrate import Migrate
@@ -299,9 +300,12 @@ def create_app(config_object=None):
             health_status['database'] = 'connected'
         except Exception as e:
             _db.session.rollback()
+            # REVIEW: log the real error server-side; the health endpoint must stay
+            # REVIEW: anonymous-safe — no driver/connection details to clients (CodeQL
+            # REVIEW: py/stack-trace-exposure).
+            app.logger.error('Health check DB probe failed: %s', e)
             health_status['database'] = 'disconnected'
-            health_status['status'] = 'degraded'
-            health_status['database_error'] = str(e)
+            health_status['status'] = 'degraded' 
 
         return jsonify(health_status)
 
@@ -360,7 +364,29 @@ def create_app(config_object=None):
             return
         if request.is_secure:
             return
-        return redirect(request.url.replace('http://', 'https://', 1), code=301)
+        # Build the https upgrade URL from SERVER_NAME (server-configured, trusted)
+        # and a normalized relative path; do not echo request.host/request.full_path
+        # directly into the redirect target.
+        target_host = app.config.get('SERVER_NAME')
+        if not target_host:
+            from flask import abort
+            abort(500)
+        allowed_hosts = app.config.get('ALLOWED_HOSTS')
+        if allowed_hosts and request.host not in allowed_hosts:
+            from flask import abort
+            abort(400)
+        safe_path = (request.path or '/').replace('\\', '/')
+        parsed_path = urlsplit(safe_path)
+        if parsed_path.scheme or parsed_path.netloc:
+            safe_path = '/'
+        if not safe_path.startswith('/'):
+            safe_path = f'/{safe_path}'
+        if safe_path.startswith('//'):
+            safe_path = '/'
+        query = request.query_string.decode('utf-8', errors='ignore').replace('\\', '')
+        if query:
+            safe_path = f'{safe_path}?{query}'
+        return redirect(f'https://{target_host}{safe_path}', code=301)
 
     @app.context_processor
     def _inject_nav():
