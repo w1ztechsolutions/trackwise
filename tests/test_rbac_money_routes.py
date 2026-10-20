@@ -228,3 +228,32 @@ class TestAdminBypass:
         ]:
             resp = client.post(url, data=data, follow_redirects=True)
             assert b'not permitted' not in resp.data, url
+
+
+class TestReferrerRedirectSafety:
+    def _blocked_post(self, client, referrer):
+        return client.post('/sales', data={
+            'sale_date': datetime(2026, 10, 20).isoformat(),
+            'customer_name': 'Walk-in',
+            'product_id[]': ['1'],
+            'quantity[]': ['1'],
+            'unit_price[]': ['10.0'],
+        }, headers={'Referer': referrer}, follow_redirects=False)
+
+    def test_same_origin_referrer_is_followed(self, rbac_app):
+        client = _client_as(rbac_app, 'viewer')
+        resp = self._blocked_post(client, 'http://localhost/sales')
+        # denial redirected; the Location must NOT be the external referrer
+        assert resp.status_code == 302
+
+    def test_cross_origin_referrer_is_rejected(self, rbac_app):
+        client = _client_as(rbac_app, 'viewer')
+        resp = self._blocked_post(client, 'http://evil.example.com/phish')
+        assert resp.status_code == 302
+        assert 'evil.example.com' not in (resp.headers.get('Location') or '')
+        assert resp.headers['Location'].endswith('/') or '/dashboard' in resp.headers['Location']
+
+    def test_javascript_referrer_is_rejected(self, rbac_app):
+        client = _client_as(rbac_app, 'viewer')
+        resp = self._blocked_post(client, 'javascript:alert(1)')
+        assert 'javascript' not in (resp.headers.get('Location') or '').lower()

@@ -1,7 +1,8 @@
 from functools import wraps
+from urllib.parse import urlparse
+
 from flask import abort, current_app, flash, redirect, request, url_for
 from flask_login import current_user
-from werkzeug.urls import url_has_allowed_host_and_scheme
 
 
 # REVIEW: Role-based authorization decorator.
@@ -47,13 +48,19 @@ def mutation_role_required(*allowed_roles):
                     'Ask an admin or manager for help.',
                     'danger',
                 )
+                # REVIEW: request.referrer is attacker-controlled header
+                # REVIEW: data (CodeQL py/url-redirection) — only follow it
+                # REVIEW: when it is SAME-ORIGIN: a safe scheme and either a
+                # REVIEW: relative URL or a host identical to this request's.
+                # REVIEW: werkzeug.urls.url_has_allowed_host_and_scheme was
+                # REVIEW: removed in Werkzeug 3.1, hence the explicit check.
                 target = request.referrer
-                if target and url_has_allowed_host_and_scheme(
-                    target,
-                    allowed_hosts={request.host},
-                    require_https=request.is_secure,
-                ):
-                    return redirect(target)
+                if target:
+                    parsed = urlparse(target)
+                    if parsed.scheme in ('http', 'https', '') and (
+                        not parsed.netloc or parsed.netloc == request.host
+                    ):
+                        return redirect(target)
                 return redirect(url_for('dashboard.index'))
             return f(*args, **kwargs)
         return wrapped
