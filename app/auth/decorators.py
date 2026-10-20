@@ -1,9 +1,7 @@
 from functools import wraps
-from urllib.parse import urlsplit
 
 from flask import abort, current_app, flash, redirect, request, url_for
 from flask_login import current_user
-from werkzeug.urls import url_has_allowed_host_and_scheme
 
 
 # REVIEW: Role-based authorization decorator.
@@ -49,22 +47,6 @@ def mutation_role_required(*allowed_roles):
                     'Ask an admin or manager for help.',
                     'danger',
                 )
-                # REVIEW: request.referrer is attacker-controlled header data;
-                # REVIEW: only follow it when Werkzeug confirms it targets an
-                # REVIEW: allowed host and scheme for this request context.
-                target = request.referrer
-                if target and url_has_allowed_host_and_scheme(
-                    target,
-                    allowed_hosts={request.host},
-                    require_https=request.is_secure,
-                ):
-                    parts = urlsplit(target)
-                    safe_target = parts.path or url_for('dashboard.index')
-                    if parts.query:
-                        safe_target = f"{safe_target}?{parts.query}"
-                    if parts.fragment:
-                        safe_target = f"{safe_target}#{parts.fragment}"
-                    return redirect(safe_target)
                 return redirect(url_for('dashboard.index'))
             return f(*args, **kwargs)
         return wrapped
