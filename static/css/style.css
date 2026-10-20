@@ -160,6 +160,22 @@ body {
     flex: 1;
 }
 
+/* REVIEW: nav grouping — section label + indented sub-item styles (see
+   REVIEW: templates/base.html nav reorganization). */
+.nav-section {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 14px 12px 4px 12px;
+    list-style: none;
+}
+
+.nav-link.nav-sub {
+    padding-left: 26px;
+}
+
 .nav-link {
     display: flex;
     align-items: center;
