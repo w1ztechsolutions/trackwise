@@ -1,6 +1,7 @@
 from functools import wraps
 from flask import abort, current_app, flash, redirect, request, url_for
 from flask_login import current_user
+from werkzeug.urls import url_has_allowed_host_and_scheme
 
 
 # REVIEW: Role-based authorization decorator.
@@ -46,7 +47,14 @@ def mutation_role_required(*allowed_roles):
                     'Ask an admin or manager for help.',
                     'danger',
                 )
-                return redirect(request.referrer or url_for('dashboard.index'))
+                target = request.referrer
+                if target and url_has_allowed_host_and_scheme(
+                    target,
+                    allowed_hosts={request.host},
+                    require_https=request.is_secure,
+                ):
+                    return redirect(target)
+                return redirect(url_for('dashboard.index'))
             return f(*args, **kwargs)
         return wrapped
     return decorator
