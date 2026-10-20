@@ -10,7 +10,7 @@ from app.services.fifo_service import InventoryException, record_sale
 from app.services.inventory_service import ensure_lines_available, InventoryServiceException
 from app.services.tax_service import compute_document_tax, list_tax_codes
 from app.services.accounting_service import AccountingException, post_entry, get_account_by_code
-from app.auth.decorators import role_required
+from app.auth.decorators import role_required, mutation_role_required
 from app.services.import_service import (
     PARTY_COLUMNS,
     ImportValidationError,
@@ -139,6 +139,7 @@ def import_customers_route():
 
 
 @sales_bp.route('/customers', methods=['GET', 'POST'])
+@mutation_role_required('admin', 'manager', 'accountant')
 @login_required
 def customers():
     if request.method == 'POST':
@@ -186,6 +187,7 @@ def customers():
 
 
 @sales_bp.route('/invoices', methods=['GET', 'POST'])
+@mutation_role_required('admin', 'manager')
 @login_required
 def invoices():
     if request.method == 'POST':
@@ -296,6 +298,7 @@ def invoices():
 
 
 @sales_bp.route('/sales', methods=['GET', 'POST'])
+@mutation_role_required('admin', 'manager', 'cashier')
 @login_required
 def sales():
     if request.method == 'POST':
@@ -384,6 +387,7 @@ def sale_receipt(sale_id):
 
 
 @sales_bp.route('/customers/<int:customer_id>/edit', methods=['POST'])
+@mutation_role_required('admin', 'manager')
 @login_required
 def edit_customer(customer_id):
     customer = db.session.get(Customer, customer_id)
@@ -417,6 +421,7 @@ def edit_customer(customer_id):
 
 
 @sales_bp.route('/customers/<int:customer_id>/delete', methods=['POST'])
+@mutation_role_required('admin', 'manager')
 @login_required
 def delete_customer(customer_id):
     customer = db.session.get(Customer, customer_id)
@@ -441,6 +446,7 @@ def delete_customer(customer_id):
 # ─── Invoice Lifecycle ────────────────────────────────────────────────────
 
 @sales_bp.route('/invoices/<int:invoice_id>/send', methods=['POST'])
+@mutation_role_required('admin', 'manager')
 @login_required
 def invoice_send(invoice_id):
     invoice = db.session.get(Invoice, invoice_id)
@@ -456,6 +462,7 @@ def invoice_send(invoice_id):
 
 
 @sales_bp.route('/invoices/<int:invoice_id>/mark-paid', methods=['POST'])
+@mutation_role_required('admin', 'manager', 'accountant')
 @login_required
 def invoice_mark_paid(invoice_id):
     invoice = db.session.get(Invoice, invoice_id)
@@ -528,6 +535,7 @@ def invoice_mark_paid(invoice_id):
 
 
 @sales_bp.route('/invoices/<int:invoice_id>/void', methods=['POST'])
+@mutation_role_required('admin', 'manager', 'accountant')
 @login_required
 def invoice_void(invoice_id):
     invoice = db.session.get(Invoice, invoice_id)
@@ -547,6 +555,7 @@ def invoice_void(invoice_id):
 
 
 @sales_bp.route('/credit-notes', methods=['GET', 'POST'])
+@mutation_role_required('admin', 'manager', 'accountant')
 @login_required
 def credit_notes():
     biz_id = getattr(current_user, 'business_id', None)
@@ -633,6 +642,7 @@ def credit_notes():
 # ─── AR Payment Application ───────────────────────────────────────────────
 
 @sales_bp.route('/invoices/<int:invoice_id>/apply-payment', methods=['GET', 'POST'])
+@mutation_role_required('admin', 'manager', 'accountant')
 @login_required
 def apply_payment_to_invoice(invoice_id):
     invoice = db.session.get(Invoice, invoice_id)
