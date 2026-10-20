@@ -8,6 +8,7 @@
 - [ADR-0012: Fresh Demo Database Bootstrap](ADR-0012-fresh-demo-database-bootstrap.md)
 - [ADR-0016: Output VAT on Walk-in Cash Sales](ADR-0016-vat-cash-sales.md)
 - [ADR-0017: Derived Stock Reservation for Credit Sales](ADR-0017-credit-sale-stock-reservation.md)
+- [ADR-0018: Role-Based Access Control on Money Routes](ADR-0018-rbac-money-routes.md)
 
 ## ADR-0001: ProductionConfig SECRET_KEY as Class Attribute
 

@@ -9,7 +9,7 @@ from models import Product, Purchase, Supplier, Payment, Staff, FinancialCategor
 from app.models.approval import ApprovalRequest
 from app.services.fifo_service import record_purchase
 from app.services.tax_service import list_tax_codes
-from app.auth.decorators import role_required
+from app.auth.decorators import role_required, mutation_role_required
 from app.services.accounting_service import AccountingException, reverse_payment
 from app.models import PurchaseReturn
 from app.services.import_service import (
@@ -68,6 +68,7 @@ def payment_status(payment_id):
 
 
 @purchases_bp.route('/suppliers', methods=['GET', 'POST'])
+@mutation_role_required('admin', 'manager', 'storekeeper')
 @login_required
 def suppliers():
     if request.method == 'POST':
@@ -116,6 +117,7 @@ def suppliers():
 
 
 @purchases_bp.route('/payments', methods=['GET', 'POST'])
+@mutation_role_required('admin', 'manager', 'accountant')
 @login_required
 def payments():
     if request.method == 'POST':
@@ -221,6 +223,7 @@ def payments():
 
 
 @purchases_bp.route('/purchases', methods=['GET', 'POST'])
+@mutation_role_required('admin', 'manager', 'storekeeper')
 @login_required
 def purchases():
     if request.method == 'POST':
@@ -514,6 +517,7 @@ def payment_refund(payment_id):
 
 
 @purchases_bp.route('/suppliers/<int:supplier_id>/edit', methods=['POST'])
+@mutation_role_required('admin', 'manager', 'storekeeper')
 @login_required
 def edit_supplier(supplier_id):
     supplier = db.session.get(Supplier, supplier_id)
@@ -548,6 +552,7 @@ def edit_supplier(supplier_id):
 
 
 @purchases_bp.route('/suppliers/<int:supplier_id>/delete', methods=['POST'])
+@mutation_role_required('admin', 'manager')
 @login_required
 def delete_supplier(supplier_id):
     supplier = db.session.get(Supplier, supplier_id)
