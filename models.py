@@ -69,6 +69,9 @@ class Purchase(db.Model):
     purchase_date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     supplier = db.Column(db.String(200))
     notes = db.Column(db.Text)
+    # REVIEW: gross amount (net + input VAT); the tax portion itself lives on
+    # REVIEW: the auto-created Bill (bill.tax_amount) so inventory keeps the
+    # REVIEW: net cost basis while 2200 receives the input-VAT debit.
     total_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     items = db.relationship('PurchaseItem', backref='purchase', cascade='all, delete-orphan')
 
@@ -95,6 +98,10 @@ class Sale(db.Model):
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoices.id'), nullable=True)
     total_revenue = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     total_cogs = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
+    # REVIEW: Phase B — output VAT charged on this sale (17.5% standard when a
+    # REVIEW: tax code is selected at checkout). Revenue stays NET; this is the
+    # REVIEW: credit side of the 2200 VAT Payable posting. 0 for tax-free sales.
+    tax_amount = db.Column(db.Numeric(14, 2), nullable=False, default=0.0)
     items = db.relationship('SaleItem', backref='sale', cascade='all, delete-orphan')
     invoice = db.relationship('Invoice', backref='sales')
 

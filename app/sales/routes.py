@@ -300,6 +300,10 @@ def sales():
         product_ids = request.form.getlist('product_id[]')
         quantities = request.form.getlist('quantity[]')
         unit_prices = request.form.getlist('unit_price[]')
+        # REVIEW: same contract as the invoice/purchase forms: a tax CODE id
+        # REVIEW: per line, rate resolved server-side by sale date (ADR-0015).
+        # REVIEW: Invoice-linked sales keep using the invoice's own tax.
+        tax_codes = request.form.getlist('tax_code[]')
 
         items_data = []
         for i in range(len(product_ids)):
@@ -308,7 +312,8 @@ def sales():
             items_data.append({
                 'product_id': int(product_ids[i]),
                 'quantity': int(quantities[i]),
-                'unit_price': float(unit_prices[i])
+                'unit_price': float(unit_prices[i]),
+                'tax_code_id': int(tax_codes[i]) if i < len(tax_codes) and tax_codes[i] else None,
             })
 
         if not items_data:

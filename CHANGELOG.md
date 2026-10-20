@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [Unreleased]
+### Added
+- Cash checkout VAT (Phase B): walk-in sales can now charge output VAT — a per-line **VAT Code** select (standard 17.5% preselected, sourced from the effective-dated tax engine) posts **Dr Cash (gross) / Cr Revenue (net) / Cr 2200 VAT Payable**. New `sales.tax_amount` column (migration `20261020_vat_document_tax`, also merges the four outstanding migration heads). Invoice-linked sales and legacy imports keep their existing tax behavior. Fixes workflow gap #3 from the retailer workflow audit (cash sales posting zero VAT). See ADR-0016.
+
 ### Security
 - CodeQL alert triage: `app.py` dev server no longer defaults to debug mode (opt-in via `FLASK_ENV=development`); health endpoint and balances API no longer return raw exception text (logged server-side instead); https-upgrade redirect no longer echoes the client Host header (`SERVER_NAME`/`ALLOWED_HOSTS` config added); report navigation JS only accepts same-origin relative URLs; tests workflow gained a least-privilege `permissions: contents: read` block. Closes 6 of 7 CodeQL findings on main.
 
