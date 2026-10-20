@@ -38,6 +38,13 @@
                         <input type="radio" name="payee_type" value="staff">
                         <span class="toggle-label">Staff / Employee</span>
                     </label>
+                    <!-- REVIEW: Phase A — expense payee type for operational costs
+                    REVIEW: (electricity, rent already paid, airtime) that must hit a
+                    REVIEW: P&L expense account instead of Accounts Payable. -->
+                    <label class="toggle-option">
+                        <input type="radio" name="payee_type" value="expense">
+                        <span class="toggle-label">Expense / Other</span>
+                    </label>
                 </div>
             </div>
             
@@ -63,6 +70,13 @@
                     {% endfor %}
                 </select>
                 <span id="bill-hint" class="field-hint">Select a specific bill to apply this payment to.</span>
+            </div>
+
+            <!-- Expense Payee Name (shown when payee_type = expense) -->
+            <div class="form-group" id="expenseGroup" style="display: none;">
+                <label class="form-label" for="payee_name">Paid To (optional)</label>
+                <input type="text" id="payee_name" name="payee_name" class="form-control" placeholder="e.g. ESCOM, Vodacom, landlord" aria-describedby="expense-hint">
+                <span id="expense-hint" class="field-hint">Who the expense was paid to. Stored with the payment description.</span>
             </div>
 
             <!-- Staff Selector (shown when payee_type = staff) -->
@@ -172,6 +186,8 @@
                         <td>
                             {% if payment.payee_type == 'supplier' %}
                             <span class="badge badge-info">Supplier</span>
+                            {% elif payment.payee_type == 'expense' %}
+                            <span class="badge badge-warning">Expense</span>
                             {% else %}
                             <span class="badge badge-success">Staff</span>
                             {% endif %}
@@ -181,6 +197,8 @@
                             {{ payment.supplier.name }}
                             {% elif payment.payee_type == 'staff' and payment.staff_member %}
                             {{ payment.staff_member.name }}
+                            {% elif payment.payee_type == 'expense' %}
+                            {{ (payment.description or '-') }}
                             {% else %}
                             -
                             {% endif %}
