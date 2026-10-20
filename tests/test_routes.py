@@ -927,6 +927,13 @@ class TestInvoiceLifecycle:
         product = Product(sku='LIFE-INV', name='Lifecycle Product', default_selling_price=100.0, business_id=business.id)
         db.session.add_all([customer, product])
         db.session.commit()
+        # Phase C: issuing a credit invoice now requires the stock to be
+        # available (ADR-0017) — seed purchase stock before invoicing.
+        from app.services.fifo_service import record_purchase
+        from datetime import datetime as _dt
+        record_purchase(_dt.now(), 'Stock Supplier', None,
+                         [{'product_id': product.id, 'quantity': 5, 'unit_cost': 10.0}],
+                         business.id, None)
         client.post('/invoices', data={
             'customer_id': str(customer.id),
             'invoice_date': datetime.now().isoformat(),
@@ -947,6 +954,13 @@ class TestInvoiceLifecycle:
         product = Product(sku='PAID-INV', name='Paid Product', default_selling_price=200.0, business_id=business.id)
         db.session.add_all([customer, product])
         db.session.commit()
+        # Phase C: issuing a credit invoice now requires the stock to be
+        # available (ADR-0017) — seed purchase stock before invoicing.
+        from app.services.fifo_service import record_purchase
+        from datetime import datetime as _dt
+        record_purchase(_dt.now(), 'Stock Supplier', None,
+                         [{'product_id': product.id, 'quantity': 5, 'unit_cost': 10.0}],
+                         business.id, None)
         client.post('/invoices', data={
             'customer_id': str(customer.id),
             'invoice_date': datetime.now().isoformat(),
@@ -969,6 +983,13 @@ class TestInvoiceLifecycle:
         product = Product(sku='VOID-INV', name='Void Product', default_selling_price=150.0, business_id=business.id)
         db.session.add_all([customer, product])
         db.session.commit()
+        # Phase C: issuing a credit invoice now requires the stock to be
+        # available (ADR-0017) — seed purchase stock before invoicing.
+        from app.services.fifo_service import record_purchase
+        from datetime import datetime as _dt
+        record_purchase(_dt.now(), 'Stock Supplier', None,
+                         [{'product_id': product.id, 'quantity': 5, 'unit_cost': 10.0}],
+                         business.id, None)
         client.post('/invoices', data={
             'customer_id': str(customer.id),
             'invoice_date': datetime.now().isoformat(),
@@ -996,6 +1017,13 @@ class TestCreditNotes:
         product = Product(sku='CN-INV', name='CN Product', default_selling_price=300.0, business_id=business.id)
         db.session.add_all([customer, product])
         db.session.commit()
+        # Phase C: issuing a credit invoice now requires the stock to be
+        # available (ADR-0017) — seed purchase stock before invoicing.
+        from app.services.fifo_service import record_purchase
+        from datetime import datetime as _dt
+        record_purchase(_dt.now(), 'Stock Supplier', None,
+                         [{'product_id': product.id, 'quantity': 5, 'unit_cost': 10.0}],
+                         business.id, None)
         client.post('/invoices', data={
             'customer_id': str(customer.id),
             'invoice_date': datetime.now().isoformat(),
@@ -1022,6 +1050,13 @@ class TestARPaymentApplication:
         product = Product(sku='AR-INV', name='AR Product', default_selling_price=500.0, business_id=business.id)
         db.session.add_all([customer, product])
         db.session.commit()
+        # Phase C: issuing a credit invoice now requires the stock to be
+        # available (ADR-0017) — seed purchase stock before invoicing.
+        from app.services.fifo_service import record_purchase
+        from datetime import datetime as _dt
+        record_purchase(_dt.now(), 'Stock Supplier', None,
+                         [{'product_id': product.id, 'quantity': 5, 'unit_cost': 10.0}],
+                         business.id, None)
         client.post('/invoices', data={
             'customer_id': str(customer.id),
             'invoice_date': datetime.now().isoformat(),
@@ -1040,6 +1075,13 @@ class TestARPaymentApplication:
         product = Product(sku='PART-INV', name='Partial Product', default_selling_price=400.0, business_id=business.id)
         db.session.add_all([customer, product])
         db.session.commit()
+        # Phase C: issuing a credit invoice now requires the stock to be
+        # available (ADR-0017) — seed purchase stock before invoicing.
+        from app.services.fifo_service import record_purchase
+        from datetime import datetime as _dt
+        record_purchase(_dt.now(), 'Stock Supplier', None,
+                         [{'product_id': product.id, 'quantity': 5, 'unit_cost': 10.0}],
+                         business.id, None)
         client.post('/invoices', data={
             'customer_id': str(customer.id),
             'invoice_date': datetime.now().isoformat(),
@@ -1193,6 +1235,12 @@ class TestTaxPerLineItem:
             product = Product(sku='TAX-INV', name='Tax Product', default_selling_price=100.0, business_id=business.id)
             db.session.add_all([customer, product])
             db.session.commit()
+            # Phase C: issuing a credit invoice now requires the stock to be
+            # available (ADR-0017) — seed purchase stock before invoicing.
+            from app.services.fifo_service import record_purchase
+            record_purchase(datetime.now(), 'Stock Supplier', None,
+                            [{'product_id': product.id, 'quantity': 5, 'unit_cost': 10.0}],
+                            business.id, None)
             from app.services.tax_service import list_tax_codes
             std_code = next(tc for tc in list_tax_codes(business.id) if tc.code == 'VAT-S')
             tax_rate = std_code.rate_on(datetime.now().date())
